@@ -1,27 +1,41 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AuthModal } from '@/components/auth-modal';
 
-const ParticleBackground = () => {
-  const particleCount = 50;
-  const particles = Array.from({ length: particleCount }).map((_, i) => {
-    const size = Math.random() * 3 + 1;
-    const duration = Math.random() * 20 + 20;
-    const delay = Math.random() * -40;
-    const left = Math.random() * 100;
-    const top = Math.random() * 100;
+interface ParticleStyle {
+  width: string;
+  height: string;
+  left: string;
+  top: string;
+  animationDuration: string;
+  animationDelay: string;
+}
 
-    const style: React.CSSProperties = {
-      width: `${size}px`,
-      height: `${size}px`,
-      left: `${left}%`,
-      top: `${top}%`,
-      animationDuration: `${duration}s`,
-      animationDelay: `${delay}s`,
-    };
-    return <div key={i} className="particle" style={style}></div>;
-  });
+const ParticleBackground = () => {
+  const [particles, setParticles] = useState<React.ReactElement[]>([]);
+  const particleCount = 50;
+
+  useEffect(() => {
+    const generatedParticles = Array.from({ length: particleCount }).map((_, i) => {
+      const size = Math.random() * 3 + 1;
+      const duration = Math.random() * 20 + 20;
+      const delay = Math.random() * -40;
+      const left = Math.random() * 100;
+      const top = Math.random() * 100;
+
+      const style: React.CSSProperties = {
+        width: `${size}px`,
+        height: `${size}px`,
+        left: `${left}%`,
+        top: `${top}%`,
+        animationDuration: `${duration}s`,
+        animationDelay: `${delay}s`,
+      };
+      return <div key={i} className="particle" style={style}></div>;
+    });
+    setParticles(generatedParticles);
+  }, []);
 
   return <div className="particle-container">{particles}</div>;
 };
