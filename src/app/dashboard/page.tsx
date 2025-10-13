@@ -26,7 +26,7 @@ export default function DashboardPage() {
     return (
       <div className="flex min-h-screen w-full flex-col">
         <Header />
-        <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8 bg-background/80 backdrop-blur-sm">
+        <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8 bg-transparent">
             <Skeleton className="h-10 w-[400px]" />
             <Skeleton className="h-[600px] w-full" />
         </main>
@@ -37,7 +37,7 @@ export default function DashboardPage() {
   return (
     <div className="flex min-h-screen w-full flex-col">
       <Header />
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8 bg-background/80 backdrop-blur-sm">
+      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8 bg-transparent">
         <Tabs defaultValue="home" className="w-full">
           <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 md:w-fit">
             <TabsTrigger value="home">
