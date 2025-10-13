@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { ThemeProvider } from '@/components/theme-provider';
+import { ParticleBackground } from '@/components/particle-background';
 
 export const metadata: Metadata = {
   title: 'TKN Fi RE Analyzer',
@@ -29,7 +30,10 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <FirebaseClientProvider>
-            {children}
+            <ParticleBackground />
+            <div className="relative z-10">
+              {children}
+            </div>
           </FirebaseClientProvider>
           <Toaster />
         </ThemeProvider>
