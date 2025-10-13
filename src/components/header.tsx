@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { Briefcase, LogOut, User, Settings } from 'lucide-react';
-
+import { Briefcase, LogOut, User, Settings, LogIn } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { mockUser } from '@/lib/mock-data';
+import { useAuth, useUser } from '@/firebase';
 
 const TknLogo = () => (
     <svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary">
@@ -25,7 +25,7 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 max-w-screen-2xl items-center">
         <div className="mr-4 flex">
-          <Link href="/" className="mr-6 flex items-center space-x-2">
+          <Link href="/dashboard" className="mr-6 flex items-center space-x-2">
             <TknLogo />
             <span className="font-bold font-headline sm:inline-block">
               TKN Fi RE
@@ -41,24 +41,55 @@ export function Header() {
 }
 
 function UserNav() {
-  const initials = mockUser.name.split(' ').map((n) => n[0]).join('');
+  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    auth.signOut();
+    router.push('/');
+  };
+
+  const handleLogin = () => {
+    router.push('/');
+  }
+
+  if (isUserLoading) {
+      return <Button variant="ghost" className="relative h-8 w-8 rounded-full animate-pulse bg-muted"></Button>
+  }
+  
+  if (!user) {
+    return (
+      <Button onClick={handleLogin}>
+        <LogIn className="mr-2 h-4 w-4" />
+        Sign In
+      </Button>
+    )
+  }
+
+  const getInitials = () => {
+    if (user.isAnonymous) return 'G';
+    if (user.displayName) return user.displayName.split(' ').map((n) => n[0]).join('');
+    if (user.email) return user.email.charAt(0).toUpperCase();
+    return 'U';
+  }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            <AvatarImage src={mockUser.avatarUrl} alt={mockUser.name} data-ai-hint="person" />
-            <AvatarFallback>{initials}</AvatarFallback>
+            {user.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName || 'User'} data-ai-hint="person" />}
+            <AvatarFallback>{getInitials()}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{mockUser.name}</p>
+            <p className="text-sm font-medium leading-none">{user.isAnonymous ? "Guest User" : user.displayName || 'User'}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              {mockUser.email}
+              {user.isAnonymous ? "Logged in as guest" : user.email}
             </p>
           </div>
         </DropdownMenuLabel>
@@ -78,7 +109,7 @@ function UserNav() {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
           <span>Log out</span>
         </DropdownMenuItem>

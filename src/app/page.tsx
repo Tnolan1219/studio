@@ -1,49 +1,53 @@
-import { Header } from '@/components/header';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Home as HomeIcon, BarChart2, Briefcase, User } from 'lucide-react';
-import HomeTab from '@/components/dashboard/home-tab';
-import AnalyzeTab from '@/components/dashboard/analyze-tab';
-import DealsTab from '@/components/dashboard/deals-tab';
-import ProfileTab from '@/components/dashboard/profile-tab';
+"use client";
 
-export default function Home() {
+import { useState } from 'react';
+import { AuthModal } from '@/components/auth-modal';
+
+const ParticleBackground = () => {
+  const particleCount = 50;
+  const particles = Array.from({ length: particleCount }).map((_, i) => {
+    const size = Math.random() * 3 + 1;
+    const duration = Math.random() * 20 + 20;
+    const delay = Math.random() * -40;
+    const left = Math.random() * 100;
+    const top = Math.random() * 100;
+
+    const style: React.CSSProperties = {
+      width: `${size}px`,
+      height: `${size}px`,
+      left: `${left}%`,
+      top: `${top}%`,
+      animationDuration: `${duration}s`,
+      animationDelay: `${delay}s`,
+    };
+    return <div key={i} className="particle" style={style}></div>;
+  });
+
+  return <div className="particle-container">{particles}</div>;
+};
+
+
+export default function LandingPage() {
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
   return (
-    <div className="flex min-h-screen w-full flex-col">
-      <Header />
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
-        <Tabs defaultValue="home" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 md:w-fit">
-            <TabsTrigger value="home">
-              <HomeIcon className="mr-0 sm:mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Home</span>
-            </TabsTrigger>
-            <TabsTrigger value="analyze">
-              <BarChart2 className="mr-0 sm:mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Analyze</span>
-            </TabsTrigger>
-            <TabsTrigger value="deals">
-              <Briefcase className="mr-0 sm:mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Deals</span>
-            </TabsTrigger>
-            <TabsTrigger value="profile">
-              <User className="mr-0 sm:mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Profile</span>
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="home" className="mt-4">
-            <HomeTab />
-          </TabsContent>
-          <TabsContent value="analyze" className="mt-4">
-            <AnalyzeTab />
-          </TabsContent>
-          <TabsContent value="deals" className="mt-4">
-            <DealsTab />
-          </TabsContent>
-          <TabsContent value="profile" className="mt-4">
-            <ProfileTab />
-          </TabsContent>
-        </Tabs>
-      </main>
+    <div className="relative flex h-screen w-full flex-col items-center justify-center bg-black overflow-hidden">
+      <ParticleBackground />
+      <div className="z-10 text-center animate-fade-in">
+        <h1 className="text-5xl font-bold font-headline text-white">
+          TKN Financial RE
+        </h1>
+        <p className="mt-4 text-lg text-muted-foreground">
+          Your Real Estate Investment Co-Pilot
+        </p>
+        <button 
+            onClick={() => setIsAuthModalOpen(true)}
+            className="mt-8 px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-lg shadow-lg hover:bg-primary/90 transition-colors"
+        >
+            Enter App
+        </button>
+      </div>
+      <AuthModal isOpen={isAuthModalOpen} onOpenChange={setIsAuthModalOpen} />
     </div>
   );
 }

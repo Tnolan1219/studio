@@ -20,39 +20,47 @@ import {
 } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DollarSign, BarChart, Briefcase, Sparkles } from "lucide-react";
-import { mockUser, mockDeals, mockTestimonials, mockFaqs } from "@/lib/mock-data";
+import { mockDeals, mockTestimonials, mockFaqs } from "@/lib/mock-data";
 import { NewsFeed } from "./news-feed";
+import { useUser } from "@/firebase";
 
 export default function HomeTab() {
+    const { user } = useUser();
     const totalInvestment = mockDeals.reduce((acc, deal) => acc + deal.purchasePrice, 0);
     const avgCocReturn = mockDeals.reduce((acc, deal) => acc + deal.cocReturn, 0) / mockDeals.length;
 
+    const getWelcomeName = () => {
+        if (!user) return "Guest";
+        if (user.isAnonymous) return "Guest";
+        return user.displayName || user.email?.split('@')[0] || "User";
+    }
+
     return (
         <div className="grid gap-6 animate-fade-in">
-            <h1 className="text-3xl font-bold font-headline">Welcome back, {mockUser.nickname}!</h1>
+            <h1 className="text-3xl font-bold font-headline">Welcome back, {getWelcomeName()}!</h1>
             
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <StatCard 
                     title="Total Deals Analyzed"
-                    value={mockUser.dealCount.toString()}
+                    value={user?.isAnonymous ? "0" : "7"}
                     icon={<Briefcase className="h-4 w-4 text-muted-foreground" />}
                     description="Across all categories"
                 />
                 <StatCard 
                     title="Total Investment"
-                    value={`$${(totalInvestment / 1000000).toFixed(2)}M`}
+                    value={user?.isAnonymous ? "$0" : `$${(totalInvestment / 1000000).toFixed(2)}M`}
                     icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
                     description="Purchase price of saved deals"
                 />
                 <StatCard 
                     title="Average CoC Return"
-                    value={`${avgCocReturn.toFixed(1)}%`}
+                    value={user?.isAnonymous ? "0%" : `${avgCocReturn.toFixed(1)}%`}
                     icon={<BarChart className="h-4 w-4 text-muted-foreground" />}
                     description="For your saved rental deals"
                 />
                 <StatCard 
                     title="Current Plan"
-                    value={mockUser.plan}
+                    value={user?.isAnonymous ? "Guest" : "Pro"}
                     icon={<Sparkles className="h-4 w-4 text-muted-foreground" />}
                     description="Upgrade for more features"
                     isPrimary
