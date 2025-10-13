@@ -1,6 +1,6 @@
 "use client";
 
-import { useFormState } from "react-dom";
+import { useActionState, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -26,7 +26,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Sparkles, BarChart2 } from "lucide-react";
-import { useEffect, useState } from "react";
 import { Skeleton } from "../ui/skeleton";
 import {
   ResponsiveContainer,
@@ -57,7 +56,7 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 export default function RentalCalculator() {
-  const [state, formAction] = useFormState(getDealAssessment, {
+  const [state, formAction] = useActionState(getDealAssessment, {
     message: "",
     assessment: null,
   });
