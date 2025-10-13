@@ -309,13 +309,13 @@ export default function AdvancedCommercialCalculator() {
     sensitivityData
   } = useMemo(() => {
       const { purchasePrice, downPayment, rehabCost = 0, closingCosts = 0, holdingLength, sellingCosts, exitCapRate } = watchedValues;
+      const totalCashInvested = downPayment + (purchasePrice * (closingCosts / 100)) + rehabCost;
       const proForma = calculateProForma(watchedValues);
       
       const year1 = proForma[0] || {};
-      const totalInvestment = downPayment + (purchasePrice * (closingCosts/100)) + rehabCost;
       const noi = year1.noi || 0;
       const monthlyCashFlow = (year1.cashFlowBeforeTax || 0) / 12;
-      const cocReturn = totalInvestment > 0 ? ((year1.cashFlowBeforeTax || 0) / totalInvestment) * 100 : 0;
+      const cocReturn = totalCashInvested > 0 ? ((year1.cashFlowBeforeTax || 0) / totalCashInvested) * 100 : 0;
       const capRate = purchasePrice > 0 ? (noi / purchasePrice) * 100 : 0;
 
       const cashFlowChartData = proForma.slice(0, 10).map(entry => ({
@@ -337,7 +337,7 @@ export default function AdvancedCommercialCalculator() {
           const loanPayoff = exitYearEntry.loanBalance;
           netSaleProceeds = salePrice - saleCosts - loanPayoff;
 
-          const cashflows = [-totalInvestment];
+          const cashflows = [-totalCashInvested];
           for (let i = 0; i < holdingLength -1; i++) {
               cashflows.push(proForma[i].cashFlowBeforeTax);
           }
@@ -346,7 +346,7 @@ export default function AdvancedCommercialCalculator() {
           unleveredIRR = calculateIRR(cashflows) * 100;
 
           const totalCashReturned = proForma.slice(0, holdingLength).reduce((sum, entry) => sum + entry.cashFlowBeforeTax, 0) + netSaleProceeds;
-          equityMultiple = totalInvestment > 0 ? totalCashReturned / totalInvestment : 0;
+          equityMultiple = totalCashInvested > 0 ? totalCashReturned / totalCashInvested : 0;
       }
       
         const SENSITIVITY_RANGES: Record<SensitivityVariable, number[] | ((v: number) => number[])> = {
@@ -752,5 +752,7 @@ export default function AdvancedCommercialCalculator() {
     </CardContent>
   );
 }
+
+    
 
     
