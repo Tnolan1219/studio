@@ -7,7 +7,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser } from '@/firebase';
-import { initiateEmailSignUp, initiateEmailSignIn, initiateAnonymousSignIn, initiateGoogleSignIn } from '@/firebase/non-blocking-login';
+import { 
+    createUserWithEmailAndPassword, 
+    signInWithEmailAndPassword, 
+    signInAnonymously, 
+    signInWithPopup, 
+    GoogleAuthProvider,
+    type User
+} from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { useFirestore, setDocumentNonBlocking } from '@/firebase';
 
@@ -32,7 +39,6 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Terminal } from 'lucide-react';
-import { getAuth, onIdTokenChanged, type User } from 'firebase/auth';
 
 const signUpSchema = z
   .object({
@@ -76,40 +82,30 @@ export function AuthModal({
   const { toast } = useToast();
   const [authError, setAuthError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isOpen || !auth || !firestore) return;
-  
-    const handleUser = async (user: User | null) => {
-      if (!user) return;
-      
-      // Check if user has completed onboarding
-      const userProfileRef = doc(firestore, 'users', user.uid);
-      const userProfileSnap = await getDoc(userProfileRef);
-  
-      if (!userProfileSnap.exists() || !userProfileSnap.data()?.isOnboardingComplete) {
-        // This is a new user or one who hasn't finished onboarding
-        if (!user.isAnonymous) {
-          // Pre-populate their profile with basic info
-          await setDocumentNonBlocking(userProfileRef, { 
-            name: user.displayName || '', 
-            email: user.email 
-          }, { merge: true });
-        }
-        router.push('/onboarding');
-      } else {
-        // Existing user who has completed onboarding
-        router.push('/dashboard');
-      }
-      onOpenChange(false);
-    };
-  
-    const unsubscribe = onIdTokenChanged(auth, handleUser);
+  const handleSuccessfulLogin = async (user: User) => {
+    if (!user || !firestore) return;
     
-    // Clean up the subscription
-    return () => unsubscribe();
-  
-  }, [isOpen, auth, firestore, onOpenChange, router]);
+    // Check if user has completed onboarding
+    const userProfileRef = doc(firestore, 'users', user.uid);
+    const userProfileSnap = await getDoc(userProfileRef);
 
+    if (!userProfileSnap.exists() || !userProfileSnap.data()?.isOnboardingComplete) {
+      // This is a new user or one who hasn't finished onboarding
+      if (!user.isAnonymous) {
+        // Pre-populate their profile with basic info
+        await setDocumentNonBlocking(userProfileRef, { 
+          name: user.displayName || '', 
+          email: user.email 
+        }, { merge: true });
+      }
+      router.push('/onboarding');
+    } else {
+      // Existing user who has completed onboarding
+      router.push('/dashboard');
+    }
+    onOpenChange(false);
+  };
+  
   const signUpForm = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
     defaultValues: { email: '', password: '', confirmPassword: '' },
@@ -120,45 +116,67 @@ export function AuthModal({
     defaultValues: { email: '', password: '' },
   });
 
-  const handleSignUp = (data: SignUpFormValues) => {
+  const handleAuthError = (error: any) => {
+    let message = "An unexpected error occurred. Please try again.";
+    switch (error.code) {
+      case 'auth/user-not-found':
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential':
+        message = 'Invalid email or password. Please try again.';
+        break;
+      case 'auth/email-already-in-use':
+        message = 'This email is already registered. Please sign in.';
+        break;
+      case 'auth/invalid-email':
+        message = 'The email address is not valid.';
+        break;
+      case 'auth/weak-password':
+        message = 'The password is too weak. Please choose a stronger one.';
+        break;
+    }
+    setAuthError(message);
+  }
+
+  const handleSignUp = async (data: SignUpFormValues) => {
     setAuthError(null);
-    initiateEmailSignUp(auth, data.email, data.password);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      await handleSuccessfulLogin(userCredential.user);
+    } catch (error) {
+      handleAuthError(error);
+    }
   };
 
-  const handleSignIn = (data: SignInFormValues) => {
+  const handleSignIn = async (data: SignInFormValues) => {
     setAuthError(null);
-    initiateEmailSignIn(auth, data.email, data.password);
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+      await handleSuccessfulLogin(userCredential.user);
+    } catch (error) {
+      handleAuthError(error);
+    }
   };
   
-  const handleGoogleSignIn = () => {
+  const handleGoogleSignIn = async () => {
     setAuthError(null);
-    initiateGoogleSignIn(auth);
+    const provider = new GoogleAuthProvider();
+    try {
+      const userCredential = await signInWithPopup(auth, provider);
+      await handleSuccessfulLogin(userCredential.user);
+    } catch (error) {
+      handleAuthError(error);
+    }
   };
 
   const handleAnonymousSignIn = async () => {
     setAuthError(null);
-    await initiateAnonymousSignIn(auth);
-    onOpenChange(false);
-    router.push('/dashboard');
+    try {
+        const userCredential = await signInAnonymously(auth);
+        await handleSuccessfulLogin(userCredential.user);
+    } catch (error) {
+        handleAuthError(error);
+    }
   };
-  
-  useEffect(() => {
-    if (!auth) return;
-    const unsubscribe = auth.onAuthStateChanged(user => {
-      // no-op, just to trigger updates
-    }, error => {
-        let message = "An unexpected error occurred.";
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-            message = 'Invalid email or password. Please try again.';
-        } else if (error.code === 'auth/email-already-in-use') {
-            message = 'This email is already registered. Please sign in.';
-        } else if (error.code === 'auth/invalid-email') {
-            message = 'The email address is not valid.';
-        }
-        setAuthError(message);
-    });
-    return () => unsubscribe();
-  }, [auth]);
 
 
   return (
@@ -247,7 +265,7 @@ export function AuthModal({
               <form onSubmit={signUpForm.handleSubmit(handleSignUp)} className="space-y-4">
               <FormField control={signUpForm.control} name="email" render={({ field }) => ( <FormItem> <FormLabel>Email</FormLabel> <FormControl><Input placeholder="name@example.com" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
               <FormField control={signUpForm.control} name="password" render={({ field }) => ( <FormItem> <FormLabel>Password</FormLabel> <FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-              <FormField control={signUpForm.control} name="confirmPassword" render={({ field }) => ( <FormItem> <FormLabel>Confirm Password</FormLabel> <FormControl><Input type="password" placeholder="••••••••" /></FormControl> <FormMessage /> </FormItem> )} />
+              <FormField control={signUpForm.control} name="confirmPassword" render={({ field }) => ( <FormItem> <FormLabel>Confirm Password</FormLabel> <FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                 <Button type="submit" className="w-full" disabled={isUserLoading}>
                   {isUserLoading ? 'Creating Account...' : 'Create Account'}
                 </Button>
