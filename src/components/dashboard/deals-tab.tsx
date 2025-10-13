@@ -44,7 +44,7 @@ export default function DealsTab() {
     const firestore = useFirestore();
     
     const dealsCollection = useMemoFirebase(() => {
-        if (!user) return null;
+        if (!user || user.isAnonymous) return null;
         return collection(firestore, `users/${user.uid}/deals`);
     }, [firestore, user]);
 
@@ -60,7 +60,7 @@ export default function DealsTab() {
         return deals
         .filter(deal => 
             deal.dealName.toLowerCase().includes(searchTerm.toLowerCase()) &&
-            (filterType === 'all' || deal.dealType.toLowerCase() === filterType.toLowerCase())
+            (filterType === 'all' || deal.dealType.toLowerCase().startsWith(filterType.toLowerCase()))
         )
         .sort((a, b) => {
             const valA = a[sortKey as keyof Deal] as any;
@@ -129,9 +129,9 @@ export default function DealsTab() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">All Types</SelectItem>
-                                    <SelectItem value="Rental Property">Rental</SelectItem>
-                                    <SelectItem value="Flip">Flip</SelectItem>
-                                    <SelectItem value="Commercial">Commercial</SelectItem>
+                                    <SelectItem value="rental">Rental</SelectItem>
+                                    <SelectItem value="flip">Flip</SelectItem>
+                                    <SelectItem value="commercial">Commercial</SelectItem>
                                 </SelectContent>
                             </Select>
                             <Select value={`${sortKey}-${sortOrder}`} onValueChange={(value) => {
@@ -172,3 +172,5 @@ export default function DealsTab() {
         </div>
     );
 }
+
+    

@@ -7,8 +7,8 @@ import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser } from '@/firebase';
 import { initiateEmailSignUp, initiateEmailSignIn, initiateAnonymousSignIn, initiateGoogleSignIn } from '@/firebase/non-blocking-login';
-import { doc, setDoc } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { useFirestore, setDocumentNonBlocking } from '@/firebase';
 
 import {
   Dialog,
@@ -76,11 +76,13 @@ export function AuthModal({
 
   useEffect(() => {
     if (user && !isUserLoading && isOpen) {
-      const userRef = doc(firestore, 'users', user.uid);
-      setDoc(userRef, { 
-        name: user.displayName, 
-        email: user.email 
-      }, { merge: true });
+      if (!user.isAnonymous) {
+        const userRef = doc(firestore, 'users', user.uid);
+        setDocumentNonBlocking(userRef, { 
+          name: user.displayName, 
+          email: user.email 
+        }, { merge: true });
+      }
       onOpenChange(false);
       router.push('/dashboard');
     }
@@ -234,3 +236,5 @@ export function AuthModal({
     </Dialog>
   );
 }
+
+    

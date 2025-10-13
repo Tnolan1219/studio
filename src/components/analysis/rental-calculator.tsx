@@ -157,16 +157,9 @@ export default function RentalCalculator() {
     };
 
     const dealsCol = collection(firestore, `users/${user.uid}/deals`);
-    addDocumentNonBlocking(dealsCol, dealData)
-        .then(() => {
-            toast({ title: "Deal Saved!", description: `${dealData.dealName} has been added to your portfolio.` });
-            setIsSaving(false);
-        })
-        .catch((e) => {
-            console.error("Error saving deal: ", e);
-            toast({ title: "Error", description: "Could not save the deal. Please try again.", variant: "destructive"});
-            setIsSaving(false);
-        });
+    addDocumentNonBlocking(dealsCol, dealData);
+    toast({ title: "Deal Saved!", description: `${dealData.dealName} has been added to your portfolio.` });
+    setIsSaving(false);
   };
 
 
@@ -256,3 +249,5 @@ export default function RentalCalculator() {
     </Card>
   );
 }
+
+    
