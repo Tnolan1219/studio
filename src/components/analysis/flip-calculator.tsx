@@ -47,7 +47,14 @@ const formSchema = z.object({
   purchasePrice: z.coerce.number().min(0),
   arv: z.coerce.number().min(0, 'ARV must be positive.'),
   rehabCost: z.coerce.number().min(0),
-  holdingCosts: z.coerce.number().min(0),
+  closingCosts: z.coerce.number().min(0),
+  holdingLength: z.coerce.number().min(1, 'Holding length must be at least 1 month.'),
+  interestRate: z.coerce.number().min(0),
+  loanTerm: z.coerce.number().min(1),
+  downPayment: z.coerce.number().min(0),
+  propertyTaxes: z.coerce.number().min(0),
+  insurance: z.coerce.number().min(0),
+  otherExpenses: z.coerce.number().min(0),
   sellingCosts: z.coerce.number().min(0),
   marketConditions: z.string().min(10, 'Please describe market conditions.'),
 });
@@ -73,21 +80,25 @@ export default function FlipCalculator() {
       purchasePrice: 180000,
       arv: 280000,
       rehabCost: 40000,
-      holdingCosts: 5000,
-      sellingCosts: 14000, // 5% of ARV
-      marketConditions:
-        "Hot seller's market, properties are selling within 2 weeks. Good school district.",
+      closingCosts: 2,
+      holdingLength: 6,
+      interestRate: 8,
+      loanTerm: 1,
+      downPayment: 45000,
+      propertyTaxes: 1.2,
+      insurance: 0.5,
+      otherExpenses: 1000,
+      sellingCosts: 6,
+      marketConditions: "Hot seller's market, properties are selling within 2 weeks. Good school district.",
     },
   });
 
-  const onSubmit = (data: FormData) => {
+  const handleAnalyze = (data: FormData) => {
     const formData = new FormData();
     const financialData = `
-        Purchase Price: ${data.purchasePrice},
-        After Repair Value (ARV): ${data.arv},
-        Rehab Cost: ${data.rehabCost},
-        Holding Costs: ${data.holdingCosts},
-        Selling Costs: ${data.sellingCosts}
+        Purchase Price: ${data.purchasePrice}, After Repair Value (ARV): ${data.arv},
+        Rehab Cost: ${data.rehabCost}, Holding Length: ${data.holdingLength} months,
+        Selling Costs: ${data.sellingCosts}%
     `;
     formData.append('dealType', 'House Flip');
     formData.append('financialData', financialData);
@@ -101,60 +112,51 @@ export default function FlipCalculator() {
   const watchedValues = form.watch();
 
   const { totalInvestment, netProfit, roi, chartData } = useMemo(() => {
-    const { purchasePrice, rehabCost, holdingCosts, sellingCosts, arv } =
-      watchedValues;
-    const totalInvestment = purchasePrice + rehabCost + holdingCosts + sellingCosts;
-    const netProfit = arv - totalInvestment;
-    const roi =
-      totalInvestment > 0
-        ? (netProfit / (purchasePrice + rehabCost)) * 100
-        : 0;
+    const { purchasePrice, rehabCost, closingCosts, holdingLength, interestRate, downPayment, propertyTaxes, insurance, otherExpenses, sellingCosts, arv, loanTerm } = watchedValues;
+
+    const loanAmount = purchasePrice - downPayment;
+    const acquisitionCosts = closingCosts/100 * purchasePrice;
+
+    const holdingCosts = (
+        (propertyTaxes/100 * purchasePrice / 12) +
+        (insurance/100 * purchasePrice / 12) +
+        (otherExpenses / holdingLength)
+    ) * holdingLength;
+
+    const financingCosts = loanTerm > 0 ? (loanAmount * (interestRate/100) * (holdingLength/12)) : 0;
+    
+    const totalCashNeeded = downPayment + rehabCost + acquisitionCosts;
+    const finalSellingCosts = sellingCosts/100 * arv;
+    
+    const totalCosts = purchasePrice + rehabCost + acquisitionCosts + holdingCosts + financingCosts + finalSellingCosts;
+    const netProfit = arv - totalCosts;
+    const roi = totalCashNeeded > 0 ? (netProfit / totalCashNeeded) * 100 : 0;
 
     const chartData = [
-      {
-        name: 'Purchase',
-        value: purchasePrice,
-        fill: 'hsl(var(--chart-1))',
-      },
+      { name: 'Purchase', value: purchasePrice, fill: 'hsl(var(--chart-1))' },
       { name: 'Rehab', value: rehabCost, fill: 'hsl(var(--chart-2))' },
       { name: 'Holding', value: holdingCosts, fill: 'hsl(var(--chart-3))' },
-      { name: 'Selling', value: sellingCosts, fill: 'hsl(var(--chart-4))' },
-      {
-        name: 'Profit',
-        value: netProfit > 0 ? netProfit : 0,
-        fill: 'hsl(var(--primary))',
-      },
+      { name: 'Financing', value: financingCosts, fill: 'hsl(var(--chart-4))' },
+      { name: 'Selling', value: finalSellingCosts, fill: 'hsl(var(--chart-5))' },
+      { name: 'Profit', value: netProfit > 0 ? netProfit : 0, fill: 'hsl(var(--primary))' },
     ];
 
-    return { totalInvestment, netProfit, roi, chartData };
+    return { totalInvestment: totalCashNeeded, netProfit, roi, chartData };
   }, [watchedValues]);
 
   const handleSaveDeal = async () => {
     if (!user) {
-      toast({
-        title: 'Authentication Required',
-        description: 'Please sign in to save deals.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Authentication Required', description: 'Please sign in to save deals.', variant: 'destructive' });
       return;
     }
-    if (user.isAnonymous) {
-      toast({
-        title: 'Guest Mode',
-        description: 'Cannot save deals as a guest. Please create an account.',
-        variant: 'destructive',
-      });
-      return;
+     if (user.isAnonymous) {
+        toast({ title: 'Guest Mode', description: 'Cannot save deals as a guest. Please create an account.', variant: 'destructive' });
+        return;
     }
 
     const isFormValid = await form.trigger();
     if (!isFormValid) {
-      toast({
-        title: 'Invalid Data',
-        description:
-          'Please fill out all required fields correctly before saving.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Invalid Data', description: 'Please fill out all required fields correctly before saving.', variant: 'destructive' });
       return;
     }
 
@@ -171,198 +173,71 @@ export default function FlipCalculator() {
     };
 
     const dealsCol = collection(firestore, `users/${user.uid}/deals`);
-    addDocumentNonBlocking(dealsCol, dealData);
-    toast({
-      title: 'Deal Saved!',
-      description: `${dealData.dealName} has been added to your portfolio.`,
+    addDocumentNonBlocking(dealsCol, dealData).catch(error => {
+        toast({ title: 'Error Saving Deal', description: error.message, variant: 'destructive' });
     });
+    toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
     setIsSaving(false);
   };
   
-  const { purchasePrice, rehabCost, holdingCosts, sellingCosts } = watchedValues;
+  const { purchasePrice, rehabCost, holdingCosts, sellingCosts: sellingCostsVal } = watchedValues;
 
   return (
     <Card className="bg-card/60 backdrop-blur-sm">
       <CardHeader>
         <CardTitle>House Flip Analyzer</CardTitle>
-        <CardDescription>
-          Calculate the potential profit and ROI for your next house flip project.
-        </CardDescription>
+        <CardDescription> Calculate the potential profit and ROI for your next house flip project. </CardDescription>
       </CardHeader>
       <Form {...form}>
-        <form
-          onSubmit={e => {
-            e.preventDefault();
-            form.handleSubmit(onSubmit)();
-          }}
-        >
-          <CardContent className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <FormField
-                name="dealName"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Deal Name</FormLabel>
-                    <FormControl>
-                      <Input type="text" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                name="purchasePrice"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Purchase Price</FormLabel>
-                    <FormControl>
-                      <InputWithIcon icon="$" type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                name="arv"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>After Repair Value (ARV)</FormLabel>
-                    <FormControl>
-                      <InputWithIcon icon="$" type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                name="rehabCost"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Rehabilitation Costs</FormLabel>
-                    <FormControl>
-                      <InputWithIcon icon="$" type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                name="holdingCosts"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Holding Costs (Taxes, Utilities)</FormLabel>
-                    <FormControl>
-                      <InputWithIcon icon="$" type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                name="sellingCosts"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Selling Costs (Commissions, Fees)</FormLabel>
-                    <FormControl>
-                      <InputWithIcon icon="$" type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                name="marketConditions"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Market Conditions</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      Describe local market trends, buyer demand, etc.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        <form onSubmit={form.handleSubmit(handleAnalyze)}>
+          <CardContent className="grid md:grid-cols-2 gap-x-6 gap-y-4">
+            <div className="space-y-4 col-span-2 md:col-span-1">
+                <Card><CardHeader><CardTitle className="text-lg">Purchase & Rehab</CardTitle></CardHeader>
+                    <CardContent className="grid grid-cols-2 gap-4">
+                        <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                        <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                        <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Rehab Costs</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                        <FormField name="arv" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>After Repair Value (ARV)</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                    </CardContent>
+                </Card>
+                <Card><CardHeader><CardTitle className="text-lg">Financing</CardTitle></CardHeader>
+                    <CardContent className="grid grid-cols-2 gap-4">
+                        <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                        <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.01" {...field}/></FormControl> <FormMessage /> </FormItem> )} />
+                         <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan Term (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                    </CardContent>
+                </Card>
+                 <Card><CardHeader><CardTitle className="text-lg">Holding & Selling Costs</CardTitle></CardHeader>
+                    <CardContent className="grid grid-cols-2 gap-4">
+                        <FormField name="holdingLength" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Holding (Months)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                        <FormField name="propertyTaxes" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Prop. Taxes (%/yr)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                        <FormField name="insurance" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Insurance (%/yr)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                        <FormField name="otherExpenses" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Other Costs</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                        <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Selling Costs (% of ARV)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                    </CardContent>
+                </Card>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-6 col-span-2 md:col-span-1">
               <Card>
-                <CardHeader>
-                  <CardTitle>Key Metrics</CardTitle>
-                </CardHeader>
+                <CardHeader><CardTitle>Key Metrics</CardTitle></CardHeader>
                 <CardContent className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Net Profit</p>
-                    <p className="text-2xl font-bold">${netProfit.toFixed(2)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Return on Investment (ROI)
-                    </p>
-                    <p className="text-2xl font-bold">{roi.toFixed(2)}%</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Total Investment
-                    </p>
-                    <p className="font-bold">
-                      ${(purchasePrice + rehabCost).toFixed(2)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Costs</p>
-                    <p className="font-bold">
-                      ${(rehabCost + holdingCosts + sellingCosts).toFixed(2)}
-                    </p>
-                  </div>
+                  <div> <p className="text-sm text-muted-foreground">Net Profit</p> <p className="text-2xl font-bold">${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
+                  <div> <p className="text-sm text-muted-foreground">ROI on Cash</p> <p className="text-2xl font-bold">{roi.toFixed(2)}%</p> </div>
+                  <div> <p className="text-sm text-muted-foreground">Total Cash Needed</p> <p className="font-bold">${totalInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
+                  <div> <p className="text-sm text-muted-foreground">ARV</p> <p className="font-bold">${watchedValues.arv.toLocaleString()}</p> </div>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart2 size={20} /> Cost vs. Profit Breakdown
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="h-[200px]">
+                <CardHeader> <CardTitle className="flex items-center gap-2"> <BarChart2 size={20} /> Cost vs. Profit Breakdown </CardTitle> </CardHeader>
+                <CardContent className="h-[250px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={chartData}
-                      layout="vertical"
-                      margin={{ top: 5, right: 20, left: 30, bottom: 5 }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="hsl(var(--border))"
-                      />
-                      <XAxis
-                        type="number"
-                        stroke="hsl(var(--muted-foreground))"
-                        fontSize={12}
-                        tickFormatter={value => `$${value / 1000}k`}
-                      />
-                      <YAxis
-                        type="category"
-                        dataKey="name"
-                        stroke="hsl(var(--muted-foreground))"
-                        fontSize={12}
-                      />
-                      <Tooltip
-                        cursor={{ fill: 'hsl(var(--secondary))' }}
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--card))',
-                          borderColor: 'hsl(var(--border))',
-                        }}
-                      />
+                    <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }} >
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={value => `$${value / 1000}k`} />
+                      <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} width={80} />
+                      <Tooltip cursor={{ fill: 'hsl(var(--secondary))' }} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }} />
                       <Bar dataKey="value" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -370,46 +245,25 @@ export default function FlipCalculator() {
               </Card>
 
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Sparkles size={20} className="text-primary" /> AI Deal
-                    Assessment
-                  </CardTitle>
-                </CardHeader>
+                <CardHeader> <CardTitle className="flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
                 <CardContent>
+                  <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="hidden"> <FormControl><Input type="text" {...field} /></FormControl> </FormItem> )} />
+                  <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Market Conditions & Strategy</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> Describe local market trends, buyer demand, etc. </FormDescription> <FormMessage /> </FormItem> )} />
                   {isPending ? (
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-4 w-3/4" />
-                    </div>
+                    <div className="space-y-2 mt-4"> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-3/4" /> </div>
                   ) : state.assessment ? (
-                    <p className="text-sm text-muted-foreground">
-                      {state.assessment}
-                    </p>
+                    <p className="text-sm text-muted-foreground mt-4">{state.assessment}</p>
                   ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Click "Analyze Deal" to get an AI-powered assessment.
-                    </p>
+                    <p className="text-sm text-muted-foreground mt-4"> Click "Analyze Deal" to get an AI-powered assessment. </p>
                   )}
-                  {state.message && !state.assessment && (
-                    <p className="text-sm text-destructive">{state.message}</p>
-                  )}
+                  {state.message && !state.assessment && ( <p className="text-sm text-destructive mt-4">{state.message}</p> )}
                 </CardContent>
               </Card>
             </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
-            <Button type="submit" disabled={isPending || isSaving}>
-              {isPending ? 'Analyzing...' : 'Analyze Deal'}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={handleSaveDeal}
-              disabled={isPending || isSaving}
-            >
-              {isSaving ? 'Saving...' : 'Save Deal'}
-            </Button>
+            <Button type="submit" disabled={isPending || isSaving}> {isPending ? 'Analyzing...' : 'Analyze Deal'} </Button>
+            <Button variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}> {isSaving ? 'Saving...' : 'Save Deal'} </Button>
           </CardFooter>
         </form>
       </Form>

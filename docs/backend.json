@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserProfile": {
@@ -69,10 +70,52 @@
         "loanTerm": {
             "type": "number"
         },
-        "monthlyIncome": {
+        "closingCosts": {
             "type": "number"
         },
-        "monthlyExpenses": {
+        "rehabCost": {
+          "type": "number"
+        },
+        "arv": {
+          "type": "number"
+        },
+        "grossMonthlyIncome": {
+            "type": "number"
+        },
+        "propertyTaxes": {
+            "type": "number"
+        },
+        "insurance": {
+            "type": "number"
+        },
+        "repairsAndMaintenance": {
+            "type": "number"
+        },
+        "vacancy": {
+            "type": "number"
+        },
+        "capitalExpenditures": {
+            "type": "number"
+        },
+        "managementFee": {
+            "type": "number"
+        },
+        "otherExpenses": {
+            "type": "number"
+        },
+        "annualIncomeGrowth": {
+            "type": "number"
+        },
+        "annualExpenseGrowth": {
+            "type": "number"
+        },
+        "annualAppreciation": {
+            "type": "number"
+        },
+        "holdingLength": {
+            "type": "number"
+        },
+        "sellingCosts": {
             "type": "number"
         },
         "monthlyCashFlow": {
@@ -81,28 +124,16 @@
         "cocReturn": {
           "type": "number"
         },
-        "arv": {
-          "type": "number"
-        },
-        "rehabCost": {
-          "type": "number"
-        },
-        "holdingCosts": {
+        "noi": {
             "type": "number"
         },
-        "sellingCosts": {
-            "type": "number"
-        },
-        "netProfit": {
+        "capRate": {
             "type": "number"
         },
         "roi": {
             "type": "number"
         },
-        "noi": {
-            "type": "number"
-        },
-        "capRate": {
+        "netProfit": {
             "type": "number"
         },
         "status": {

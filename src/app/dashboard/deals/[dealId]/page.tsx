@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { setDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import type { Deal, DealComment, DealStatus } from '@/lib/types';
+import type { Deal, DealComment, DealStatus, ProFormaEntry } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,8 +15,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
-import { BarChart, Building, Home, Repeat, Trash2, Edit, MessageSquare, Send, CheckCircle, Circle, Eye, EyeOff } from 'lucide-react';
+import { BarChart, Building, Home, Repeat, Trash2, Edit, MessageSquare, Send, Eye, EyeOff } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { ProFormaTable } from '@/components/analysis/pro-forma-table';
 
 const DEAL_STATUSES: DealStatus[] = ['In Works', 'Negotiating', 'Bought', 'Owned & Operating', 'Sold'];
 
@@ -35,11 +36,66 @@ const CommentCard = ({ comment }: { comment: DealComment }) => (
         <div className="flex-1">
             <p className="text-muted-foreground">{comment.text}</p>
             <p className="text-xs text-muted-foreground/60 mt-1">
-                {formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true })}
+                {comment.createdAt && formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true })}
             </p>
         </div>
     </div>
 )
+
+const calculateProForma = (deal: Deal): ProFormaEntry[] => {
+    const proForma: ProFormaEntry[] = [];
+    if (!deal) return proForma;
+
+    const loanAmount = deal.purchasePrice + deal.rehabCost + deal.closingCosts - deal.downPayment;
+    const monthlyInterestRate = deal.interestRate / 100 / 12;
+    const numberOfPayments = deal.loanTerm * 12;
+    const debtService = numberOfPayments > 0 && monthlyInterestRate > 0 ?
+        (loanAmount * (monthlyInterestRate * Math.pow(1 + monthlyInterestRate, numberOfPayments))) / (Math.pow(1 + monthlyInterestRate, numberOfPayments) - 1) * 12
+        : 0;
+
+    let currentGrossRent = deal.grossMonthlyIncome * 12;
+    let currentExpenses = (deal.propertyTaxes + deal.insurance + deal.repairsAndMaintenance + deal.capitalExpenditures + deal.managementFee + deal.otherExpenses) / 100 * (deal.grossMonthlyIncome * 12);
+    let currentPropertyValue = deal.purchasePrice + deal.rehabCost;
+    let currentLoanBalance = loanAmount;
+    
+    for (let year = 1; year <= 10; year++) {
+        const vacancyLoss = currentGrossRent * (deal.vacancy / 100);
+        const effectiveGrossIncome = currentGrossRent - vacancyLoss;
+        const noi = effectiveGrossIncome - currentExpenses;
+
+        let yearEndLoanBalance = currentLoanBalance;
+        if (monthlyInterestRate > 0) {
+            for (let i = 0; i < 12; i++) {
+                const interestPayment = yearEndLoanBalance * monthlyInterestRate;
+                const principalPayment = (debtService / 12) - interestPayment;
+                yearEndLoanBalance -= principalPayment;
+            }
+        } else {
+             yearEndLoanBalance = 0;
+        }
+
+        proForma.push({
+            year,
+            grossPotentialRent: currentGrossRent,
+            vacancyLoss,
+            effectiveGrossIncome,
+            operatingExpenses: currentExpenses,
+            noi,
+            debtService,
+            cashFlowBeforeTax: noi - debtService,
+            propertyValue: currentPropertyValue,
+            loanBalance: yearEndLoanBalance,
+            equity: currentPropertyValue - yearEndLoanBalance,
+        });
+        
+        currentGrossRent *= (1 + deal.annualIncomeGrowth / 100);
+        currentExpenses *= (1 + deal.annualExpenseGrowth / 100);
+        currentPropertyValue *= (1 + deal.annualAppreciation / 100);
+        currentLoanBalance = yearEndLoanBalance;
+    }
+
+    return proForma;
+};
 
 
 export default function DealDetailPage() {
@@ -69,29 +125,27 @@ export default function DealDetailPage() {
         if (!deal) return [];
         switch (deal.dealType) {
             case 'Rental Property':
+            case 'Commercial Multifamily':
                 return [
+                    { label: 'Cap Rate', value: `${deal.capRate?.toFixed(2)}%`},
+                    { label: 'NOI', value: `$${deal.noi?.toLocaleString()}`},
                     { label: 'Monthly Cash Flow', value: `$${deal.monthlyCashFlow?.toFixed(2)}`},
                     { label: 'CoC Return', value: `${deal.cocReturn?.toFixed(2)}%`},
-                    { label: 'Purchase Price', value: `$${deal.purchasePrice.toLocaleString()}`},
-                    { label: 'Down Payment', value: `$${deal.downPayment?.toLocaleString()}`},
                 ];
             case 'House Flip':
+                const totalInvestment = deal.purchasePrice + deal.rehabCost;
                 return [
                     { label: 'Net Profit', value: `$${deal.netProfit?.toFixed(2)}`},
                     { label: 'ROI', value: `${deal.roi?.toFixed(2)}%`},
                     { label: 'ARV', value: `$${deal.arv?.toLocaleString()}`},
-                    { label: 'Total Costs', value: `$${(deal.purchasePrice + (deal.rehabCost ?? 0) + (deal.holdingCosts ?? 0) + (deal.sellingCosts ?? 0)).toLocaleString()}`},
-                ];
-            case 'Commercial Multifamily':
-                 return [
-                    { label: 'Cap Rate', value: `${deal.capRate?.toFixed(2)}%`},
-                    { label: 'NOI', value: `$${deal.noi?.toLocaleString()}`},
-                    { label: 'Purchase Price', value: `$${deal.purchasePrice.toLocaleString()}`},
+                    { label: 'Total Investment', value: `$${totalInvestment.toLocaleString()}`},
                 ];
             default:
                 return [];
         }
     }, [deal]);
+
+    const proFormaData = useMemo(() => deal ? calculateProForma(deal) : [], [deal]);
     
     const handleStatusChange = (status: DealStatus) => {
         if (!dealRef) return;
@@ -120,7 +174,7 @@ export default function DealDetailPage() {
             text: newComment,
             author: user?.displayName || 'Anonymous',
             createdAt: serverTimestamp(),
-        });
+        }).catch(error => { console.error("Error adding comment: ", error) });
         setNewComment('');
         toast({ title: 'Comment Posted' });
     };
@@ -134,7 +188,7 @@ export default function DealDetailPage() {
 
     if (isDealLoading) {
         return (
-            <div className="max-w-4xl mx-auto p-6 space-y-6">
+            <div className="max-w-6xl mx-auto p-6 space-y-6">
                 <Skeleton className="h-10 w-3/4" />
                 <Skeleton className="h-6 w-1/2" />
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -212,6 +266,18 @@ export default function DealDetailPage() {
                                     <p className="text-2xl font-bold">{metric.value}</p>
                                 </div>
                             ))}
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Pro Forma (10-Year Projection)</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {proFormaData.length > 0 ? (
+                                <ProFormaTable data={proFormaData} />
+                            ) : (
+                                <p className="text-sm text-muted-foreground">Pro forma data not available for this deal type.</p>
+                            )}
                         </CardContent>
                     </Card>
                      <Card>

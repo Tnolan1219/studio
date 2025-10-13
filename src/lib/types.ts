@@ -21,31 +21,49 @@ export type DealComment = {
 
 export type Deal = {
     id: string;
+    userId: string;
     dealName: string;
     dealType: 'Rental Property' | 'House Flip' | 'Commercial Multifamily';
+    createdAt: Timestamp;
+    
+    // Purchase & Loan
+    purchasePrice: number;
+    closingCosts: number;
+    rehabCost: number;
+    arv: number;
+    downPayment: number;
+    loanTerm: number;
+    interestRate: number;
+    
+    // Income
+    grossMonthlyIncome: number;
+    
+    // Expenses
+    propertyTaxes: number;
+    insurance: number;
+    repairsAndMaintenance: number;
+    vacancy: number;
+    capitalExpenditures: number;
+    managementFee: number;
+    otherExpenses: number;
+
+    // Projections
+    annualIncomeGrowth: number;
+    annualExpenseGrowth: number;
+    annualAppreciation: number;
+    holdingLength: number; // For flips
+    sellingCosts: number;
+
+    // Calculated Metrics
     monthlyCashFlow?: number;
     cocReturn?: number;
-    purchasePrice: number;
-    createdAt: Timestamp | string; // Support both server and client-side representations
-    // Rental fields
-    downPayment?: number;
-    interestRate?: number;
-    loanTerm?: number;
-    monthlyIncome?: number;
-    monthlyExpenses?: number;
-    // Flip fields
-    arv?: number;
-    rehabCost?: number;
-    holdingCosts?: number;
-    sellingCosts?: number;
-    netProfit?: number;
-    roi?: number;
-    // Commercial fields
     noi?: number;
     capRate?: number;
-    // Common fields
+    roi?: number;
+    netProfit?: number;
+
+    // Deal Management
     marketConditions: string;
-    userId: string;
     status: DealStatus;
     isPublished: boolean;
     investorNotes?: string;
@@ -62,3 +80,17 @@ export type FaqItem = {
     question: string;
     answer: string;
 };
+
+export type ProFormaEntry = {
+    year: number;
+    grossPotentialRent: number;
+    vacancyLoss: number;
+    effectiveGrossIncome: number;
+    operatingExpenses: number;
+    noi: number;
+    debtService: number;
+    cashFlowBeforeTax: number;
+    propertyValue: number;
+    loanBalance: number;
+    equity: number;
+}
