@@ -9,7 +9,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground bg-gradient-to-r from-primary to-secondary hover:from-secondary hover:to-primary",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
@@ -49,9 +49,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {children}
-        <span className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-10 group-active:opacity-20 transition-opacity duration-300"></span>
-        <span className="absolute inset-0 scale-0 rounded-full bg-white/30 opacity-0 group-active:scale-100 group-active:opacity-100 transition-transform duration-500 ease-out"></span>
-
       </Comp>
     )
   }
