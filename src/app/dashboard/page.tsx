@@ -41,12 +41,12 @@ export default function DashboardPage() {
       variant={activeTab === value ? 'default' : 'ghost'}
       size="lg"
       className={cn(
-        "flex-col h-16 w-20 rounded-2xl",
+        "flex-col h-14 w-20 rounded-2xl",
         activeTab === value ? "text-primary-foreground" : "text-muted-foreground"
       )}
       onClick={() => setActiveTab(value)}
     >
-      <Icon className="h-6 w-6 mb-1" />
+      <Icon className="h-5 w-5 mb-1" />
       <span className="text-xs font-semibold">{label}</span>
     </Button>
   );
@@ -54,14 +54,14 @@ export default function DashboardPage() {
   return (
     <div className="flex min-h-screen w-full flex-col">
       <Header />
-      <main className="flex-1 p-6 md:p-12 bg-transparent pb-32">
+      <main className="flex-1 p-6 md:p-12 bg-transparent pb-24">
         {activeTab === 'home' && <HomeTab />}
         {activeTab === 'analyze' && <AnalyzeTab />}
         {activeTab === 'deals' && <DealsTab />}
         {activeTab === 'profile' && <ProfileTab />}
       </main>
       <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="flex justify-evenly items-center h-20 max-w-md mx-auto">
+          <div className="flex justify-evenly items-center h-16 max-w-md mx-auto">
               <TabButton value="home" label="Home" icon={HomeIcon} />
               <TabButton value="analyze" label="Analyze" icon={BarChart2} />
               <TabButton value="deals" label="Deals" icon={Briefcase} />
