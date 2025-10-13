@@ -41,7 +41,7 @@ export default function DashboardPage() {
       variant={activeTab === value ? 'default' : 'ghost'}
       size="icon"
       className={cn(
-        "flex flex-col h-16 w-16 rounded-full transition-all duration-300",
+        "flex flex-col h-14 w-14 rounded-full transition-all duration-300",
         activeTab === value 
           ? "text-primary-foreground scale-110 shadow-lg shadow-primary/40" 
           : "text-muted-foreground"
@@ -64,7 +64,7 @@ export default function DashboardPage() {
       </main>
       <footer className="fixed bottom-0 left-0 right-0 z-50 h-24 pointer-events-none">
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto">
-            <div className="flex items-center gap-2 rounded-full bg-card/60 p-2 shadow-lg backdrop-blur-lg border border-border/20">
+            <div className="flex items-center gap-2 rounded-full bg-card/60 p-1 shadow-lg backdrop-blur-lg border border-border/20">
               <TabButton value="home" label="Home" icon={HomeIcon} />
               <TabButton value="analyze" label="Analyze" icon={BarChart2} />
               <TabButton value="deals" label="Deals" icon={Briefcase} />
