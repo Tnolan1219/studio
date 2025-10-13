@@ -23,6 +23,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building, DollarSign, BarChart2, TrendingUp, Handshake, Bot, TestTube2, Percent, Trash2, Plus, Info, Sparkles, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -90,6 +97,9 @@ const formSchema = z.object({
 });
 
 type FormData = z.infer<typeof formSchema>;
+type SensitivityVariable = 'vacancyRate' | 'purchasePrice' | 'annualIncomeGrowth' | 'exitCapRate';
+type SensitivityMetric = 'irr' | 'cocReturn' | 'equityMultiple' | 'monthlyCashFlow';
+
 
 // Simplified IRR calculation using Newton-Raphson method
 function calculateIRR(cashflows: number[], guess = 0.1) {
@@ -116,13 +126,14 @@ function calculateIRR(cashflows: number[], guess = 0.1) {
 }
 
 
-const calculateProForma = (values: FormData): ProFormaEntry[] => {
+const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormData> = {}): ProFormaEntry[] => {
     const proForma: ProFormaEntry[] = [];
+    const combinedValues = { ...values, ...sensitivityOverrides };
     const {
         purchasePrice, rehabCost = 0, closingCosts = 0, downPayment, interestRate, loanTerm,
         unitMix, otherIncomes, operatingExpenses, vacancyRate,
         annualIncomeGrowth, annualExpenseGrowth, annualAppreciation
-    } = values;
+    } = combinedValues;
 
     if (!purchasePrice || !downPayment || !loanTerm) return [];
 
@@ -226,6 +237,10 @@ export default function AdvancedCommercialCalculator() {
   
   const [isPending, startTransition] = useTransition();
   const [isSaving, setIsSaving] = useState(false);
+  const [sensitivityVar1, setSensitivityVar1] = useState<SensitivityVariable>('vacancyRate');
+  const [sensitivityVar2, setSensitivityVar2] = useState<SensitivityVariable>('exitCapRate');
+  const [sensitivityMetric, setSensitivityMetric] = useState<SensitivityMetric>('irr');
+
 
    const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -332,57 +347,77 @@ export default function AdvancedCommercialCalculator() {
           equityMultiple = totalCashInvested > 0 ? totalCashReturned / totalCashInvested : 0;
       }
       
-       // Sensitivity Analysis
-      const sensitivityRanges = {
-        vacancyRate: [-2, -1, 0, 1, 2],
-        exitCapRate: [-0.5, -0.25, 0, 0.25, 0.5]
-      };
+        const SENSITIVITY_RANGES = {
+            purchasePrice: (v: number) => [-v * 0.1, -v * 0.05, 0, v * 0.05, v * 0.1],
+            vacancyRate: [-2, -1, 0, 1, 2],
+            annualIncomeGrowth: [-1, -0.5, 0, 0.5, 1],
+            exitCapRate: [-0.5, -0.25, 0, 0.25, 0.5],
+        };
 
-      const sensitivityData = [];
+        const getRange = (variable: SensitivityVariable, baseValue: number) => {
+            if (variable === 'exitCapRate') return SENSITIVITY_RANGES.exitCapRate;
+            return SENSITIVITY_RANGES[variable](baseValue);
+        };
+        
+        const var1Range = getRange(sensitivityVar1, watchedValues[sensitivityVar1] || 0);
+        const var2Range = getRange(sensitivityVar2, watchedValues[sensitivityVar2] || 0);
 
-      for(const vacancyModifier of sensitivityRanges.vacancyRate) {
-        for(const capRateModifier of sensitivityRanges.exitCapRate) {
-          const modifiedValues = {...watchedValues, vacancyRate: watchedValues.vacancyRate + vacancyModifier};
-          const tempProForma = calculateProForma(modifiedValues);
-          
-          let tempIrr = NaN;
-          let tempTotalCashFlow = 0;
-          
-          if(tempProForma.length >= holdingLength) {
-            const exitEntry = tempProForma[holdingLength - 1];
-            const exitNOI = exitEntry.noi * (1 + modifiedValues.annualIncomeGrowth / 100);
-            const exitCap = (capRate/100) + (capRateModifier/100);
-            const salePrice = exitNOI / exitCap;
-            const saleCostsVal = salePrice * (modifiedValues.sellingCosts / 100);
-            const proceeds = salePrice - saleCostsVal - exitEntry.loanBalance;
+        const tableData = var1Range.map(mod1 => {
+            const row: Record<string, any> = {};
+            var2Range.forEach(mod2 => {
+                const overrides: Partial<FormData> & { exitCapRateModifier?: number } = {};
+                if (sensitivityVar1 === 'exitCapRate') overrides.exitCapRateModifier = mod1; else overrides[sensitivityVar1] = watchedValues[sensitivityVar1] + mod1;
+                if (sensitivityVar2 === 'exitCapRate') overrides.exitCapRateModifier = mod2; else overrides[sensitivityVar2] = watchedValues[sensitivityVar2] + mod2;
 
-            const cashflows = [-totalCashInvested];
-            for (let i = 0; i < holdingLength; i++) {
-              cashflows.push(tempProForma[i].cashFlowBeforeTax);
-            }
-            cashflows[holdingLength] += proceeds - tempProForma[holdingLength -1].cashFlowBeforeTax; // add net proceeds to final cashflow
-            
-            tempIrr = calculateIRR(cashflows) * 100;
-            tempTotalCashFlow = tempProForma.slice(0, holdingLength).reduce((sum, cf) => sum + cf.cashFlowBeforeTax, 0) + proceeds;
-          }
+                const tempProForma = calculateProForma(watchedValues, overrides);
+                
+                const y1 = tempProForma[0] || {};
+                const tInvestment = (overrides.downPayment || downPayment) + (closingCosts/100 * (overrides.purchasePrice || purchasePrice)) + (overrides.rehabCost || rehabCost);
+                const mCashFlow = (y1.cashFlowBeforeTax || 0) / 12;
+                const cReturn = tInvestment > 0 ? ((y1.cashFlowBeforeTax || 0) / tInvestment) * 100 : 0;
+                
+                let eMultiple = 0;
+                let irr = NaN;
 
-          sensitivityData.push({
-            id: `v${vacancyModifier}-c${capRateModifier}`,
-            vacancy: `${modifiedValues.vacancyRate.toFixed(2)}%`,
-            exitCap: `${((capRate) + capRateModifier).toFixed(2)}%`,
-            irr: tempIrr,
-            totalCashFlow: tempTotalCashFlow,
-          });
-        }
-      }
+                if (tempProForma.length >= holdingLength) {
+                    const exitEntry = tempProForma[holdingLength - 1];
+                    const exitNOI = exitEntry.noi * (1 + (overrides.annualIncomeGrowth || watchedValues.annualIncomeGrowth) / 100);
+                    const exitCap = (capRate / 100) + ((overrides.exitCapRateModifier || 0) / 100);
 
+                    const sPrice = exitNOI / exitCap;
+                    const sCosts = sPrice * (sellingCosts / 100);
+                    const proceeds = sPrice - sCosts - exitEntry.loanBalance;
+
+                    const cashflows = [-tInvestment];
+                    for (let i = 0; i < holdingLength - 1; i++) cashflows.push(tempProForma[i].cashFlowBeforeTax);
+                    cashflows.push(tempProForma[holdingLength - 1].cashFlowBeforeTax + proceeds);
+                    
+                    irr = calculateIRR(cashflows) * 100;
+                    const totalReturned = tempProForma.slice(0, holdingLength).reduce((s, e) => s + e.cashFlowBeforeTax, 0) + proceeds;
+                    eMultiple = tInvestment > 0 ? totalReturned / tInvestment : 0;
+                }
+
+                let outputValue: number;
+                switch(sensitivityMetric) {
+                    case 'irr': outputValue = irr; break;
+                    case 'equityMultiple': outputValue = eMultiple; break;
+                    case 'cocReturn': outputValue = cReturn; break;
+                    case 'monthlyCashFlow': outputValue = mCashFlow; break;
+                    default: outputValue = NaN;
+                }
+                
+                row[watchedValues[sensitivityVar2] + mod2] = outputValue;
+            });
+            row.label = watchedValues[sensitivityVar1] + mod1;
+            return row;
+        });
 
       return {
           monthlyCashFlow, cocReturn, capRate, noi, chartData: cashFlowChartData, proFormaData: proForma,
           unleveredIRR, equityMultiple, netSaleProceeds, totalCashInvested,
-          sensitivityData,
+          sensitivityData: { tableData, var1Range, var2Range },
       };
-  }, [watchedValues]);
+  }, [watchedValues, sensitivityVar1, sensitivityVar2, sensitivityMetric]);
 
   const handleSaveDeal = async () => {
     if (!user) {
@@ -408,6 +443,8 @@ export default function AdvancedCommercialCalculator() {
       cocReturn: parseFloat(cocReturn.toFixed(2)),
       noi: parseFloat(noi.toFixed(2)),
       capRate: parseFloat(capRate.toFixed(2)),
+      roi: parseFloat(unleveredIRR.toFixed(2)),
+      netProfit: parseFloat(netSaleProceeds.toFixed(2)),
       userId: user.uid,
       createdAt: serverTimestamp(),
       status: 'In Works',
@@ -421,6 +458,36 @@ export default function AdvancedCommercialCalculator() {
     toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
     setIsSaving(false);
   };
+  
+    const SENSITIVITY_OPTIONS: { value: SensitivityVariable, label: string, format: (v: number) => string }[] = [
+        { value: 'vacancyRate', label: 'Vacancy Rate', format: v => `${v.toFixed(1)}%` },
+        { value: 'purchasePrice', label: 'Purchase Price', format: v => `$${(v/1000).toFixed(0)}k` },
+        { value: 'annualIncomeGrowth', label: 'Income Growth', format: v => `${v.toFixed(1)}%` },
+        { value: 'exitCapRate', label: 'Exit Cap Rate', format: v => `${v.toFixed(2)}%` },
+    ];
+
+    const METRIC_OPTIONS: { value: SensitivityMetric, label: string, format: (v: number) => string }[] = [
+        { value: 'irr', label: 'IRR', format: v => `${v.toFixed(2)}%` },
+        { value: 'equityMultiple', label: 'Equity Multiple', format: v => `${v.toFixed(2)}x` },
+        { value: 'cocReturn', label: 'CoC Return (Y1)', format: v => `${v.toFixed(2)}%` },
+        { value: 'monthlyCashFlow', label: 'Cash Flow (Y1, Monthly)', format: v => `$${v.toFixed(0)}` },
+    ];
+    
+    const selectedMetric = METRIC_OPTIONS.find(m => m.value === sensitivityMetric);
+    const allValues = sensitivityData.tableData.flatMap(row => Object.values(row).filter(v => typeof v === 'number' && !isNaN(v))) as number[];
+    const min = Math.min(...allValues);
+    const max = Math.max(...allValues);
+    
+    const getColor = (value: number) => {
+        if (isNaN(value)) return 'bg-muted/20';
+        const range = max - min;
+        if (range === 0) return 'bg-primary/20';
+        const normalized = (value - min) / range;
+        
+        if (normalized > 0.66) return 'bg-green-500/20 text-green-200';
+        if (normalized > 0.33) return 'bg-yellow-500/20 text-yellow-200';
+        return 'bg-red-500/20 text-red-200';
+    };
 
 
   return (
@@ -574,25 +641,63 @@ export default function AdvancedCommercialCalculator() {
                     </TabsContent>
                     <TabsContent value="sensitivity" className="mt-6">
                         <Card>
-                            <CardHeader><CardTitle>Sensitivity Analysis</CardTitle><CardDescription>See how your returns change with different market assumptions.</CardDescription></CardHeader>
+                            <CardHeader>
+                                <CardTitle>Sensitivity Analysis</CardTitle>
+                                <CardDescription>See how your returns change with different market assumptions.</CardDescription>
+                            </CardHeader>
                             <CardContent>
+                                <div className="flex flex-col md:flex-row gap-4 mb-6">
+                                    <div className="flex-1 space-y-2">
+                                        <Label>Vertical Axis (Rows)</Label>
+                                        <Select value={sensitivityVar1} onValueChange={(v) => setSensitivityVar1(v as SensitivityVariable)}>
+                                            <SelectTrigger><SelectValue placeholder="Select Variable" /></SelectTrigger>
+                                            <SelectContent>
+                                                {SENSITIVITY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                     <div className="flex-1 space-y-2">
+                                        <Label>Horizontal Axis (Columns)</Label>
+                                        <Select value={sensitivityVar2} onValueChange={(v) => setSensitivityVar2(v as SensitivityVariable)}>
+                                            <SelectTrigger><SelectValue placeholder="Select Variable" /></SelectTrigger>
+                                            <SelectContent>
+                                                {SENSITIVITY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="flex-1 space-y-2">
+                                        <Label>Output Metric</Label>
+                                        <Select value={sensitivityMetric} onValueChange={(v) => setSensitivityMetric(v as SensitivityMetric)}>
+                                            <SelectTrigger><SelectValue placeholder="Select Metric" /></SelectTrigger>
+                                            <SelectContent>
+                                                {METRIC_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+
                                 <div className="border rounded-lg overflow-hidden">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>Vacancy</TableHead>
-                                            <TableHead>Exit Cap Rate</TableHead>
-                                            <TableHead className="text-right">IRR</TableHead>
-                                            <TableHead className="text-right">Total Cash Flow</TableHead>
+                                            <TableHead className="w-[150px]">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar1)?.label}</TableHead>
+                                            {sensitivityData.var2Range.map((mod, i) => (
+                                                <TableHead key={i} className="text-center">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar2)?.format(watchedValues[sensitivityVar2] + mod)}</TableHead>
+                                            ))}
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {sensitivityData.map(data => (
-                                            <TableRow key={data.id} className={cn(data.vacancy === `${watchedValues.vacancyRate.toFixed(2)}%` && data.exitCap === `${capRate.toFixed(2)}%` && 'bg-primary/10')}>
-                                                <TableCell>{data.vacancy}</TableCell>
-                                                <TableCell>{data.exitCap}</TableCell>
-                                                <TableCell className="text-right font-medium">{isNaN(data.irr) ? 'N/A' : `${data.irr.toFixed(2)}%`}</TableCell>
-                                                <TableCell className="text-right">{data.totalCashFlow.toLocaleString('en-US', {style: 'currency', currency: 'USD', minimumFractionDigits: 0})}</TableCell>
+                                        {sensitivityData.tableData.map((row, rowIndex) => (
+                                            <TableRow key={rowIndex}>
+                                                <TableCell className="font-medium">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar1)?.format(row.label)}</TableCell>
+                                                {Object.keys(row).filter(k => k !== 'label').map((key, colIndex) => {
+                                                    const isCenter = rowIndex === 2 && colIndex === 2;
+                                                    return (
+                                                        <TableCell key={colIndex} className={cn("text-center font-mono", getColor(row[key]), isCenter && 'ring-2 ring-primary ring-inset')}>
+                                                            {selectedMetric ? selectedMetric.format(row[key]) : 'N/A'}
+                                                        </TableCell>
+                                                    );
+                                                })}
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -628,3 +733,5 @@ export default function AdvancedCommercialCalculator() {
     </CardContent>
   );
 }
+
+    
