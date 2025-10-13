@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useActionState, useState, useMemo, useTransition } from 'react';
@@ -37,8 +38,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { useUser, useFirestore } from '@/firebase';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
 import { ProFormaTable } from './pro-forma-table';
@@ -234,11 +234,11 @@ export default function RentalCalculator() {
   }, [watchedValues]);
 
   const handleSaveDeal = async () => {
-    if (!user) {
+    if (!user || !firestore) {
       toast({ title: 'Authentication Required', description: 'Please sign in to save deals.', variant: 'destructive' });
       return;
     }
-    if (user.isAnonymous) {
+     if (user.isAnonymous) {
         toast({ title: 'Guest Mode', description: 'Cannot save deals as a guest. Please create an account.', variant: 'destructive' });
         return;
     }
@@ -263,12 +263,15 @@ export default function RentalCalculator() {
       isPublished: false,
     };
 
-    const dealsCol = collection(firestore, `users/${user.uid}/deals`);
-    addDocumentNonBlocking(dealsCol, dealData).catch(error => {
-        toast({ title: 'Error Saving Deal', description: error.message, variant: 'destructive' });
-    });
-    toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
-    setIsSaving(false);
+    try {
+        await addDoc(collection(firestore, `users/${user.uid}/deals`), dealData);
+        toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
+    } catch (error) {
+        console.error("Error saving deal:", error);
+        toast({ title: 'Error Saving Deal', description: 'Could not save the deal. Please try again.', variant: 'destructive' });
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   return (

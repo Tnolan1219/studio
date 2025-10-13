@@ -27,10 +27,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDoc } from 'firebase/firestore';
 import { doc } from 'firebase/firestore';
 import { useEffect } from "react";
 import { Skeleton } from "../ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters.").optional(),
@@ -76,13 +77,23 @@ export default function ProfileTab() {
     }
   }, [profileData, user, form]);
 
-  function onSubmit(data: ProfileFormValues) {
-    if (!userProfileRef) return;
-    setDocumentNonBlocking(userProfileRef, data, { merge: true });
-    toast({
-      title: "Profile Updated",
-      description: "Your information has been saved successfully.",
-    });
+  async function onSubmit(data: ProfileFormValues) {
+    if (!userProfileRef || !user || user.isAnonymous) return;
+    
+    try {
+        await setDoc(userProfileRef, data, { merge: true });
+        toast({
+          title: "Profile Updated",
+          description: "Your information has been saved successfully.",
+        });
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        toast({
+          title: "Update Failed",
+          description: "Could not save your profile. Please try again.",
+          variant: "destructive",
+        });
+    }
   }
 
   const getInitials = () => {
@@ -93,7 +104,7 @@ export default function ProfileTab() {
     return 'U';
   }
 
-  if (isUserLoading || (user && isProfileLoading)) {
+  if (isUserLoading || (user && !user.isAnonymous && isProfileLoading)) {
     return (
         <div className="animate-fade-in">
             <Card className="bg-card/60 backdrop-blur-sm max-w-4xl mx-auto">
@@ -152,18 +163,31 @@ export default function ProfileTab() {
             <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField name="name" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Full Name</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
+                <FormField name="name" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Full Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                 <FormField name="email" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Email</FormLabel> <FormControl><Input type="email" {...field} disabled /></FormControl> <FormMessage /> </FormItem> )} />
-                <FormField name="country" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Country</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
-                <FormField name="state" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>State</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
+                <FormField name="country" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Country</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                <FormField name="state" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>State</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                 </div>
-                <FormField name="financialGoal" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Financial Goal</FormLabel> <FormControl><Textarea {...field} disabled={user.isAnonymous} /></FormControl> <FormDescription>This helps us tailor your experience and AI insights.</FormDescription> <FormMessage /> </FormItem> )} />
+                <FormField name="financialGoal" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Financial Goal</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription>This helps us tailor your experience and AI insights.</FormDescription> <FormMessage /> </FormItem> )} />
             </CardContent>
             <CardFooter className="flex justify-between items-center">
                 <div className="text-sm text-muted-foreground">
                     <p>Plan: <span className="font-semibold text-primary">{user.isAnonymous ? "Guest" : "Pro"}</span></p>
                 </div>
-                <Button type="submit" disabled={user.isAnonymous || form.formState.isSubmitting}>Save Changes</Button>
+                {user.isAnonymous ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Button type="button" disabled>Save Changes</Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Create an account to save your profile.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <Button type="submit" disabled={form.formState.isSubmitting}>Save Changes</Button>
+                )}
             </CardFooter>
             </form>
         </Form>
@@ -171,5 +195,4 @@ export default function ProfileTab() {
     </div>
   );
 }
-
     

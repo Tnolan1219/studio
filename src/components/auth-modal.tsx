@@ -85,6 +85,13 @@ export function AuthModal({
   const handleSuccessfulLogin = async (user: User) => {
     if (!user || !firestore) return;
 
+    // For guest users, bypass onboarding and go straight to the dashboard.
+    if (user.isAnonymous) {
+      router.push('/dashboard');
+      onOpenChange(false);
+      return;
+    }
+
     const userProfileRef = doc(firestore, 'users', user.uid);
     const userProfileSnap = await getDoc(userProfileRef);
 
@@ -93,13 +100,11 @@ export function AuthModal({
         router.push('/dashboard');
     } else {
         // This is a new user or one who hasn't finished onboarding.
-        if (!user.isAnonymous) {
-            // Pre-populate their profile with basic info, merging with any existing data.
-            await setDoc(userProfileRef, { 
-                name: user.displayName || '', 
-                email: user.email 
-            }, { merge: true });
-        }
+        // Pre-populate their profile with basic info, merging with any existing data.
+        await setDoc(userProfileRef, { 
+            name: user.displayName || '', 
+            email: user.email 
+        }, { merge: true });
         router.push('/onboarding');
     }
     onOpenChange(false);
@@ -277,5 +282,4 @@ export function AuthModal({
     </Dialog>
   );
 }
-
     
