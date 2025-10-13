@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useActionState, useState, useMemo, useTransition } from 'react';
@@ -23,7 +24,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building, DollarSign, BarChart2, TrendingUp, Handshake, Bot, TestTube2, Percent, Trash2, Plus, Info, Sparkles } from 'lucide-react';
+import { Building, DollarSign, BarChart2, TrendingUp, Handshake, Bot, TestTube2, Percent, Trash2, Plus, Info, Sparkles, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
 import { InputWithIcon } from '../ui/input-with-icon';
@@ -45,16 +46,7 @@ import {
   Tooltip,
   CartesianGrid
 } from 'recharts';
-
-const UnderConstruction = ({ tabName }: { tabName: string }) => (
-    <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed rounded-lg bg-muted/20">
-        <div className="text-center p-4">
-            <TestTube2 className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-4 text-lg font-semibold">Feature Under Construction</h3>
-            <p className="mt-2 text-sm text-muted-foreground">The "{tabName}" tab is part of the Advanced Model and is currently in development. It will soon offer in-depth analysis capabilities.</p>
-        </div>
-    </div>
-);
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 
 const unitMixSchema = z.object({
   type: z.string().min(1, "Unit type is required"),
@@ -72,6 +64,7 @@ const formSchema = z.object({
   // Acquisition
   purchasePrice: z.coerce.number().min(1),
   closingCosts: z.coerce.number().min(0),
+  rehabCost: z.coerce.number().optional().default(0),
 
   // Income
   unitMix: z.array(unitMixSchema).min(1, 'At least one unit type is required.'),
@@ -91,12 +84,36 @@ const formSchema = z.object({
   annualExpenseGrowth: z.coerce.number().min(0).max(100),
   annualAppreciation: z.coerce.number().min(0).max(100),
   sellingCosts: z.coerce.number().min(0).max(100),
-  rehabCost: z.coerce.number().optional().default(0),
+  holdingLength: z.coerce.number().int().min(1).max(10),
 
   marketConditions: z.string().min(10, 'Please describe market conditions.'),
 });
 
 type FormData = z.infer<typeof formSchema>;
+
+// Simplified IRR calculation using Newton-Raphson method
+function calculateIRR(cashflows: number[], guess = 0.1) {
+    const maxIterations = 100;
+    const tolerance = 1e-6;
+    let x0 = guess;
+
+    for (let i = 0; i < maxIterations; i++) {
+        let f = 0;
+        let df = 0;
+        for (let t = 0; t < cashflows.length; t++) {
+            f += cashflows[t] / Math.pow(1 + x0, t);
+            if (t !== 0) {
+                df -= (t * cashflows[t]) / Math.pow(1 + x0, t + 1);
+            }
+        }
+        const x1 = x0 - f / df;
+        if (Math.abs(x1 - x0) < tolerance) {
+            return x1;
+        }
+        x0 = x1;
+    }
+    return NaN; // Failed to converge
+}
 
 
 const calculateProForma = (values: FormData): ProFormaEntry[] => {
@@ -191,12 +208,12 @@ export default function AdvancedCommercialCalculator() {
   const tabs = [
     { value: 'overview', label: 'Overview', icon: Building },
     { value: 'income', label: 'Income', icon: DollarSign },
-    { value: 'expenses', label: 'Expenses', icon: DollarSign },
+    { value: 'expenses', label: 'Expenses', icon: Percent },
     { value: 'financing', label: 'Financing', icon: BarChart2 },
     { value: 'projections', label: 'Projections', icon: TrendingUp },
     { value: 'returns', label: 'Returns', icon: Handshake },
-    { value: 'sensitivity', label: 'Sensitivity', icon: TestTube2 },
-    { value: 'detailed_analysis', label: 'Detailed Analysis', icon: Info },
+    { value: 'sensitivity', label: 'Sensitivity', icon: SlidersHorizontal },
+    { value: 'detailed_analysis', label: 'AI Analysis', icon: Sparkles },
   ];
 
    const [state, formAction] = useActionState(getDealAssessment, {
@@ -237,6 +254,7 @@ export default function AdvancedCommercialCalculator() {
       annualExpenseGrowth: 2,
       annualAppreciation: 4,
       sellingCosts: 5,
+      holdingLength: 10,
       marketConditions: 'Analyze this deal using advanced metrics. Consider value-add opportunities by renovating 10 units in Year 2 for a 20% rent premium. What would the IRR and Equity Multiple be over a 10 year hold?',
     },
   });
@@ -266,23 +284,104 @@ export default function AdvancedCommercialCalculator() {
 
   const watchedValues = form.watch();
 
-  const { monthlyCashFlow, cocReturn, capRate, noi, chartData, proFormaData } = useMemo(() => {
-    const { purchasePrice, downPayment, rehabCost = 0, closingCosts = 0 } = watchedValues;
-    const proForma = calculateProForma(watchedValues);
-    const year1 = proForma[0] || {};
-    
-    const totalInvestment = downPayment + (closingCosts/100 * purchasePrice) + rehabCost;
-    const noi = year1.noi || 0;
-    const monthlyCashFlow = (year1.cashFlowBeforeTax || 0) / 12;
-    const cocReturn = totalInvestment > 0 ? ((year1.cashFlowBeforeTax || 0) / totalInvestment) * 100 : 0;
-    const capRate = purchasePrice > 0 ? (noi / purchasePrice) * 100 : 0;
+  const {
+    monthlyCashFlow, cocReturn, capRate, noi, chartData, proFormaData,
+    unleveredIRR, equityMultiple, netSaleProceeds, totalCashInvested,
+    sensitivityData
+  } = useMemo(() => {
+      const { purchasePrice, downPayment, rehabCost = 0, closingCosts = 0, holdingLength, sellingCosts } = watchedValues;
+      const proForma = calculateProForma(watchedValues);
+      
+      const year1 = proForma[0] || {};
+      const totalInvestment = downPayment + (closingCosts/100 * purchasePrice) + rehabCost;
+      const noi = year1.noi || 0;
+      const monthlyCashFlow = (year1.cashFlowBeforeTax || 0) / 12;
+      const cocReturn = totalInvestment > 0 ? ((year1.cashFlowBeforeTax || 0) / totalInvestment) * 100 : 0;
+      const capRate = purchasePrice > 0 ? (noi / purchasePrice) * 100 : 0;
 
-    const cashFlowChartData = proForma.slice(0, 10).map(entry => ({
-      year: `Year ${entry.year}`,
-      cashFlow: parseFloat(entry.cashFlowBeforeTax.toFixed(2))
-    }));
+      const cashFlowChartData = proForma.slice(0, 10).map(entry => ({
+          year: `Year ${entry.year}`,
+          cashFlow: parseFloat(entry.cashFlowBeforeTax.toFixed(2))
+      }));
 
-    return { monthlyCashFlow, cocReturn, capRate, noi, chartData: cashFlowChartData, proFormaData: proForma };
+      // Advanced metrics calculation
+      let unleveredIRR = NaN;
+      let equityMultiple = 0;
+      let netSaleProceeds = 0;
+      let totalCashInvested = downPayment + rehabCost + (purchasePrice * closingCosts/100);
+
+      if (proForma.length >= holdingLength) {
+          const exitYearEntry = proForma[holdingLength - 1];
+          const exitCapRate = capRate / 100; // Simplified assumption
+          const exitNOI = exitYearEntry.noi * (1 + watchedValues.annualExpenseGrowth/100); // Project NOI for year after hold
+          
+          const salePrice = exitNOI / exitCapRate;
+          const saleCosts = salePrice * (sellingCosts / 100);
+          const loanPayoff = exitYearEntry.loanBalance;
+          netSaleProceeds = salePrice - saleCosts - loanPayoff;
+
+          const cashflows = [-totalCashInvested];
+          for (let i = 0; i < holdingLength -1; i++) {
+              cashflows.push(proForma[i].cashFlowBeforeTax);
+          }
+          cashflows.push(proForma[holdingLength - 1].cashFlowBeforeTax + netSaleProceeds);
+          
+          unleveredIRR = calculateIRR(cashflows) * 100;
+
+          const totalCashReturned = proForma.slice(0, holdingLength).reduce((sum, entry) => sum + entry.cashFlowBeforeTax, 0) + netSaleProceeds;
+          equityMultiple = totalCashInvested > 0 ? totalCashReturned / totalCashInvested : 0;
+      }
+      
+       // Sensitivity Analysis
+      const sensitivityRanges = {
+        vacancyRate: [-2, -1, 0, 1, 2],
+        exitCapRate: [-0.5, -0.25, 0, 0.25, 0.5]
+      };
+
+      const sensitivityData = [];
+
+      for(const vacancyModifier of sensitivityRanges.vacancyRate) {
+        for(const capRateModifier of sensitivityRanges.exitCapRate) {
+          const modifiedValues = {...watchedValues, vacancyRate: watchedValues.vacancyRate + vacancyModifier};
+          const tempProForma = calculateProForma(modifiedValues);
+          
+          let tempIrr = NaN;
+          let tempTotalCashFlow = 0;
+          
+          if(tempProForma.length >= holdingLength) {
+            const exitEntry = tempProForma[holdingLength - 1];
+            const exitNOI = exitEntry.noi * (1 + modifiedValues.annualIncomeGrowth / 100);
+            const exitCap = (capRate/100) + (capRateModifier/100);
+            const salePrice = exitNOI / exitCap;
+            const saleCostsVal = salePrice * (modifiedValues.sellingCosts / 100);
+            const proceeds = salePrice - saleCostsVal - exitEntry.loanBalance;
+
+            const cashflows = [-totalCashInvested];
+            for (let i = 0; i < holdingLength; i++) {
+              cashflows.push(tempProForma[i].cashFlowBeforeTax);
+            }
+            cashflows[holdingLength] += proceeds - tempProForma[holdingLength -1].cashFlowBeforeTax; // add net proceeds to final cashflow
+            
+            tempIrr = calculateIRR(cashflows) * 100;
+            tempTotalCashFlow = tempProForma.slice(0, holdingLength).reduce((sum, cf) => sum + cf.cashFlowBeforeTax, 0) + proceeds;
+          }
+
+          sensitivityData.push({
+            id: `v${vacancyModifier}-c${capRateModifier}`,
+            vacancy: `${modifiedValues.vacancyRate.toFixed(2)}%`,
+            exitCap: `${((capRate) + capRateModifier).toFixed(2)}%`,
+            irr: tempIrr,
+            totalCashFlow: tempTotalCashFlow,
+          });
+        }
+      }
+
+
+      return {
+          monthlyCashFlow, cocReturn, capRate, noi, chartData: cashFlowChartData, proFormaData: proForma,
+          unleveredIRR, equityMultiple, netSaleProceeds, totalCashInvested,
+          sensitivityData,
+      };
   }, [watchedValues]);
 
   const handleSaveDeal = async () => {
@@ -327,7 +426,7 @@ export default function AdvancedCommercialCalculator() {
   return (
     <CardContent>
         <p className="text-center text-sm text-muted-foreground mb-4">
-            This multi-tab interface will support detailed, year-by-year cash flow analysis, value-add projects, complex financing, and more.
+            This multi-tab interface supports detailed, year-by-year cash flow analysis, value-add projects, complex financing, and more.
         </p>
         <Form {...form}>
             <form onSubmit={form.handleSubmit(handleAnalyzeWrapper)}>
@@ -358,8 +457,8 @@ export default function AdvancedCommercialCalculator() {
                                 <ResponsiveContainer width="100%" height="100%">
                                     <RechartsBarChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                        <XAxis dataKey="year" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
+                                        <XAxis dataKey="year" stroke="hsl(var(--foreground))" fontSize={12} />
+                                        <YAxis stroke="hsl(var(--foreground))" fontSize={12} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
                                         <Tooltip
                                             cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
                                             contentStyle={{ 
@@ -403,12 +502,14 @@ export default function AdvancedCommercialCalculator() {
 
                     <TabsContent value="expenses" className="mt-6">
                          <Card>
-                            <CardHeader><CardTitle>Operating Expenses</CardTitle></CardHeader>
+                            <CardHeader><CardTitle>Acquisition & Operating Expenses</CardTitle></CardHeader>
                             <CardContent className="space-y-4">
-                                <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Rehab & Initial Costs</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                    <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                    <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Rehab & Initial Costs</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                    <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                </div>
                                 <LineItemInput control={form.control} name="operatingExpenses" formLabel="Recurring Monthly Expenses" fieldLabel="Expense Item" placeholder="e.g., Property Tax, Insurance" icon={<DollarSign size={14}/>} />
                                 <FormField name="vacancyRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Vacancy Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                             </CardContent>
@@ -429,7 +530,8 @@ export default function AdvancedCommercialCalculator() {
                     <TabsContent value="projections" className="mt-6">
                         <Card>
                             <CardHeader><CardTitle>Growth & Exit Assumptions</CardTitle></CardHeader>
-                             <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                             <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                <FormField name="holdingLength" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Holding Length (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                 <FormField name="annualIncomeGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Income Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                 <FormField name="annualExpenseGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Expense Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                 <FormField name="annualAppreciation" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Appreciation</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -438,10 +540,66 @@ export default function AdvancedCommercialCalculator() {
                         </Card>
                     </TabsContent>
                     <TabsContent value="returns" className="mt-6">
-                        <UnderConstruction tabName="Returns & Investor Waterfalls" />
+                        <Card>
+                            <CardHeader><CardTitle>Deal Returns & Profitability</CardTitle></CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div className="p-4 rounded-lg bg-muted">
+                                        <p className="text-sm text-muted-foreground">Unlevered IRR</p>
+                                        <p className="text-2xl font-bold">{unleveredIRR.toFixed(2)}%</p>
+                                        <p className="text-xs text-muted-foreground">Internal Rate of Return</p>
+                                    </div>
+                                    <div className="p-4 rounded-lg bg-muted">
+                                        <p className="text-sm text-muted-foreground">Equity Multiple</p>
+                                        <p className="text-2xl font-bold">{equityMultiple.toFixed(2)}x</p>
+                                        <p className="text-xs text-muted-foreground">Cash Invested vs. Returned</p>
+                                    </div>
+                                     <div className="p-4 rounded-lg bg-muted">
+                                        <p className="text-sm text-muted-foreground">Total Cash Invested</p>
+                                        <p className="text-xl font-bold">${totalCashInvested.toLocaleString()}</p>
+                                    </div>
+                                     <div className="p-4 rounded-lg bg-muted">
+                                        <p className="text-sm text-muted-foreground">Net Sale Proceeds</p>
+                                        <p className="text-xl font-bold">${netSaleProceeds.toLocaleString()}</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold mb-2">Investor Waterfall</h4>
+                                     <div className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-lg bg-muted/20">
+                                        <p className="text-sm text-muted-foreground">Investor waterfall modeling coming soon.</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </TabsContent>
                     <TabsContent value="sensitivity" className="mt-6">
-                        <UnderConstruction tabName="Sensitivity Analysis" />
+                        <Card>
+                            <CardHeader><CardTitle>Sensitivity Analysis</CardTitle><CardDescription>See how your returns change with different market assumptions.</CardDescription></CardHeader>
+                            <CardContent>
+                                <div className="border rounded-lg overflow-hidden">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Vacancy</TableHead>
+                                            <TableHead>Exit Cap Rate</TableHead>
+                                            <TableHead className="text-right">IRR</TableHead>
+                                            <TableHead className="text-right">Total Cash Flow</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {sensitivityData.map(data => (
+                                            <TableRow key={data.id} className={cn(data.vacancy === `${watchedValues.vacancyRate.toFixed(2)}%` && data.exitCap === `${capRate.toFixed(2)}%` && 'bg-primary/10')}>
+                                                <TableCell>{data.vacancy}</TableCell>
+                                                <TableCell>{data.exitCap}</TableCell>
+                                                <TableCell className="text-right font-medium">{isNaN(data.irr) ? 'N/A' : `${data.irr.toFixed(2)}%`}</TableCell>
+                                                <TableCell className="text-right">{data.totalCashFlow.toLocaleString('en-US', {style: 'currency', currency: 'USD', minimumFractionDigits: 0})}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </TabsContent>
                     <TabsContent value="detailed_analysis" className="mt-6">
                         <Card>
