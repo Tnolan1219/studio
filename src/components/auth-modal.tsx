@@ -95,11 +95,12 @@ export function AuthModal({
   };
   
   useEffect(() => {
+    if (!auth) return;
     const unsubscribe = auth.onAuthStateChanged(user => {
       // no-op, just to trigger updates
     }, error => {
         let message = "An unexpected error occurred.";
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
             message = 'Invalid email or password. Please try again.';
         } else if (error.code === 'auth/email-already-in-use') {
             message = 'This email is already registered. Please sign in.';
