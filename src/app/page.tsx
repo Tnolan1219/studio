@@ -10,7 +10,7 @@ export default function LandingPage() {
     <div className="relative flex h-screen w-full flex-col items-center justify-center overflow-hidden">
       <div className="z-10 text-center animate-fade-in">
         <h1 className="text-5xl font-bold font-headline text-foreground">
-          TKN Financial RE
+          Valentor Financial
         </h1>
         <p className="mt-4 text-lg text-muted-foreground">
           Your Real Estate Investment Co-Pilot

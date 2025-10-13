@@ -6,8 +6,8 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { ParticleBackground } from '@/components/particle-background';
 
 export const metadata: Metadata = {
-  title: 'TKN Fi RE Analyzer',
-  description: 'TKN Financial Real Estate Investment Analyzer',
+  title: 'Valentor Financial',
+  description: 'Valentor Financial Real Estate Investment Analyzer',
 };
 
 export default function RootLayout({
