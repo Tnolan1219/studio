@@ -190,7 +190,12 @@ export default function FlipCalculator() {
         </CardDescription>
       </CardHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
+        <form
+          onSubmit={e => {
+            e.preventDefault();
+            form.handleSubmit(onSubmit)();
+          }}
+        >
           <CardContent className="grid md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <FormField
@@ -333,7 +338,7 @@ export default function FlipCalculator() {
                     <BarChart
                       data={chartData}
                       layout="vertical"
-                      margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
+                      margin={{ top: 5, right: 20, left: 30, bottom: 5 }}
                     >
                       <CartesianGrid
                         strokeDasharray="3 3"
@@ -354,7 +359,7 @@ export default function FlipCalculator() {
                       <Tooltip
                         cursor={{ fill: 'hsl(var(--secondary))' }}
                         contentStyle={{
-                          backgroundColor: 'hsl(var(--background))',
+                          backgroundColor: 'hsl(var(--card))',
                           borderColor: 'hsl(var(--border))',
                         }}
                       />
