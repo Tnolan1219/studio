@@ -37,8 +37,14 @@ import {
   Bar,
   CartesianGrid,
 } from "recharts";
+import { useUser, useFirestore, addDocumentNonBlocking } from "@/firebase";
+import { collection, serverTimestamp } from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
+import { InputWithIcon } from "../ui/input-with-icon";
+
 
 const formSchema = z.object({
+  dealName: z.string().min(3, "Please enter a name for the deal."),
   purchasePrice: z.coerce.number().min(0),
   downPayment: z.coerce.number().min(0),
   interestRate: z.coerce.number().min(0).max(100),
@@ -55,12 +61,18 @@ export default function RentalCalculator() {
     message: "",
     assessment: null,
   });
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      dealName: "My Next Rental",
       purchasePrice: 250000,
       downPayment: 50000,
       interestRate: 6.5,
@@ -118,6 +130,45 @@ export default function RentalCalculator() {
     { name: "Cash Flow", value: monthlyCashFlow > 0 ? monthlyCashFlow : 0, fill: "hsl(var(--chart-2))" }
   ];
 
+  const handleSaveDeal = async () => {
+    if (!user) {
+        toast({ title: "Authentication Required", description: "Please sign in to save deals.", variant: "destructive" });
+        return;
+    }
+    if (user.isAnonymous) {
+        toast({ title: "Guest Mode", description: "Cannot save deals as a guest. Please create an account.", variant: "destructive" });
+        return;
+    }
+
+    const isFormValid = await form.trigger();
+    if (!isFormValid) {
+        toast({ title: "Invalid Data", description: "Please fill out all required fields correctly before saving.", variant: "destructive" });
+        return;
+    }
+
+    setIsSaving(true);
+    const dealData = {
+        ...form.getValues(),
+        dealType: "Rental Property",
+        monthlyCashFlow: parseFloat(monthlyCashFlow.toFixed(2)),
+        cocReturn: parseFloat(cocReturn.toFixed(2)),
+        userId: user.uid,
+        createdAt: serverTimestamp(),
+    };
+
+    const dealsCol = collection(firestore, `users/${user.uid}/deals`);
+    addDocumentNonBlocking(dealsCol, dealData)
+        .then(() => {
+            toast({ title: "Deal Saved!", description: `${dealData.dealName} has been added to your portfolio.` });
+            setIsSaving(false);
+        })
+        .catch((e) => {
+            console.error("Error saving deal: ", e);
+            toast({ title: "Error", description: "Could not save the deal. Please try again.", variant: "destructive"});
+            setIsSaving(false);
+        });
+  };
+
 
   return (
     <Card className="bg-card/60 backdrop-blur-sm">
@@ -131,12 +182,13 @@ export default function RentalCalculator() {
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="grid md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-              <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-              <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate (%)</FormLabel> <FormControl><Input type="number" step="0.01" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+              <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Deal Name</FormLabel> <FormControl><Input type="text" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+              <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+              <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+              <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon="%" type="number" step="0.01" iconPosition="right" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
               <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan Term (Years)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-              <FormField name="monthlyIncome" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Total Monthly Income</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-              <FormField name="monthlyExpenses" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Total Monthly Expenses (ex. mortgage)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+              <FormField name="monthlyIncome" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Total Monthly Income</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+              <FormField name="monthlyExpenses" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Total Monthly Expenses (ex. mortgage)</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
               <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Market Conditions</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription>Describe local market trends, appreciation, etc.</FormDescription> <FormMessage /> </FormItem> )} />
             </div>
             
@@ -192,10 +244,12 @@ export default function RentalCalculator() {
             </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading || isSaving}>
               {isLoading ? "Analyzing..." : "Analyze Deal"}
             </Button>
-            <Button variant="secondary" disabled={isLoading}>Save Deal</Button>
+            <Button variant="secondary" onClick={handleSaveDeal} disabled={isLoading || isSaving}>
+              {isSaving ? "Saving..." : "Save Deal"}
+            </Button>
           </CardFooter>
         </form>
       </Form>

@@ -1,28 +1,30 @@
-export type User = {
-    uid: string;
-    name: string;
-    email: string;
-    country: string;
-    state: string;
-    plan: 'Free' | 'Pro' | 'Executive';
-    dealCount: number;
-    nickname: string;
-    dutyStation: string;
-    rank: string;
-    branch: string;
-    financialGoal: string;
-    avatarUrl: string;
+import { Timestamp } from "firebase/firestore";
+
+export type UserProfile = {
+    id?: string;
+    name?: string;
+    email?: string;
+    country?: string;
+    state?: string;
+    financialGoal?: string;
 };
 
 export type Deal = {
     id: string;
-    name: string;
-    type: 'Rental' | 'Flip' | 'Commercial';
+    dealName: string;
+    dealType: 'Rental Property' | 'House Flip' | 'Commercial Multifamily';
     monthlyCashFlow: number;
     cocReturn: number;
     purchasePrice: number;
-    profitability: 'high' | 'medium' | 'low';
-    createdAt: string;
+    createdAt: Timestamp | string; // Support both server and client-side representations
+    // All other form fields from RentalCalculator
+    downPayment: number;
+    interestRate: number;
+    loanTerm: number;
+    monthlyIncome: number;
+    monthlyExpenses: number;
+    marketConditions: string;
+    userId: string;
 };
 
 export type Testimonial = {

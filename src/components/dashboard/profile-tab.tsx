@@ -25,17 +25,17 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { useUser } from "@/firebase";
+import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { doc } from 'firebase/firestore';
+import { useEffect } from "react";
+import { Skeleton } from "../ui/skeleton";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters.").optional(),
   email: z.string().email(),
-  nickname: z.string().min(1, "Nickname is required.").optional(),
   country: z.string().optional(),
   state: z.string().optional(),
-  dutyStation: z.string().optional(),
-  rank: z.string().optional(),
-  branch: z.string().optional(),
   financialGoal: z.string().min(10, "Financial goal must be at least 10 characters.").optional(),
 });
 
@@ -43,20 +43,41 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export default function ProfileTab() {
   const { toast } = useToast();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: profileData, isLoading: isProfileLoading } = useDoc<ProfileFormValues>(userProfileRef);
   
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
-    defaultValues: {
-      name: user?.displayName || "",
-      email: user?.email || "",
-      nickname: user?.displayName || "",
-    },
     mode: "onChange",
   });
 
+  useEffect(() => {
+    if (profileData) {
+      form.reset({
+        name: profileData.name || user?.displayName || '',
+        email: profileData.email || user?.email || '',
+        country: profileData.country || '',
+        state: profileData.state || '',
+        financialGoal: profileData.financialGoal || ''
+      });
+    } else if (user) {
+       form.reset({
+        name: user.displayName || "",
+        email: user.email || "",
+       });
+    }
+  }, [profileData, user, form]);
+
   function onSubmit(data: ProfileFormValues) {
-    console.log(data);
+    if (!userProfileRef) return;
+    setDocumentNonBlocking(userProfileRef, data, { merge: true });
     toast({
       title: "Profile Updated",
       description: "Your information has been saved successfully.",
@@ -71,10 +92,45 @@ export default function ProfileTab() {
     return 'U';
   }
 
-  if (!user) {
-    return null; // Or a loading state
+  if (isUserLoading || (user && isProfileLoading)) {
+    return (
+        <div className="animate-fade-in">
+            <Card className="bg-card/60 backdrop-blur-sm max-w-4xl mx-auto">
+                <CardHeader>
+                    <div className="flex items-center gap-4">
+                        <Skeleton className="h-20 w-20 rounded-full" />
+                        <div>
+                            <Skeleton className="h-8 w-48" />
+                            <Skeleton className="h-4 w-64 mt-2" />
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {[...Array(4)].map((_, i) => (
+                           <div key={i} className="space-y-2">
+                             <Skeleton className="h-4 w-24" />
+                             <Skeleton className="h-10 w-full" />
+                           </div>
+                        ))}
+                    </div>
+                    <div className="space-y-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-20 w-full" />
+                    </div>
+                </CardContent>
+                 <CardFooter className="flex justify-between items-center">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-10 w-32" />
+                </CardFooter>
+            </Card>
+        </div>
+    )
   }
 
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="animate-fade-in">
@@ -96,11 +152,7 @@ export default function ProfileTab() {
             <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField name="name" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Full Name</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
-                <FormField name="nickname" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Nickname</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
                 <FormField name="email" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Email</FormLabel> <FormControl><Input type="email" {...field} disabled /></FormControl> <FormMessage /> </FormItem> )} />
-                <FormField name="rank" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Rank</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
-                <FormField name="branch" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Branch</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
-                <FormField name="dutyStation" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Duty Station</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
                 <FormField name="country" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Country</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
                 <FormField name="state" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>State</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
                 </div>
@@ -110,7 +162,7 @@ export default function ProfileTab() {
                 <div className="text-sm text-muted-foreground">
                     <p>Plan: <span className="font-semibold text-primary">{user.isAnonymous ? "Guest" : "Pro"}</span></p>
                 </div>
-                <Button type="submit" disabled={user.isAnonymous}>Save Changes</Button>
+                <Button type="submit" disabled={user.isAnonymous || form.formState.isSubmitting}>Save Changes</Button>
             </CardFooter>
             </form>
         </Form>
