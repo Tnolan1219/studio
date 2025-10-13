@@ -10,8 +10,8 @@
     --card-foreground: 224 71.4% 4.1%;
     --popover: 0 0% 100%;
     --popover-foreground: 224 71.4% 4.1%;
-    --primary: 184 100% 50%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 185 100% 50%;
+    --primary-foreground: 185 0% 0%;
     --secondary: 235 89% 74%;
     --secondary-foreground: 210 40% 98%;
     --muted: 210 40% 96.1%;
@@ -24,9 +24,9 @@
     --warning: 45 96% 56%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 184 100% 50%;
+    --ring: 185 100% 50%;
     --radius: 0.5rem;
-    --chart-1: 184 90% 45%;
+    --chart-1: 185 90% 45%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
@@ -34,7 +34,7 @@
   }
 
   .dark {
-    --background: 0 0% 0%;
+    --background: 222 89% 6%;
     --foreground: 0 0% 98%;
     --card: 220 13% 9%;
     --card-foreground: 0 0% 98%;
@@ -69,6 +69,12 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  .dark {
+     background: radial-gradient(circle at 0% 0%, hsl(var(--primary) / 0.15), transparent 30%), #05080E;
+  }
+  .font-headline {
+    color: hsl(var(--primary));
   }
 }
 
