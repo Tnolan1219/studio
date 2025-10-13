@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import { 
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword, 
@@ -15,8 +15,8 @@ import {
     GoogleAuthProvider,
     type User
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { useFirestore, setDocumentNonBlocking } from '@/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+
 
 import {
   Dialog,
@@ -84,24 +84,23 @@ export function AuthModal({
 
   const handleSuccessfulLogin = async (user: User) => {
     if (!user || !firestore) return;
-    
-    // Check if user has completed onboarding
+
     const userProfileRef = doc(firestore, 'users', user.uid);
     const userProfileSnap = await getDoc(userProfileRef);
 
-    if (!userProfileSnap.exists() || !userProfileSnap.data()?.isOnboardingComplete) {
-      // This is a new user or one who hasn't finished onboarding
-      if (!user.isAnonymous) {
-        // Pre-populate their profile with basic info
-        await setDocumentNonBlocking(userProfileRef, { 
-          name: user.displayName || '', 
-          email: user.email 
-        }, { merge: true });
-      }
-      router.push('/onboarding');
+    if (userProfileSnap.exists() && userProfileSnap.data()?.isOnboardingComplete) {
+        // This is an existing user who has completed onboarding.
+        router.push('/dashboard');
     } else {
-      // Existing user who has completed onboarding
-      router.push('/dashboard');
+        // This is a new user or one who hasn't finished onboarding.
+        if (!user.isAnonymous) {
+            // Pre-populate their profile with basic info, merging with any existing data.
+            await setDoc(userProfileRef, { 
+                name: user.displayName || '', 
+                email: user.email 
+            }, { merge: true });
+        }
+        router.push('/onboarding');
     }
     onOpenChange(false);
   };
@@ -278,5 +277,3 @@ export function AuthModal({
     </Dialog>
   );
 }
-
-    
