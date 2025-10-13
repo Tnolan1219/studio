@@ -73,6 +73,8 @@ const formSchema = z.object({
   annualAppreciation: z.coerce.number().min(0).max(100),
   sellingCosts: z.coerce.number().min(0).max(100),
   marketConditions: z.string().min(10, 'Please describe market conditions.'),
+  rehabCost: z.coerce.number().optional().default(0),
+  closingCosts: z.coerce.number().optional().default(0),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -83,7 +85,7 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
         purchasePrice, rehabCost = 0, closingCosts = 0, downPayment, interestRate, loanTerm,
         unitMix, otherIncomes, operatingExpenses, vacancyRate,
         annualIncomeGrowth, annualExpenseGrowth, annualAppreciation
-    } = values as any; // Use any to bypass strict type checking for properties not in FormData
+    } = values;
 
     const loanAmount = purchasePrice + rehabCost + closingCosts - downPayment;
     const monthlyInterestRate = interestRate / 100 / 12;
@@ -338,21 +340,21 @@ export default function CommercialCalculator() {
                                 <LineItemInput control={form.control} name="otherIncomes" formLabel="Other Income" fieldLabel="Income Source" placeholder="e.g., Laundry, Parking" icon={<DollarSign size={14}/>} />
                             </CardContent>
                         </Card>
+                         <Card>
+                            <CardHeader><CardTitle className="text-lg">Expenses</CardTitle></CardHeader>
+                            <CardContent className="space-y-4">
+                                <LineItemInput control={form.control} name="operatingExpenses" formLabel="Operating Expenses" fieldLabel="Expense Item" placeholder="e.g., Property Tax, Insurance" icon={<DollarSign size={14}/>} />
+                                <FormField name="vacancyRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Vacancy Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                            </CardContent>
+                        </Card>
+                    </div>
+                    <div className="space-y-6">
                         <Card>
                             <CardHeader><CardTitle className="text-lg">Financing</CardTitle></CardHeader>
                             <CardContent className="grid grid-cols-3 gap-4">
                                 <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                 <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                 <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Amort. (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                            </CardContent>
-                        </Card>
-                    </div>
-                    <div className="space-y-6">
-                        <Card>
-                            <CardHeader><CardTitle className="text-lg">Expenses</CardTitle></CardHeader>
-                            <CardContent className="space-y-4">
-                                <LineItemInput control={form.control} name="operatingExpenses" formLabel="Operating Expenses" fieldLabel="Expense Item" placeholder="e.g., Property Tax, Insurance" icon={<DollarSign size={14}/>} />
-                                <FormField name="vacancyRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Vacancy Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                             </CardContent>
                         </Card>
                         <Card>
@@ -408,7 +410,7 @@ export default function CommercialCalculator() {
                     {isPending ? (
                         <div className="space-y-2 mt-4"> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-3/4" /> </div>
                     ) : state.assessment ? (
-                        <div className="text-sm text-muted-foreground mt-4 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: state.assessment }} />
+                        <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: state.assessment }} />
                     ) : (
                         <p className="text-sm text-muted-foreground mt-4"> Click "Run Analysis" to get an AI-powered assessment. </p>
                     )}
