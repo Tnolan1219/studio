@@ -7,7 +7,7 @@ import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser } from '@/firebase';
 import { initiateEmailSignUp, initiateEmailSignIn, initiateAnonymousSignIn, initiateGoogleSignIn } from '@/firebase/non-blocking-login';
-import { doc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { useFirestore, setDocumentNonBlocking } from '@/firebase';
 
 import {
@@ -31,6 +31,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Terminal } from 'lucide-react';
+import { getAuth, onIdTokenChanged, type User } from 'firebase/auth';
 
 const signUpSchema = z
   .object({
@@ -75,18 +76,38 @@ export function AuthModal({
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user && !isUserLoading && isOpen) {
-      if (!user.isAnonymous) {
-        const userRef = doc(firestore, 'users', user.uid);
-        setDocumentNonBlocking(userRef, { 
-          name: user.displayName, 
-          email: user.email 
-        }, { merge: true });
-      }
+    if (!isOpen || !auth || !firestore) return;
+  
+    const handleUser = async (user: User | null) => {
+      if (!user) return;
       onOpenChange(false);
-      router.push('/dashboard');
-    }
-  }, [user, isUserLoading, router, onOpenChange, firestore, isOpen]);
+  
+      // Check if user has completed onboarding
+      const userProfileRef = doc(firestore, 'users', user.uid);
+      const userProfileSnap = await getDoc(userProfileRef);
+  
+      if (!userProfileSnap.exists() || !userProfileSnap.data()?.isOnboardingComplete) {
+        // This is a new user or one who hasn't finished onboarding
+        if (!user.isAnonymous) {
+          // Pre-populate their profile with basic info
+          await setDocumentNonBlocking(userProfileRef, { 
+            name: user.displayName || '', 
+            email: user.email 
+          }, { merge: true });
+        }
+        router.push('/onboarding');
+      } else {
+        // Existing user who has completed onboarding
+        router.push('/dashboard');
+      }
+    };
+  
+    const unsubscribe = onIdTokenChanged(auth, handleUser);
+    
+    // Clean up the subscription
+    return () => unsubscribe();
+  
+  }, [isOpen, user, auth, firestore, onOpenChange, router]);
 
   const signUpForm = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
@@ -113,9 +134,11 @@ export function AuthModal({
     initiateGoogleSignIn(auth);
   };
 
-  const handleAnonymousSignIn = () => {
+  const handleAnonymousSignIn = async () => {
     setAuthError(null);
-    initiateAnonymousSignIn(auth);
+    await initiateAnonymousSignIn(auth);
+    onOpenChange(false);
+    router.push('/dashboard');
   };
   
   useEffect(() => {
@@ -236,5 +259,3 @@ export function AuthModal({
     </Dialog>
   );
 }
-
-    
