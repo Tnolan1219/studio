@@ -43,12 +43,18 @@ const ParticleBackground = () => {
 
 export default function LandingPage() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [showParticles, setShowParticles] = useState(false);
+
+  useEffect(() => {
+    // This ensures that the particles are only rendered on the client side, preventing hydration errors.
+    setShowParticles(true);
+  }, []);
 
   return (
-    <div className="relative flex h-screen w-full flex-col items-center justify-center bg-black overflow-hidden">
-      <ParticleBackground />
+    <div className="relative flex h-screen w-full flex-col items-center justify-center bg-background overflow-hidden">
+      {showParticles && <ParticleBackground />}
       <div className="z-10 text-center animate-fade-in">
-        <h1 className="text-5xl font-bold font-headline text-white">
+        <h1 className="text-5xl font-bold font-headline text-foreground">
           TKN Financial RE
         </h1>
         <p className="mt-4 text-lg text-muted-foreground">
