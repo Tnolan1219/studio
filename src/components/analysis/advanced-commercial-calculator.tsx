@@ -22,17 +22,18 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building, DollarSign, BarChart2, TrendingUp, Handshake, Bot, TestTube2, Percent, Trash2, Plus } from 'lucide-react';
+import { Building, DollarSign, BarChart2, TrendingUp, Handshake, Bot, TestTube2, Percent, Trash2, Plus, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
 import { InputWithIcon } from '../ui/input-with-icon';
 import { Button } from '../ui/button';
 
 const UnderConstruction = ({ tabName }: { tabName: string }) => (
-    <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed rounded-lg">
-        <div className="text-center">
-            <h3 className="text-lg font-semibold">Under Construction</h3>
-            <p className="text-sm text-muted-foreground">The "{tabName}" tab for the Advanced Model is coming soon.</p>
+    <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed rounded-lg bg-muted/20">
+        <div className="text-center p-4">
+            <TestTube2 className="mx-auto h-12 w-12 text-muted-foreground" />
+            <h3 className="mt-4 text-lg font-semibold">Feature Under Construction</h3>
+            <p className="mt-2 text-sm text-muted-foreground">The "{tabName}" tab is part of the Advanced Model and is currently in development. It will soon offer in-depth analysis capabilities.</p>
         </div>
     </div>
 );
@@ -103,6 +104,7 @@ export default function AdvancedCommercialCalculator() {
     { value: 'projections', label: 'Projections', icon: TrendingUp },
     { value: 'returns', label: 'Returns', icon: Handshake },
     { value: 'sensitivity', label: 'Sensitivity', icon: TestTube2 },
+    { value: 'detailed_analysis', label: 'Detailed Analysis', icon: Info },
   ];
 
    const form = useForm<FormData>({
@@ -142,12 +144,12 @@ export default function AdvancedCommercialCalculator() {
   return (
     <CardContent>
         <p className="text-center text-sm text-muted-foreground mb-4">
-            The full-featured Advanced Model is in development. This multi-tab interface will support detailed, year-by-year cash flow analysis, value-add projects, complex financing, and more.
+            This multi-tab interface will support detailed, year-by-year cash flow analysis, value-add projects, complex financing, and more.
         </p>
         <Form {...form}>
             <form>
                 <Tabs defaultValue="overview" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-7 h-auto">
+                    <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-8 h-auto">
                         {tabs.map(tab => (
                             <TabsTrigger key={tab.value} value={tab.value} className={cn("flex-col h-14")}>
                                 <tab.icon className="w-5 h-5 mb-1" />
@@ -193,19 +195,35 @@ export default function AdvancedCommercialCalculator() {
                     </TabsContent>
 
                     <TabsContent value="financing" className="mt-6">
-                        <UnderConstruction tabName="Financing" />
+                        <Card>
+                            <CardHeader><CardTitle>Financing Details</CardTitle></CardHeader>
+                            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Amortization (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                            </CardContent>
+                        </Card>
                     </TabsContent>
-                    <TabsContent value="capex" className="mt-6">
-                        <UnderConstruction tabName="CapEx & Rehab" />
-                    </TabsContent>
+                    
                     <TabsContent value="projections" className="mt-6">
-                        <UnderConstruction tabName="Projections" />
+                        <Card>
+                            <CardHeader><CardTitle>Growth & Exit Assumptions</CardTitle></CardHeader>
+                             <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <FormField name="annualIncomeGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Income Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                <FormField name="annualExpenseGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Expense Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                <FormField name="annualAppreciation" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Appreciation</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Selling Costs</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                            </CardContent>
+                        </Card>
                     </TabsContent>
                     <TabsContent value="returns" className="mt-6">
-                        <UnderConstruction tabName="Returns" />
+                        <UnderConstruction tabName="Returns & Investor Waterfalls" />
                     </TabsContent>
                     <TabsContent value="sensitivity" className="mt-6">
-                        <UnderConstruction tabName="Sensitivity" />
+                        <UnderConstruction tabName="Sensitivity Analysis" />
+                    </TabsContent>
+                    <TabsContent value="detailed_analysis" className="mt-6">
+                        <UnderConstruction tabName="Detailed Analysis" />
                     </TabsContent>
 
                 </Tabs>
