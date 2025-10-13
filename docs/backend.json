@@ -1,0 +1,162 @@
+{
+  "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Represents a user profile in the TKN Fi RE Analyzer application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user profile."
+        },
+        "name": {
+          "type": "string",
+          "description": "User's full name."
+        },
+        "email": {
+          "type": "string",
+          "description": "User's email address.",
+          "format": "email"
+        },
+        "country": {
+          "type": "string",
+          "description": "User's country of residence."
+        },
+        "state": {
+          "type": "string",
+          "description": "User's state of residence."
+        },
+        "planStatus": {
+          "type": "string",
+          "description": "User's subscription plan status (Free, Pro, Executive)."
+        },
+        "dutyStation": {
+          "type": "string",
+          "description": "User's duty station if applicable."
+        },
+        "rank": {
+          "type": "string",
+          "description": "User's rank if applicable."
+        },
+        "branch": {
+          "type": "string",
+          "description": "User's branch of service if applicable."
+        },
+        "financialGoal": {
+          "type": "string",
+          "description": "User's stated financial goal."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "country",
+        "state",
+        "planStatus"
+      ]
+    },
+    "Deal": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Deal",
+      "type": "object",
+      "description": "Represents a saved deal analyzed within the TKN Fi RE Analyzer application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the deal."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N Deal)"
+        },
+        "dealName": {
+          "type": "string",
+          "description": "Name of the deal."
+        },
+        "propertyType": {
+          "type": "string",
+          "description": "Type of property (Rental Property, House Flip, Commercial Multifamily)."
+        },
+        "monthlyCashFlow": {
+          "type": "number",
+          "description": "Monthly cash flow for the deal."
+        },
+        "cocReturn": {
+          "type": "number",
+          "description": "Cash-on-cash return for the deal."
+        },
+        "purchasePrice": {
+          "type": "number",
+          "description": "Purchase price of the property."
+        },
+        "roi": {
+          "type": "number",
+          "description": "Return on Investment."
+        },
+        "analysisDate": {
+          "type": "string",
+          "description": "Date when the deal was analyzed.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "dealName",
+        "propertyType",
+        "monthlyCashFlow",
+        "cocReturn",
+        "purchasePrice"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores user profile information. The 'userId' is the Firebase Auth UID. This path ensures that only the authenticated user can access their profile data.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user, matching the Firebase Auth UID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/deals/{dealId}",
+        "definition": {
+          "entityName": "Deal",
+          "schema": {
+            "$ref": "#/backend/entities/Deal"
+          },
+          "description": "Stores deals associated with a specific user. The 'userId' matches the Firebase Auth UID, ensuring that only the authenticated user can access their deals.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user, matching the Firebase Auth UID."
+            },
+            {
+              "name": "dealId",
+              "description": "The unique identifier for the deal."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability. User profiles and deals are stored in separate collections to optimize security and data access patterns.\n\n- `/users/{userId}`: Each user has a dedicated document storing their profile information. This path-based ownership simplifies security rules, as access can be directly tied to the authenticated user ID.\n\n- `/users/{userId}/deals/{dealId}`: Deals are stored as subcollections under each user's document. This structure maintains a clear ownership hierarchy (UserProfile 1:N Deal), improving security and query efficiency. It also allows for easy filtering and listing of deals associated with a specific user.\n\nThis structure avoids the need for `get()` calls in security rules, ensuring authorization independence and supporting atomic operations. By storing deals in a subcollection of users, listing operations are secure and efficient because the user context is inherently part of the path. This design avoids the need to filter based on user ID within the rules, satisfying the QAPs requirement. The structure also facilitates simple, robust, and easily debuggable security rules by aligning with path-based ownership."
+  }
+}
