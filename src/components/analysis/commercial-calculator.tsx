@@ -295,7 +295,7 @@ export default function CommercialCalculator() {
       <CardHeader>
         <div className="flex justify-between items-center">
             <div>
-                 <CardTitle>Commercial Multifamily Analyzer</CardTitle>
+                 <CardTitle className="font-headline">Commercial Multifamily Analyzer</CardTitle>
                  <CardDescription> A lightweight analysis for quick underwriting of multifamily deals. </CardDescription>
             </div>
              <div className="flex items-center space-x-2">

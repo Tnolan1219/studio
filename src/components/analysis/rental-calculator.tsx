@@ -274,7 +274,7 @@ export default function RentalCalculator() {
   return (
     <Card className="bg-card/60 backdrop-blur-sm">
       <CardHeader>
-        <CardTitle>Rental Property Analyzer (BRRRR Method)</CardTitle>
+        <CardTitle className="font-headline">Rental Property Analyzer (BRRRR Method)</CardTitle>
         <CardDescription>
           Analyze a rental property purchase, including rehab, using the BRRRR (Buy, Rehab, Rent, Refinance, Repeat) strategy.
         </CardDescription>

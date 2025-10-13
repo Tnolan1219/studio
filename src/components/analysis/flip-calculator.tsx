@@ -182,7 +182,7 @@ export default function FlipCalculator() {
   return (
     <Card className="bg-card/60 backdrop-blur-sm">
       <CardHeader>
-        <CardTitle>House Flip Analyzer</CardTitle>
+        <CardTitle className="font-headline">House Flip Analyzer</CardTitle>
         <CardDescription> Calculate the potential profit and ROI for your next house flip project. </CardDescription>
       </CardHeader>
       <Form {...form}>

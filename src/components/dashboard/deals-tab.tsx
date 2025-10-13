@@ -144,7 +144,7 @@ export default function DealsTab() {
         <div className="space-y-6 animate-fade-in">
             <Card className="bg-card/60 backdrop-blur-sm">
                 <CardHeader>
-                    <CardTitle>My Saved Deals</CardTitle>
+                    <CardTitle className="font-headline">My Saved Deals</CardTitle>
                     <CardDescription>Review and manage all your analyzed investment properties.</CardDescription>
                 </CardHeader>
                 <CardContent>
