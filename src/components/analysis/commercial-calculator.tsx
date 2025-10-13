@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, useMemo } from "react";
+import { useActionState, useEffect, useState, useMemo, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -61,7 +61,7 @@ export default function CommercialCalculator() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const [isSaving, setIsSaving] = useState(false);
 
   const form = useForm<FormData>({
@@ -84,16 +84,11 @@ export default function CommercialCalculator() {
     formData.append("financialData", financialData);
     formData.append("marketConditions", data.marketConditions);
     
-    setIsLoading(true);
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
     
-  useEffect(() => {
-    if (state.message) {
-      setIsLoading(false);
-    }
-  }, [state]);
-
   const watchedValues = form.watch();
   
   const { capRate, valuePerSqFt, pieData } = useMemo(() => {
@@ -196,7 +191,7 @@ export default function CommercialCalculator() {
                 <Card>
                   <CardHeader><CardTitle className="flex items-center gap-2"><Sparkles size={20} className="text-primary"/> AI Deal Assessment</CardTitle></CardHeader>
                   <CardContent>
-                    {isLoading ? (
+                    {isPending ? (
                         <div className="space-y-2">
                             <Skeleton className="h-4 w-full" />
                             <Skeleton className="h-4 w-full" />
@@ -213,10 +208,10 @@ export default function CommercialCalculator() {
             </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
-            <Button type="submit" disabled={isLoading || isSaving}>
-              {isLoading ? "Analyzing..." : "Analyze Deal"}
+            <Button type="submit" disabled={isPending || isSaving}>
+              {isPending ? "Analyzing..." : "Analyze Deal"}
             </Button>
-            <Button variant="secondary" onClick={handleSaveDeal} disabled={isLoading || isSaving}>
+            <Button variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}>
               {isSaving ? "Saving..." : "Save Deal"}
             </Button>
           </CardFooter>
