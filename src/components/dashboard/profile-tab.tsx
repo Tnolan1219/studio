@@ -77,7 +77,7 @@ export default function ProfileTab() {
 
   function onSubmit(data: ProfileFormValues) {
     if (!userProfileRef) return;
-    setDocumentNonBlocking(userProfileeRef, data, { merge: true });
+    setDocumentNonBlocking(userProfileRef, data, { merge: true });
     toast({
       title: "Profile Updated",
       description: "Your information has been saved successfully.",
