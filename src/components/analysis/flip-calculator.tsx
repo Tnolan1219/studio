@@ -110,7 +110,7 @@ export default function FlipCalculator() {
 
   const watchedValues = form.watch();
 
-  const { totalInvestment, netProfit, roi, chartData, totalCosts } = useMemo(() => {
+  const { netProfit, roi, chartData, totalInvestment } = useMemo(() => {
     const { purchasePrice, rehabCost, closingCosts, holdingLength, interestRate, downPayment, propertyTaxes, insurance, otherExpenses, sellingCosts, arv, loanTerm } = watchedValues;
 
     const loanAmount = purchasePrice - downPayment;
@@ -140,7 +140,7 @@ export default function FlipCalculator() {
       { name: 'Profit', value: netProfit > 0 ? netProfit : 0, fill: 'hsl(var(--primary))' },
     ];
 
-    return { totalInvestment: totalCashNeeded, netProfit, roi, chartData, totalCosts };
+    return { totalInvestment: totalCashNeeded, netProfit, roi, chartData };
   }, [watchedValues]);
 
   const handleSaveDeal = async () => {
@@ -179,7 +179,7 @@ export default function FlipCalculator() {
     setIsSaving(false);
   };
   
-  const { purchasePrice, rehabCost, sellingCosts: sellingCostsVal } = watchedValues;
+  const { purchasePrice, rehabCost } = watchedValues;
 
   return (
     <Card className="bg-card/60 backdrop-blur-sm">
@@ -236,7 +236,9 @@ export default function FlipCalculator() {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={value => `$${value / 1000}k`} />
                       <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} width={80} />
-                      <Tooltip cursor={{ fill: 'hsl(var(--secondary))' }} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }} />
+                      <Tooltip 
+                        cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
+                        contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }} />
                       <Bar dataKey="value" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -251,7 +253,7 @@ export default function FlipCalculator() {
                   {isPending ? (
                     <div className="space-y-2 mt-4"> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-3/4" /> </div>
                   ) : state.assessment ? (
-                    <p className="text-sm text-muted-foreground mt-4 whitespace-pre-wrap">{state.assessment}</p>
+                    <div className="text-sm text-muted-foreground mt-4 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: state.assessment }} />
                   ) : (
                     <p className="text-sm text-muted-foreground mt-4"> Click "Analyze with AI" to get an AI-powered assessment. </p>
                   )}

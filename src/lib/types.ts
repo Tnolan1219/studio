@@ -25,6 +25,11 @@ export type UnitMixItem = {
     rent: number;
 }
 
+export type LineItem = {
+    name: string;
+    amount: number;
+}
+
 export type Deal = {
     id: string;
     userId: string;
@@ -44,8 +49,8 @@ export type Deal = {
     
     // Income
     grossMonthlyIncome: number;
-    otherIncome?: number; // Added for commercial
-    unitMix?: UnitMixItem[]; // Added for commercial
+    otherIncomes?: LineItem[]; 
+    unitMix?: UnitMixItem[];
 
     // Expenses
     propertyTaxes: number;
@@ -55,15 +60,13 @@ export type Deal = {
     capitalExpenditures: number;
     managementFee: number;
     otherExpenses: number;
-    operatingExpenses?: number; // Added for commercial
+    operatingExpenses?: LineItem[];
 
     // Projections
     annualIncomeGrowth: number;
     annualExpenseGrowth: number;
     annualAppreciation: number;
-    holdingLength: number; // For flips and commercial
-    rentGrowth?: number; // Added for commercial
-    expenseGrowth?: number; // Added for commercial
+    holdingLength: number; 
     sellingCosts: number;
 
     // Calculated Metrics

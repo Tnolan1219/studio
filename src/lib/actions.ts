@@ -2,6 +2,7 @@
 
 import { generateDealAssessment } from "@/ai/flows/generate-deal-assessment";
 import { z } from "zod";
+import { marked } from 'marked';
 
 const dealAssessmentSchema = z.object({
   dealType: z.string(),
@@ -25,9 +26,10 @@ export async function getDealAssessment(prevState: any, formData: FormData) {
 
   try {
     const result = await generateDealAssessment(validatedFields.data);
+    const htmlAssessment = await marked(result.assessment);
     return {
       message: "Assessment generated successfully.",
-      assessment: result.assessment,
+      assessment: htmlAssessment,
     };
   } catch (error) {
     console.error(error);

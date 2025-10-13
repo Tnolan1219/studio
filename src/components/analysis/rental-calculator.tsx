@@ -88,8 +88,18 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
         : 0;
 
     let currentGrossRent = grossMonthlyIncome * 12;
-    let currentOpEx = (propertyTaxes / 100 * (purchasePrice + rehabCost)) + (insurance / 100 * (purchasePrice + rehabCost)) + (repairsAndMaintenance / 100 * currentGrossRent) + (capitalExpenditures / 100 * currentGrossRent) + (managementFee / 100 * currentGrossRent) + (otherExpenses / 100 * currentGrossRent);
-    let currentPropertyValue = purchasePrice + rehabCost;
+    const arv = purchasePrice + rehabCost;
+    
+    // Expenses can be a mix of % of income and % of value.
+    let currentOpEx = 
+        (propertyTaxes / 100 * arv) + 
+        (insurance / 100 * arv) + 
+        (repairsAndMaintenance / 100 * currentGrossRent) + 
+        (capitalExpenditures / 100 * currentGrossRent) + 
+        (managementFee / 100 * currentGrossRent) + 
+        (otherExpenses / 100 * currentGrossRent);
+
+    let currentPropertyValue = arv;
     let currentLoanBalance = loanAmount;
     
     for (let year = 1; year <= 10; year++) {
@@ -123,7 +133,15 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
         });
         
         currentGrossRent *= (1 + annualIncomeGrowth / 100);
-        currentOpEx *= (1 + annualExpenseGrowth / 100);
+        // Recalculate expenses that depend on income
+        currentOpEx = 
+            (propertyTaxes / 100 * arv * Math.pow(1 + annualAppreciation / 100, year -1)) + 
+            (insurance / 100 * arv * Math.pow(1 + annualAppreciation / 100, year -1)) + 
+            (repairsAndMaintenance / 100 * currentGrossRent) + 
+            (capitalExpenditures / 100 * currentGrossRent) + 
+            (managementFee / 100 * currentGrossRent) + 
+            (otherExpenses / 100 * currentGrossRent);
+
         currentPropertyValue *= (1 + annualAppreciation / 100);
         currentLoanBalance = yearEndLoanBalance;
     }
@@ -173,21 +191,14 @@ export default function RentalCalculator() {
 
   const handleAnalyzeWrapper = (data: FormData) => {
     startTransition(() => {
-        const annualIncome = data.grossMonthlyIncome * 12;
-        const totalExpenses = (
-            (data.propertyTaxes / 100 * data.arv) +
-            (data.insurance / 100 * data.arv) +
-            (data.repairsAndMaintenance / 100 * annualIncome) +
-            (data.vacancy / 100 * annualIncome) +
-            (data.capitalExpenditures / 100 * annualIncome) +
-            (data.managementFee / 100 * annualIncome) +
-            (data.otherExpenses / 100 * annualIncome)
-        ) / 12;
+        const proForma = calculateProForma(data);
+        const year1 = proForma[0] || {};
+        const monthlyExpenses = (year1.operatingExpenses || 0) / 12;
 
         const financialData = `
             Purchase Price: ${data.purchasePrice}, Rehab: ${data.rehabCost}, ARV: ${data.arv},
             Down Payment: ${data.downPayment}, Interest Rate: ${data.interestRate}%, Loan Term: ${data.loanTerm} years,
-            Gross Monthly Income: ${data.grossMonthlyIncome}, Total Monthly Expenses: ${totalExpenses.toFixed(2)}
+            Gross Monthly Income: ${data.grossMonthlyIncome}, Total Monthly Expenses: ${monthlyExpenses.toFixed(2)}
         `;
 
         const formData = new FormData();
@@ -209,7 +220,8 @@ export default function RentalCalculator() {
     const noi = year1.noi || 0;
     const monthlyCashFlow = (year1.cashFlowBeforeTax || 0) / 12;
     const cocReturn = totalInvestment > 0 ? ((monthlyCashFlow * 12) / totalInvestment) * 100 : 0;
-    const capRate = purchasePrice > 0 ? (noi / (purchasePrice + rehabCost)) * 100 : 0;
+    const arv = purchasePrice + rehabCost;
+    const capRate = arv > 0 ? (noi / arv) * 100 : 0;
 
     const chartData = [
         { name: 'Income', value: grossMonthlyIncome, fill: 'hsl(var(--primary))' },
@@ -289,8 +301,8 @@ export default function RentalCalculator() {
                 </Card>
                  <Card><CardHeader><CardTitle className="text-lg">Operating Expenses (% of Income/Value)</CardTitle></CardHeader>
                     <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        <FormField name="propertyTaxes" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Property Taxes</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                        <FormField name="insurance" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Insurance</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                        <FormField name="propertyTaxes" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Taxes (% ARV)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                        <FormField name="insurance" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Insurance (% ARV)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                         <FormField name="repairsAndMaintenance" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Maintenance</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                         <FormField name="vacancy" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Vacancy</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                         <FormField name="capitalExpenditures" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>CapEx</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -306,7 +318,7 @@ export default function RentalCalculator() {
                 <CardContent className="grid grid-cols-2 gap-4">
                   <div> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className="text-2xl font-bold">${monthlyCashFlow.toFixed(2)}</p> </div>
                   <div> <p className="text-sm text-muted-foreground">CoC Return</p> <p className="text-2xl font-bold">{cocReturn.toFixed(2)}%</p> </div>
-                  <div> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="font-bold">${noi.toFixed(2)}</p> </div>
+                  <div> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="font-bold">${noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
                   <div> <p className="text-sm text-muted-foreground">Cap Rate</p> <p className="font-bold">{capRate.toFixed(2)}%</p> </div>
                 </CardContent>
               </Card>
@@ -321,7 +333,9 @@ export default function RentalCalculator() {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                       <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={value => `$${value}`} />
-                      <Tooltip cursor={{ fill: 'hsl(var(--secondary))' }} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }} />
+                      <Tooltip 
+                        cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
+                        contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }} />
                       <Bar dataKey="value" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -337,10 +351,10 @@ export default function RentalCalculator() {
                 </CardContent>
               </Card>
             </div>
-            <div className="col-span-2">
+            <div className="md:col-span-2">
                 <ProFormaTable data={proFormaData} />
             </div>
-            <div className="col-span-2">
+            <div className="md:col-span-2">
                  <Card>
                     <CardHeader> <CardTitle className="flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
                     <CardContent>
@@ -349,7 +363,7 @@ export default function RentalCalculator() {
                       {isPending ? (
                         <div className="space-y-2 mt-4"> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-3/4" /> </div>
                       ) : state.assessment ? (
-                        <p className="text-sm text-muted-foreground mt-4 whitespace-pre-wrap">{state.assessment}</p>
+                        <div className="text-sm text-muted-foreground mt-4 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: state.assessment }} />
                       ) : (
                         <p className="text-sm text-muted-foreground mt-4"> Click "Analyze with AI" to get an AI-powered assessment. </p>
                       )}
