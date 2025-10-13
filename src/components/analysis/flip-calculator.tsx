@@ -179,8 +179,6 @@ export default function FlipCalculator() {
     setIsSaving(false);
   };
   
-  const { purchasePrice, rehabCost } = watchedValues;
-
   return (
     <Card className="bg-card/60 backdrop-blur-sm">
       <CardHeader>
@@ -189,24 +187,32 @@ export default function FlipCalculator() {
       </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleAnalyzeWrapper)}>
-          <CardContent className="grid md:grid-cols-2 gap-x-6 gap-y-4">
-            <div className="space-y-4 col-span-2 md:col-span-1">
-                <Card><CardHeader><CardTitle className="text-lg">Purchase & Rehab</CardTitle></CardHeader>
-                    <CardContent className="grid grid-cols-2 gap-4">
-                        <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                        <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                        <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Rehab Costs</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                        <FormField name="arv" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>After Repair Value (ARV)</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                    </CardContent>
-                </Card>
-                <Card><CardHeader><CardTitle className="text-lg">Financing</CardTitle></CardHeader>
-                    <CardContent className="grid grid-cols-2 gap-4">
-                        <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                        <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.01" {...field}/></FormControl> <FormMessage /> </FormItem> )} />
-                         <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan Term (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                    </CardContent>
-                </Card>
-                 <Card><CardHeader><CardTitle className="text-lg">Holding & Selling Costs</CardTitle></CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                  <Card>
+                      <CardHeader><CardTitle className="text-lg">Purchase & Rehab</CardTitle></CardHeader>
+                      <CardContent className="grid grid-cols-2 gap-4">
+                          <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                          <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                          <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                          <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Rehab Costs</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                          <FormField name="arv" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>After Repair Value (ARV)</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                      </CardContent>
+                  </Card>
+                  <Card>
+                      <CardHeader><CardTitle className="text-lg">Financing</CardTitle></CardHeader>
+                      <CardContent className="grid grid-cols-2 gap-4">
+                          <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                          <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.01" {...field}/></FormControl> <FormMessage /> </FormItem> )} />
+                           <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan Term (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                      </CardContent>
+                  </Card>
+              </div>
+
+              <div className="space-y-4">
+                 <Card>
+                    <CardHeader><CardTitle className="text-lg">Holding & Selling Costs</CardTitle></CardHeader>
                     <CardContent className="grid grid-cols-2 gap-4">
                         <FormField name="holdingLength" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Holding (Months)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                         <FormField name="propertyTaxes" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Prop. Taxes (%/yr)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -215,9 +221,10 @@ export default function FlipCalculator() {
                         <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Selling Costs (% of ARV)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                     </CardContent>
                 </Card>
+              </div>
             </div>
 
-            <div className="space-y-6 col-span-2 md:col-span-1">
+            <div className="grid md:grid-cols-2 gap-6 mt-6">
               <Card>
                 <CardHeader><CardTitle>Key Metrics</CardTitle></CardHeader>
                 <CardContent className="grid grid-cols-2 gap-4">
@@ -244,11 +251,11 @@ export default function FlipCalculator() {
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
-
+            </div>
+            <div className="mt-6">
                <Card>
                 <CardHeader> <CardTitle className="flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
                 <CardContent>
-                  <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="hidden"> <FormControl><Input type="text" {...field} /></FormControl> </FormItem> )} />
                   <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>AI Advisor Prompt</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> e.g., "What are the risks of flipping in this market?" or "Suggest value-add renovations for this property." </FormDescription> <FormMessage /> </FormItem> )} />
                   {isPending ? (
                     <div className="space-y-2 mt-4"> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-3/4" /> </div>
