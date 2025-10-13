@@ -17,7 +17,6 @@ import { Button } from "../ui/button";
 import { ChevronsUpDown } from "lucide-react";
 import type { ProFormaEntry } from "@/lib/types";
 
-
 function formatCurrency(value: number) {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -27,7 +26,25 @@ function formatCurrency(value: number) {
     }).format(value);
 }
 
+const METRIC_LABELS: { key: keyof ProFormaEntry; label: string }[] = [
+    { key: 'grossPotentialRent', label: 'Gross Potential Rent' },
+    { key: 'vacancyLoss', label: 'Vacancy Loss' },
+    { key: 'effectiveGrossIncome', label: 'Effective Gross Income' },
+    { key: 'operatingExpenses', label: 'Operating Expenses' },
+    { key: 'noi', label: 'Net Operating Income (NOI)' },
+    { key: 'debtService', label: 'Debt Service' },
+    { key: 'cashFlowBeforeTax', label: 'Cash Flow (Pre-Tax)' },
+    { key: 'propertyValue', label: 'End of Year Value' },
+    { key: 'loanBalance', label: 'Loan Balance' },
+    { key: 'equity', label: 'Total Equity' },
+];
+
+
 export function ProFormaTable({ data }: { data: ProFormaEntry[] }) {
+    if (!data || data.length === 0) {
+        return null;
+    }
+
     return (
         <Collapsible>
             <CollapsibleTrigger asChild>
@@ -37,37 +54,25 @@ export function ProFormaTable({ data }: { data: ProFormaEntry[] }) {
                 </Button>
             </CollapsibleTrigger>
             <CollapsibleContent>
-                <div className="mt-4 border rounded-lg">
+                <div className="mt-4 border rounded-lg overflow-x-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="font-bold">Year</TableHead>
-                                <TableHead>Gross Potential Rent</TableHead>
-                                <TableHead>Vacancy Loss</TableHead>
-                                <TableHead>Effective Gross Income</TableHead>
-                                <TableHead>Operating Expenses</TableHead>
-                                <TableHead>NOI</TableHead>
-                                <TableHead>Debt Service</TableHead>
-                                <TableHead>Cash Flow (Pre-Tax)</TableHead>
-                                <TableHead>End of Year Value</TableHead>
-                                <TableHead>Loan Balance</TableHead>
-                                <TableHead>Total Equity</TableHead>
+                                <TableHead className="font-bold min-w-[200px]">Metric</TableHead>
+                                {data.map((entry) => (
+                                    <TableHead key={entry.year} className="text-center font-bold">Year {entry.year}</TableHead>
+                                ))}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {data.map((entry) => (
-                                <TableRow key={entry.year}>
-                                    <TableCell className="font-bold">{entry.year}</TableCell>
-                                    <TableCell>{formatCurrency(entry.grossPotentialRent)}</TableCell>
-                                    <TableCell>{formatCurrency(entry.vacancyLoss)}</TableCell>
-                                    <TableCell>{formatCurrency(entry.effectiveGrossIncome)}</TableCell>
-                                    <TableCell>{formatCurrency(entry.operatingExpenses)}</TableCell>
-                                    <TableCell>{formatCurrency(entry.noi)}</TableCell>
-                                    <TableCell>{formatCurrency(entry.debtService)}</TableCell>
-                                    <TableCell>{formatCurrency(entry.cashFlowBeforeTax)}</TableCell>
-                                    <TableCell>{formatCurrency(entry.propertyValue)}</TableCell>
-                                    <TableCell>{formatCurrency(entry.loanBalance)}</TableCell>
-                                    <TableCell>{formatCurrency(entry.equity)}</TableCell>
+                            {METRIC_LABELS.map(({ key, label }) => (
+                                <TableRow key={key}>
+                                    <TableCell className="font-medium">{label}</TableCell>
+                                    {data.map((entry) => (
+                                        <TableCell key={`${entry.year}-${key}`} className="text-center">
+                                            {formatCurrency(entry[key] as number)}
+                                        </TableCell>
+                                    ))}
                                 </TableRow>
                             ))}
                         </TableBody>
