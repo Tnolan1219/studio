@@ -54,7 +54,7 @@ export default function DashboardPage() {
   return (
     <div className="flex min-h-screen w-full flex-col">
       <Header />
-      <main className="flex-1 p-6 md:p-12 bg-transparent pb-24">
+      <main className="flex-1 p-6 md:p-12 bg-transparent pb-28">
         {activeTab === 'home' && <HomeTab />}
         {activeTab === 'analyze' && <AnalyzeTab />}
         {activeTab === 'deals' && <DealsTab />}
