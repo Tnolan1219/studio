@@ -54,6 +54,7 @@ import {
   CartesianGrid
 } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+import { Label } from '../ui/label';
 
 const unitMixSchema = z.object({
   type: z.string().min(1, "Unit type is required"),
@@ -116,6 +117,7 @@ function calculateIRR(cashflows: number[], guess = 0.1) {
                 df -= (t * cashflows[t]) / Math.pow(1 + x0, t + 1);
             }
         }
+        if (df === 0) return NaN;
         const x1 = x0 - f / df;
         if (Math.abs(x1 - x0) < tolerance) {
             return x1;
@@ -355,8 +357,11 @@ export default function AdvancedCommercialCalculator() {
         };
 
         const getRange = (variable: SensitivityVariable, baseValue: number) => {
-            if (variable === 'exitCapRate') return SENSITIVITY_RANGES.exitCapRate;
-            return SENSITIVITY_RANGES[variable](baseValue);
+            const rangeOrFn = SENSITIVITY_RANGES[variable];
+            if (typeof rangeOrFn === 'function') {
+                return rangeOrFn(baseValue);
+            }
+            return rangeOrFn;
         };
         
         const var1Range = getRange(sensitivityVar1, watchedValues[sensitivityVar1] || 0);
@@ -479,7 +484,7 @@ export default function AdvancedCommercialCalculator() {
     const max = Math.max(...allValues);
     
     const getColor = (value: number) => {
-        if (isNaN(value)) return 'bg-muted/20';
+        if (isNaN(value) || !isFinite(value)) return 'bg-muted/20';
         const range = max - min;
         if (range === 0) return 'bg-primary/20';
         const normalized = (value - min) / range;
@@ -661,7 +666,7 @@ export default function AdvancedCommercialCalculator() {
                                         <Select value={sensitivityVar2} onValueChange={(v) => setSensitivityVar2(v as SensitivityVariable)}>
                                             <SelectTrigger><SelectValue placeholder="Select Variable" /></SelectTrigger>
                                             <SelectContent>
-                                                {SENSITIVITY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                                {SENSITIVITY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} disabled={opt.value === sensitivityVar1}>{opt.label}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -733,5 +738,3 @@ export default function AdvancedCommercialCalculator() {
     </CardContent>
   );
 }
-
-    
