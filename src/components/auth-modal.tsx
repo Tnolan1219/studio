@@ -75,7 +75,7 @@ export function AuthModal({
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user && !isUserLoading) {
+    if (user && !isUserLoading && isOpen) {
       const userRef = doc(firestore, 'users', user.uid);
       setDoc(userRef, { 
         name: user.displayName, 
@@ -84,7 +84,7 @@ export function AuthModal({
       onOpenChange(false);
       router.push('/dashboard');
     }
-  }, [user, isUserLoading, router, onOpenChange, firestore]);
+  }, [user, isUserLoading, router, onOpenChange, firestore, isOpen]);
 
   const signUpForm = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
