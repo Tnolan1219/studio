@@ -221,11 +221,11 @@ export default function CommercialCalculator() {
             Calculated Year 1 NOI: ${noi.toFixed(2)}
         `;
 
-        const formDataPayload = new FormData();
-        formDataPayload.append('dealType', 'Commercial Multifamily');
-        formDataPayload.append('financialData', financialData);
-        formDataPayload.append('marketConditions', data.marketConditions);
-        formAction(formDataPayload);
+        const payload = new FormData();
+        payload.append('dealType', 'Commercial Multifamily');
+        payload.append('financialData', financialData);
+        payload.append('marketConditions', data.marketConditions);
+        formAction(payload);
     });
   };
 
@@ -370,10 +370,10 @@ export default function CommercialCalculator() {
                 <Card>
                     <CardHeader><CardTitle>Key Metrics (Year 1)</CardTitle></CardHeader>
                     <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div> <p className="text-sm text-muted-foreground">Cap Rate</p> <p className="text-2xl font-bold">{capRate.toFixed(2)}%</p> </div>
-                        <div> <p className="text-sm text-muted-foreground">CoC Return</p> <p className="text-2xl font-bold">{cocReturn.toFixed(2)}%</p> </div>
-                        <div> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="font-bold text-lg">${noi.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p> </div>
-                        <div> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className="font-bold text-lg">${monthlyCashFlow.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p> </div>
+                        <div><p className="text-sm text-muted-foreground">Cap Rate</p><p className="text-2xl font-bold">{capRate.toFixed(2)}%</p></div>
+                        <div><p className="text-sm text-muted-foreground">CoC Return</p><p className="text-2xl font-bold">{cocReturn.toFixed(2)}%</p></div>
+                        <div><p className="text-sm text-muted-foreground">NOI (Annual)</p><p className="font-bold text-lg">${noi.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p></div>
+                        <div><p className="text-sm text-muted-foreground">Monthly Cash Flow</p><p className="font-bold text-lg">${monthlyCashFlow.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p></div>
                     </CardContent>
                 </Card>
                 
@@ -387,7 +387,11 @@ export default function CommercialCalculator() {
                             <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
                             <Tooltip
                                 cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
-                                contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
+                                contentStyle={{ 
+                                    backgroundColor: 'hsl(var(--background))', 
+                                    border: '1px solid hsl(var(--border))',
+                                    color: 'hsl(var(--foreground))'
+                                }}
                             />
                             <Bar dataKey="cashFlow" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                         </BarChart>
