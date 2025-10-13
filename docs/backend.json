@@ -145,7 +145,22 @@
         },
         "investorNotes": {
             "type": "string"
-        }
+        },
+        "unitMix": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "type": {"type": "string"},
+                    "count": {"type": "number"},
+                    "rent": {"type": "number"}
+                }
+            }
+        },
+        "otherIncome": { "type": "number"},
+        "operatingExpenses": { "type": "number"},
+        "loanAmount": { "type": "number"}
+
       },
       "required": [
         "userId",

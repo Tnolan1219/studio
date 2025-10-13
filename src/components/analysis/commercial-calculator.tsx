@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useState, useMemo, useTransition } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { getDealAssessment } from '@/lib/actions';
@@ -25,103 +25,47 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Sparkles, BarChart2 } from 'lucide-react';
+import { Sparkles, BarChart2, DollarSign, Percent, Trash2 } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import {
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
   Tooltip,
-  Legend,
+  CartesianGrid
 } from 'recharts';
 import { useUser, useFirestore } from '@/firebase';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
-import { ProFormaTable } from './pro-forma-table';
-import type { ProFormaEntry } from '@/lib/types';
 
+const unitMixSchema = z.object({
+  type: z.string(),
+  count: z.coerce.number().min(0),
+  rent: z.coerce.number().min(0),
+});
 
 const formSchema = z.object({
   dealName: z.string().min(3, 'Please enter a name for the deal.'),
-  purchasePrice: z.coerce.number().min(0),
-  closingCosts: z.coerce.number().min(0),
-  rehabCost: z.coerce.number().min(0),
-  downPayment: z.coerce.number().min(0),
+  purchasePrice: z.coerce.number().min(1),
+  unitMix: z.array(unitMixSchema).min(1, 'At least one unit type is required.'),
+  otherIncome: z.coerce.number().min(0),
+  vacancyRate: z.coerce.number().min(0).max(100),
+  operatingExpenses: z.coerce.number().min(0),
+  loanAmount: z.coerce.number().min(0),
   interestRate: z.coerce.number().min(0).max(100),
   loanTerm: z.coerce.number().int().min(1),
-  grossMonthlyIncome: z.coerce.number().min(0),
-  operatingExpenses: z.coerce.number().min(0), // as a % of EGI
-  annualIncomeGrowth: z.coerce.number().min(0).max(100),
-  annualExpenseGrowth: z.coerce.number().min(0).max(100),
-  annualAppreciation: z.coerce.number().min(0).max(100),
-  vacancy: z.coerce.number().min(0).max(100),
-  sellingCosts: z.coerce.number().min(0).max(100),
+  holdPeriod: z.coerce.number().min(1).max(10),
+  rentGrowth: z.coerce.number().min(0).max(100),
+  expenseGrowth: z.coerce.number().min(0).max(100),
   marketConditions: z.string().min(10, 'Please describe market conditions.'),
 });
 
 type FormData = z.infer<typeof formSchema>;
-
-const calculateProForma = (values: FormData): ProFormaEntry[] => {
-    const proForma: ProFormaEntry[] = [];
-    const {
-        purchasePrice, rehabCost, closingCosts, downPayment, interestRate, loanTerm,
-        grossMonthlyIncome, vacancy, annualIncomeGrowth, annualExpenseGrowth,
-        annualAppreciation, operatingExpenses
-    } = values;
-
-    const loanAmount = purchasePrice + rehabCost + closingCosts - downPayment;
-    const monthlyInterestRate = interestRate / 100 / 12;
-    const numberOfPayments = loanTerm * 12;
-    const debtService = numberOfPayments > 0 && monthlyInterestRate > 0 ?
-        (loanAmount * (monthlyInterestRate * Math.pow(1 + monthlyInterestRate, numberOfPayments))) / (Math.pow(1 + monthlyInterestRate, numberOfPayments) - 1) * 12
-        : 0;
-
-    let currentGrossRent = grossMonthlyIncome * 12;
-    let currentPropertyValue = purchasePrice + rehabCost;
-    let currentLoanBalance = loanAmount;
-    
-    for (let year = 1; year <= 10; year++) {
-        const vacancyLoss = currentGrossRent * (vacancy / 100);
-        const effectiveGrossIncome = currentGrossRent - vacancyLoss;
-        const currentOpEx = effectiveGrossIncome * (operatingExpenses / 100);
-        const noi = effectiveGrossIncome - currentOpEx;
-
-        let yearEndLoanBalance = currentLoanBalance;
-        if(monthlyInterestRate > 0) {
-            for (let i = 0; i < 12; i++) {
-                const interestPayment = yearEndLoanBalance * monthlyInterestRate;
-                const principalPayment = (debtService / 12) - interestPayment;
-                yearEndLoanBalance -= principalPayment;
-            }
-        } else {
-             yearEndLoanBalance = 0;
-        }
-
-        proForma.push({
-            year,
-            grossPotentialRent: currentGrossRent,
-            vacancyLoss,
-            effectiveGrossIncome,
-            operatingExpenses: currentOpEx,
-            noi,
-            debtService,
-            cashFlowBeforeTax: noi - debtService,
-            propertyValue: currentPropertyValue,
-            loanBalance: yearEndLoanBalance > 0 ? yearEndLoanBalance : 0,
-            equity: currentPropertyValue - (yearEndLoanBalance > 0 ? yearEndLoanBalance : 0),
-        });
-        
-        currentGrossRent *= (1 + annualIncomeGrowth / 100);
-        currentPropertyValue *= (1 + annualAppreciation / 100);
-        currentLoanBalance = yearEndLoanBalance;
-    }
-
-    return proForma;
-};
-
+type UnitMix = z.infer<typeof unitMixSchema>;
 
 export default function CommercialCalculator() {
   const [state, formAction] = useActionState(getDealAssessment, {
@@ -140,31 +84,40 @@ export default function CommercialCalculator() {
     defaultValues: {
       dealName: 'Downtown Commercial Center',
       purchasePrice: 5000000,
-      closingCosts: 2,
-      rehabCost: 250000,
-      downPayment: 1250000,
+      unitMix: [
+        { type: 'Studio', count: 10, rent: 1200 },
+        { type: '1BR', count: 20, rent: 1600 },
+        { type: '2BR', count: 10, rent: 2200 },
+      ],
+      otherIncome: 5000,
+      vacancyRate: 5,
+      operatingExpenses: 150000,
+      loanAmount: 3750000,
       interestRate: 7.5,
-      loanTerm: 25,
-      grossMonthlyIncome: 45000,
-      operatingExpenses: 35,
-      vacancy: 7,
-      annualIncomeGrowth: 2.5,
-      annualExpenseGrowth: 2,
-      annualAppreciation: 3.5,
-      sellingCosts: 4,
-      marketConditions: 'High-traffic downtown area with strong retail demand and new city-led revitalization projects ongoing. What are the pros and cons of a triple-net lease for this property?',
+      loanTerm: 30,
+      holdPeriod: 5,
+      rentGrowth: 3,
+      expenseGrowth: 2,
+      marketConditions: 'High-traffic downtown area with strong retail demand. What are the pros and cons of a triple-net lease for this property?',
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: 'unitMix',
   });
 
   const handleAnalyzeWrapper = (data: FormData) => {
     startTransition(() => {
-        const egi = data.grossMonthlyIncome * 12 * (1 - data.vacancy / 100);
-        const noi = egi * (1 - data.operatingExpenses / 100);
+        const { purchasePrice, unitMix, vacancyRate, otherIncome, operatingExpenses } = data;
+        const gpr = unitMix.reduce((acc, unit) => acc + (unit.count * unit.rent * 12), 0);
+        const egi = gpr * (1 - vacancyRate / 100) + (otherIncome * 12);
+        const noi = egi - operatingExpenses;
 
         const financialData = `
-            Purchase Price: ${data.purchasePrice}, Rehab: ${data.rehabCost},
-            Gross Annual Income: ${data.grossMonthlyIncome * 12},
-            Vacancy: ${data.vacancy}%, Operating Expenses: ${data.operatingExpenses}% of EGI,
+            Purchase Price: ${purchasePrice},
+            Gross Potential Rent: ${gpr.toFixed(2)},
+            Vacancy: ${vacancyRate}%, Operating Expenses: ${operatingExpenses},
             Calculated Year 1 NOI: ${noi.toFixed(2)}
         `;
 
@@ -178,23 +131,47 @@ export default function CommercialCalculator() {
 
   const watchedValues = form.watch();
 
-  const { monthlyCashFlow, cocReturn, capRate, noi, pieData, proFormaData } = useMemo(() => {
-    const { purchasePrice, rehabCost, closingCosts, downPayment } = watchedValues;
-    const proForma = calculateProForma(watchedValues);
-    const year1 = proForma[0] || {};
+  const { noi, cashFlow, cocReturn, capRate, chartData } = useMemo(() => {
+    const { purchasePrice, unitMix, vacancyRate, otherIncome, operatingExpenses, loanAmount, interestRate, loanTerm, holdPeriod, rentGrowth, expenseGrowth } = watchedValues;
+    const initialEquity = purchasePrice - loanAmount;
 
-    const totalInvestment = downPayment + (closingCosts/100 * purchasePrice) + rehabCost;
-    const noi = year1.noi || 0;
-    const monthlyCashFlow = (year1.cashFlowBeforeTax || 0) / 12;
-    const cocReturn = totalInvestment > 0 ? ((monthlyCashFlow * 12) / totalInvestment) * 100 : 0;
-    const capRate = purchasePrice > 0 ? (noi / (purchasePrice + rehabCost)) * 100 : 0;
+    if (purchasePrice <= 0 || initialEquity <= 0) {
+        return { noi: 0, cashFlow: 0, cocReturn: 0, capRate: 0, chartData: [] };
+    }
+    
+    // PMT formula for debt service
+    const monthlyRate = interestRate / 100 / 12;
+    const numPayments = loanTerm * 12;
+    const pmt = monthlyRate > 0 ? (monthlyRate * loanAmount) / (1 - Math.pow(1 + monthlyRate, -numPayments)) : 0;
+    const annualDebtService = pmt * 12;
 
-    const pieData = [
-      { name: 'Total Investment', value: totalInvestment, fill: 'hsl(var(--chart-1))'},
-      { name: 'Loan Amount', value: (purchasePrice + rehabCost + (closingCosts/100 * purchasePrice)) - downPayment, fill: 'hsl(var(--chart-2))'},
-    ];
+    let gpr = unitMix.reduce((acc, unit) => acc + (unit.count * unit.rent * 12), 0);
+    const egi = gpr * (1 - vacancyRate / 100) + (otherIncome * 12);
+    const noi = egi - operatingExpenses;
+    const cashFlow = noi - annualDebtService;
+    const cocReturn = (cashFlow / initialEquity) * 100;
+    const capRate = (noi / purchasePrice) * 100;
 
-    return { monthlyCashFlow, cocReturn, capRate, noi, pieData, proFormaData: proForma };
+    const projections = [];
+    let currentGpr = gpr;
+    let currentExpenses = operatingExpenses;
+    for (let i = 1; i <= holdPeriod; i++) {
+        const currentEgi = currentGpr * (1 - vacancyRate / 100) + (otherIncome * 12);
+        const currentNoi = currentEgi - currentExpenses;
+        const currentCf = currentNoi - annualDebtService;
+        projections.push({ year: `Year ${i}`, cashFlow: parseFloat(currentCf.toFixed(2))});
+        currentGpr *= (1 + rentGrowth / 100);
+        currentExpenses *= (1 + expenseGrowth / 100);
+    }
+    
+    return { 
+        noi,
+        cashFlow, 
+        cocReturn: isNaN(cocReturn) || !isFinite(cocReturn) ? 0 : cocReturn, 
+        capRate: isNaN(capRate) || !isFinite(capRate) ? 0 : capRate,
+        chartData: projections 
+    };
+
   }, [watchedValues]);
 
   const handleSaveDeal = async () => {
@@ -214,15 +191,22 @@ export default function CommercialCalculator() {
     }
 
     setIsSaving(true);
+    const { dealName, purchasePrice, unitMix, otherIncome, vacancyRate, operatingExpenses, loanAmount, interestRate, loanTerm } = form.getValues();
     const dealData = {
-      ...form.getValues(),
-      // We need to add arv for commercial even if its the same as purchase + rehab
-      arv: form.getValues().purchasePrice + form.getValues().rehabCost,
+      dealName,
+      purchasePrice,
+      unitMix,
+      otherIncome,
+      vacancyRate,
+      operatingExpenses,
+      loanAmount,
+      interestRate,
+      loanTerm,
+      noi,
+      monthlyCashFlow: cashFlow / 12,
+      cocReturn,
+      capRate,
       dealType: 'Commercial Multifamily',
-      monthlyCashFlow: parseFloat(monthlyCashFlow.toFixed(2)),
-      cocReturn: parseFloat(cocReturn.toFixed(2)),
-      noi: parseFloat(noi.toFixed(2)),
-      capRate: parseFloat(capRate.toFixed(2)),
       userId: user.uid,
       createdAt: serverTimestamp(),
       status: 'In Works',
@@ -240,89 +224,99 @@ export default function CommercialCalculator() {
   return (
     <Card className="bg-card/60 backdrop-blur-sm">
       <CardHeader>
-        <CardTitle>Commercial Multifamily Analyzer</CardTitle>
-        <CardDescription> Analyze large-scale commercial properties by focusing on NOI and key return metrics. </CardDescription>
+        <CardTitle>Commercial Multifamily Analyzer (Simple Mode)</CardTitle>
+        <CardDescription> A lightweight analysis for quick underwriting of multifamily deals. </CardDescription>
       </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleAnalyzeWrapper)}>
-           <CardContent className="grid md:grid-cols-2 gap-x-6 gap-y-4">
-            <div className="space-y-4 col-span-2 md:col-span-1">
-                 <Card><CardHeader><CardTitle className="text-lg">Purchase & Loan</CardTitle></CardHeader>
-                    <CardContent className="grid grid-cols-2 gap-4">
-                        <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                        <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                        <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.1" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                        <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Rehab Costs</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                        <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.01" {...field}/></FormControl> <FormMessage /> </FormItem> )} />
-                        <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan Term (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                    </CardContent>
-                </Card>
-                 <Card><CardHeader><CardTitle className="text-lg">Income & Expenses</CardTitle></CardHeader>
-                    <CardContent className="grid grid-cols-2 gap-4">
-                         <FormField name="grossMonthlyIncome" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Gross Monthly Income</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                         <FormField name="vacancy" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Vacancy Rate</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                         <FormField name="operatingExpenses" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Operating Expenses</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl><FormDescription>As a percentage of Effective Gross Income.</FormDescription> <FormMessage /> </FormItem> )} />
-                    </CardContent>
-                </Card>
+           <CardContent className="grid md:grid-cols-3 gap-x-8 gap-y-4">
+            
+            <div className="md:col-span-2 space-y-4">
+                <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                
+                <div>
+                    <FormLabel>Unit Mix</FormLabel>
+                    <FormDescription>Define the number of units and average rent for each type.</FormDescription>
+                    {fields.map((field, index) => (
+                        <div key={field.id} className="grid grid-cols-[1fr,1fr,1fr,auto] gap-2 items-end mt-2">
+                           <FormField control={form.control} name={`unitMix.${index}.type`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Type</FormLabel><FormControl><Input placeholder="e.g., 2BR" {...field} /></FormControl> </FormItem> )} />
+                           <FormField control={form.control} name={`unitMix.${index}.count`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs"># Units</FormLabel><FormControl><Input type="number" {...field} /></FormControl> </FormItem> )} />
+                           <FormField control={form.control} name={`unitMix.${index}.rent`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Avg. Rent</FormLabel><FormControl><InputWithIcon icon={<DollarSign size={14}/>} type="number" {...field} /></FormControl> </FormItem> )} />
+                           <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
+                        </div>
+                    ))}
+                    <Button type="button" size="sm" variant="outline" onClick={() => append({type: '', count: 0, rent: 0})} className="mt-2">Add Unit Type</Button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <FormField name="vacancyRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Vacancy Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                    <FormField name="otherIncome" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Other Income (Monthly)</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                </div>
+                
+                <FormField name="operatingExpenses" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Operating Expenses (Annual)</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                
+                <div className="grid grid-cols-3 gap-4">
+                    <FormField name="loanAmount" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan Amount</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                    <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                    <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Amort. (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                </div>
+                 <div className="grid grid-cols-3 gap-4">
+                    <FormField name="holdPeriod" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Hold Period (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                    <FormField name="rentGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Rent Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                    <FormField name="expenseGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Expense Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                </div>
+
             </div>
 
-            <div className="space-y-6 col-span-2 md:col-span-1">
+            <div className="space-y-6 md:col-span-1">
               <Card>
                 <CardHeader><CardTitle>Key Metrics (Year 1)</CardTitle></CardHeader>
                 <CardContent className="grid grid-cols-2 gap-4">
                   <div> <p className="text-sm text-muted-foreground">Cap Rate</p> <p className="text-2xl font-bold">{capRate.toFixed(2)}%</p> </div>
                   <div> <p className="text-sm text-muted-foreground">CoC Return</p> <p className="text-2xl font-bold">{cocReturn.toFixed(2)}%</p> </div>
-                  <div> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="font-bold">${noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
-                  <div> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className="font-bold">${monthlyCashFlow.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
+                  <div> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="font-bold">${noi.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p> </div>
+                  <div> <p className="text-sm text-muted-foreground">Annual Cash Flow</p> <p className="font-bold">${cashFlow.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p> </div>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader> <CardTitle className="flex items-center gap-2"> <BarChart2 size={20} /> Capital Stack </CardTitle> </CardHeader>
-                <CardContent className="h-[200px]">
+                <CardHeader> <CardTitle className="flex items-center gap-2"> <BarChart2 size={20} /> Cash Flow Projection </CardTitle> </CardHeader>
+                <CardContent className="h-[200px] -ml-4">
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label >
-                        {pieData.map((entry, index) => ( <Cell key={`cell-${index}`} fill={entry.fill} /> ))}
-                      </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}/>
-                      <Legend />
-                    </PieChart>
+                     <BarChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="year" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(value) => `$${value/1000}k`} />
+                        <Tooltip
+                            cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
+                            contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
+                        />
+                        <Bar dataKey="cashFlow" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
-               <Card><CardHeader><CardTitle className="text-lg">Projections</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <FormField name="annualIncomeGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Income Growth</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                    <FormField name="annualExpenseGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Expense Growth</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                    <FormField name="annualAppreciation" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Appreciation</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                    <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Selling Costs</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                </CardContent>
-              </Card>
-            </div>
-            <div className="col-span-2">
-                <ProFormaTable data={proFormaData} />
-            </div>
-            <div className="col-span-2">
+
               <Card>
                 <CardHeader> <CardTitle className="flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
                 <CardContent>
-                  <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="hidden"> <FormControl><Input type="text" {...field} /></FormControl> </FormItem> )} />
                   <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>AI Advisor Prompt</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> e.g., "Analyze the pros and cons of a triple-net lease for this property." </FormDescription> <FormMessage /> </FormItem> )} />
                   {isPending ? (
                     <div className="space-y-2 mt-4"> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-3/4" /> </div>
                   ) : state.assessment ? (
-                    <p className="text-sm text-muted-foreground mt-4 whitespace-pre-wrap">{state.assessment}</p>
+                    <div className="text-sm text-muted-foreground mt-4 whitespace-pre-wrap prose prose-sm dark:prose-invert" dangerouslySetInnerHTML={{ __html: state.assessment.replace(/\n/g, '<br />') }} />
                   ) : (
-                    <p className="text-sm text-muted-foreground mt-4"> Click "Analyze with AI" to get an AI-powered assessment. </p>
+                    <p className="text-sm text-muted-foreground mt-4"> Click "Run Analysis" to get an AI-powered assessment. </p>
                   )}
                   {state.message && !state.assessment && ( <p className="text-sm text-destructive mt-4">{state.message}</p> )}
                 </CardContent>
               </Card>
+
             </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
-            <Button type="submit" disabled={isPending || isSaving}> {isPending ? 'Analyzing with AI...' : 'Analyze with AI'} </Button>
+            <Button type="submit" disabled={isPending || isSaving}> {isPending ? 'Analyzing...' : 'Run Analysis'} </Button>
             <Button variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}> {isSaving ? 'Saving...' : 'Save Deal'} </Button>
           </CardFooter>
         </form>

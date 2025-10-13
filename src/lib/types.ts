@@ -19,6 +19,12 @@ export type DealComment = {
     createdAt: Timestamp;
 }
 
+export type UnitMixItem = {
+    type: string;
+    count: number;
+    rent: number;
+}
+
 export type Deal = {
     id: string;
     userId: string;
@@ -34,10 +40,13 @@ export type Deal = {
     downPayment: number;
     loanTerm: number;
     interestRate: number;
+    loanAmount?: number; // Added for commercial
     
     // Income
     grossMonthlyIncome: number;
-    
+    otherIncome?: number; // Added for commercial
+    unitMix?: UnitMixItem[]; // Added for commercial
+
     // Expenses
     propertyTaxes: number;
     insurance: number;
@@ -46,12 +55,15 @@ export type Deal = {
     capitalExpenditures: number;
     managementFee: number;
     otherExpenses: number;
+    operatingExpenses?: number; // Added for commercial
 
     // Projections
     annualIncomeGrowth: number;
     annualExpenseGrowth: number;
     annualAppreciation: number;
-    holdingLength: number; // For flips
+    holdingLength: number; // For flips and commercial
+    rentGrowth?: number; // Added for commercial
+    expenseGrowth?: number; // Added for commercial
     sellingCosts: number;
 
     // Calculated Metrics
