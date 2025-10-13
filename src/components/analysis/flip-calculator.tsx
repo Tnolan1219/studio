@@ -89,29 +89,28 @@ export default function FlipCalculator() {
       insurance: 0.5,
       otherExpenses: 1000,
       sellingCosts: 6,
-      marketConditions: "Hot seller's market, properties are selling within 2 weeks. Good school district.",
+      marketConditions: "What are the risks of flipping in a cooling market? Suggest value-add renovations for this property type.",
     },
   });
 
-  const handleAnalyze = (data: FormData) => {
-    const formData = new FormData();
-    const financialData = `
-        Purchase Price: ${data.purchasePrice}, After Repair Value (ARV): ${data.arv},
-        Rehab Cost: ${data.rehabCost}, Holding Length: ${data.holdingLength} months,
-        Selling Costs: ${data.sellingCosts}%
-    `;
-    formData.append('dealType', 'House Flip');
-    formData.append('financialData', financialData);
-    formData.append('marketConditions', data.marketConditions);
-
+  const handleAnalyzeWrapper = (data: FormData) => {
     startTransition(() => {
-      formAction(formData);
+        const financialData = `
+            Purchase Price: ${data.purchasePrice}, After Repair Value (ARV): ${data.arv},
+            Rehab Cost: ${data.rehabCost}, Holding Length: ${data.holdingLength} months,
+            Selling Costs: ${data.sellingCosts}%
+        `;
+        const formData = new FormData();
+        formData.append('dealType', 'House Flip');
+        formData.append('financialData', financialData);
+        formData.append('marketConditions', data.marketConditions);
+        formAction(formData);
     });
   };
 
   const watchedValues = form.watch();
 
-  const { totalInvestment, netProfit, roi, chartData } = useMemo(() => {
+  const { totalInvestment, netProfit, roi, chartData, totalCosts } = useMemo(() => {
     const { purchasePrice, rehabCost, closingCosts, holdingLength, interestRate, downPayment, propertyTaxes, insurance, otherExpenses, sellingCosts, arv, loanTerm } = watchedValues;
 
     const loanAmount = purchasePrice - downPayment;
@@ -141,7 +140,7 @@ export default function FlipCalculator() {
       { name: 'Profit', value: netProfit > 0 ? netProfit : 0, fill: 'hsl(var(--primary))' },
     ];
 
-    return { totalInvestment: totalCashNeeded, netProfit, roi, chartData };
+    return { totalInvestment: totalCashNeeded, netProfit, roi, chartData, totalCosts };
   }, [watchedValues]);
 
   const handleSaveDeal = async () => {
@@ -180,7 +179,7 @@ export default function FlipCalculator() {
     setIsSaving(false);
   };
   
-  const { purchasePrice, rehabCost, holdingCosts, sellingCosts: sellingCostsVal } = watchedValues;
+  const { purchasePrice, rehabCost, sellingCosts: sellingCostsVal } = watchedValues;
 
   return (
     <Card className="bg-card/60 backdrop-blur-sm">
@@ -189,7 +188,7 @@ export default function FlipCalculator() {
         <CardDescription> Calculate the potential profit and ROI for your next house flip project. </CardDescription>
       </CardHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleAnalyze)}>
+        <form onSubmit={form.handleSubmit(handleAnalyzeWrapper)}>
           <CardContent className="grid md:grid-cols-2 gap-x-6 gap-y-4">
             <div className="space-y-4 col-span-2 md:col-span-1">
                 <Card><CardHeader><CardTitle className="text-lg">Purchase & Rehab</CardTitle></CardHeader>
@@ -244,17 +243,17 @@ export default function FlipCalculator() {
                 </CardContent>
               </Card>
 
-              <Card>
+               <Card>
                 <CardHeader> <CardTitle className="flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
                 <CardContent>
                   <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="hidden"> <FormControl><Input type="text" {...field} /></FormControl> </FormItem> )} />
-                  <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Market Conditions & Strategy</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> Describe local market trends, buyer demand, etc. </FormDescription> <FormMessage /> </FormItem> )} />
+                  <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>AI Advisor Prompt</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> e.g., "What are the risks of flipping in this market?" or "Suggest value-add renovations for this property." </FormDescription> <FormMessage /> </FormItem> )} />
                   {isPending ? (
                     <div className="space-y-2 mt-4"> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-3/4" /> </div>
                   ) : state.assessment ? (
-                    <p className="text-sm text-muted-foreground mt-4">{state.assessment}</p>
+                    <p className="text-sm text-muted-foreground mt-4 whitespace-pre-wrap">{state.assessment}</p>
                   ) : (
-                    <p className="text-sm text-muted-foreground mt-4"> Click "Analyze Deal" to get an AI-powered assessment. </p>
+                    <p className="text-sm text-muted-foreground mt-4"> Click "Analyze with AI" to get an AI-powered assessment. </p>
                   )}
                   {state.message && !state.assessment && ( <p className="text-sm text-destructive mt-4">{state.message}</p> )}
                 </CardContent>
@@ -262,7 +261,7 @@ export default function FlipCalculator() {
             </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
-            <Button type="submit" disabled={isPending || isSaving}> {isPending ? 'Analyzing...' : 'Analyze Deal'} </Button>
+            <Button type="submit" disabled={isPending || isSaving}> {isPending ? 'Analyzing with AI...' : 'Analyze with AI'} </Button>
             <Button variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}> {isSaving ? 'Saving...' : 'Save Deal'} </Button>
           </CardFooter>
         </form>

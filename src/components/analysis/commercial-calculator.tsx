@@ -152,27 +152,27 @@ export default function CommercialCalculator() {
       annualExpenseGrowth: 2,
       annualAppreciation: 3.5,
       sellingCosts: 4,
-      marketConditions: 'High-traffic downtown area with strong retail demand and new city-led revitalization projects ongoing.',
+      marketConditions: 'High-traffic downtown area with strong retail demand and new city-led revitalization projects ongoing. What are the pros and cons of a triple-net lease for this property?',
     },
   });
 
-  const handleAnalyze = (data: FormData) => {
-    const formData = new FormData();
-    const egi = data.grossMonthlyIncome * 12 * (1 - data.vacancy / 100);
-    const noi = egi * (1 - data.operatingExpenses / 100);
-
-    const financialData = `
-        Purchase Price: ${data.purchasePrice}, Rehab: ${data.rehabCost},
-        Gross Annual Income: ${data.grossMonthlyIncome * 12},
-        Vacancy: ${data.vacancy}%, Operating Expenses: ${data.operatingExpenses}% of EGI,
-        Calculated Year 1 NOI: ${noi.toFixed(2)}
-    `;
-    formData.append('dealType', 'Commercial Multifamily');
-    formData.append('financialData', financialData);
-    formData.append('marketConditions', data.marketConditions);
-
+  const handleAnalyzeWrapper = (data: FormData) => {
     startTransition(() => {
-      formAction(formData);
+        const egi = data.grossMonthlyIncome * 12 * (1 - data.vacancy / 100);
+        const noi = egi * (1 - data.operatingExpenses / 100);
+
+        const financialData = `
+            Purchase Price: ${data.purchasePrice}, Rehab: ${data.rehabCost},
+            Gross Annual Income: ${data.grossMonthlyIncome * 12},
+            Vacancy: ${data.vacancy}%, Operating Expenses: ${data.operatingExpenses}% of EGI,
+            Calculated Year 1 NOI: ${noi.toFixed(2)}
+        `;
+
+        const formData = new FormData();
+        formData.append('dealType', 'Commercial Multifamily');
+        formData.append('financialData', financialData);
+        formData.append('marketConditions', data.marketConditions);
+        formAction(formData);
     });
   };
 
@@ -244,7 +244,7 @@ export default function CommercialCalculator() {
         <CardDescription> Analyze large-scale commercial properties by focusing on NOI and key return metrics. </CardDescription>
       </CardHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleAnalyze)}>
+        <form onSubmit={form.handleSubmit(handleAnalyzeWrapper)}>
            <CardContent className="grid md:grid-cols-2 gap-x-6 gap-y-4">
             <div className="space-y-4 col-span-2 md:col-span-1">
                  <Card><CardHeader><CardTitle className="text-lg">Purchase & Loan</CardTitle></CardHeader>
@@ -299,29 +299,30 @@ export default function CommercialCalculator() {
                     <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Selling Costs</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                 </CardContent>
               </Card>
-
+            </div>
+            <div className="col-span-2">
+                <ProFormaTable data={proFormaData} />
+            </div>
+            <div className="col-span-2">
               <Card>
                 <CardHeader> <CardTitle className="flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
                 <CardContent>
                   <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="hidden"> <FormControl><Input type="text" {...field} /></FormControl> </FormItem> )} />
-                  <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Market & Financial Summary</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> Describe local market trends, comparable sales, etc. </FormDescription> <FormMessage /> </FormItem> )} />
+                  <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>AI Advisor Prompt</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> e.g., "Analyze the pros and cons of a triple-net lease for this property." </FormDescription> <FormMessage /> </FormItem> )} />
                   {isPending ? (
                     <div className="space-y-2 mt-4"> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-3/4" /> </div>
                   ) : state.assessment ? (
-                    <p className="text-sm text-muted-foreground mt-4">{state.assessment}</p>
+                    <p className="text-sm text-muted-foreground mt-4 whitespace-pre-wrap">{state.assessment}</p>
                   ) : (
-                    <p className="text-sm text-muted-foreground mt-4"> Click "Analyze Deal" to get an AI-powered assessment. </p>
+                    <p className="text-sm text-muted-foreground mt-4"> Click "Analyze with AI" to get an AI-powered assessment. </p>
                   )}
                   {state.message && !state.assessment && ( <p className="text-sm text-destructive mt-4">{state.message}</p> )}
                 </CardContent>
               </Card>
             </div>
-             <div className="col-span-2">
-                <ProFormaTable data={proFormaData} />
-            </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
-            <Button type="submit" disabled={isPending || isSaving}> {isPending ? 'Analyzing...' : 'Analyze Deal'} </Button>
+            <Button type="submit" disabled={isPending || isSaving}> {isPending ? 'Analyzing with AI...' : 'Analyze with AI'} </Button>
             <Button variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}> {isSaving ? 'Saving...' : 'Save Deal'} </Button>
           </CardFooter>
         </form>

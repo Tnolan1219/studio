@@ -167,34 +167,34 @@ export default function RentalCalculator() {
       annualExpenseGrowth: 2,
       annualAppreciation: 3,
       sellingCosts: 6,
-      marketConditions: 'Stable rental market with 3% annual appreciation. Low vacancy rates.',
+      marketConditions: 'Analyze the rental market in the 90210 zip code. What are the average rents for a 3-bedroom house?',
     },
   });
 
-  const handleAnalyze = (data: FormData) => {
-    const formData = new FormData();
-    const annualIncome = data.grossMonthlyIncome * 12;
-    const totalExpenses = (
-        (data.propertyTaxes / 100 * data.arv) +
-        (data.insurance / 100 * data.arv) +
-        (data.repairsAndMaintenance / 100 * annualIncome) +
-        (data.vacancy / 100 * annualIncome) +
-        (data.capitalExpenditures / 100 * annualIncome) +
-        (data.managementFee / 100 * annualIncome) +
-        (data.otherExpenses / 100 * annualIncome)
-    ) / 12;
-    
-    const financialData = `
-        Purchase Price: ${data.purchasePrice}, Rehab: ${data.rehabCost}, ARV: ${data.arv},
-        Down Payment: ${data.downPayment}, Interest Rate: ${data.interestRate}%, Loan Term: ${data.loanTerm} years,
-        Gross Monthly Income: ${data.grossMonthlyIncome}, Total Monthly Expenses: ${totalExpenses.toFixed(2)}
-    `;
-    formData.append('dealType', 'Rental Property');
-    formData.append('financialData', financialData);
-    formData.append('marketConditions', data.marketConditions);
-
+  const handleAnalyzeWrapper = (data: FormData) => {
     startTransition(() => {
-      formAction(formData);
+        const annualIncome = data.grossMonthlyIncome * 12;
+        const totalExpenses = (
+            (data.propertyTaxes / 100 * data.arv) +
+            (data.insurance / 100 * data.arv) +
+            (data.repairsAndMaintenance / 100 * annualIncome) +
+            (data.vacancy / 100 * annualIncome) +
+            (data.capitalExpenditures / 100 * annualIncome) +
+            (data.managementFee / 100 * annualIncome) +
+            (data.otherExpenses / 100 * annualIncome)
+        ) / 12;
+
+        const financialData = `
+            Purchase Price: ${data.purchasePrice}, Rehab: ${data.rehabCost}, ARV: ${data.arv},
+            Down Payment: ${data.downPayment}, Interest Rate: ${data.interestRate}%, Loan Term: ${data.loanTerm} years,
+            Gross Monthly Income: ${data.grossMonthlyIncome}, Total Monthly Expenses: ${totalExpenses.toFixed(2)}
+        `;
+
+        const formData = new FormData();
+        formData.append('dealType', 'Rental Property');
+        formData.append('financialData', financialData);
+        formData.append('marketConditions', data.marketConditions);
+        formAction(formData);
     });
   };
 
@@ -268,7 +268,7 @@ export default function RentalCalculator() {
         </CardDescription>
       </CardHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleAnalyze)}>
+        <form onSubmit={form.handleSubmit(handleAnalyzeWrapper)}>
           <CardContent className="grid md:grid-cols-2 gap-x-6 gap-y-4">
             <div className="space-y-4 col-span-2 md:col-span-1">
                 <Card><CardHeader><CardTitle className="text-lg">Purchase & Loan</CardTitle></CardHeader>
@@ -328,8 +328,7 @@ export default function RentalCalculator() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader><CardTitle className="text-lg">Projections</CardTitle></CardHeader>
+              <Card><CardHeader><CardTitle className="text-lg">Projections</CardTitle></CardHeader>
                 <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <FormField name="annualIncomeGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Income Growth</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                     <FormField name="annualExpenseGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Expense Growth</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -337,31 +336,30 @@ export default function RentalCalculator() {
                     <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Selling Costs</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                 </CardContent>
               </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="hidden"> <FormControl><Input type="text" {...field} /></FormControl> </FormItem> )} />
-                  <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Market Conditions & Strategy</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> Describe local market trends, appreciation, your strategy (e.g. BRRRR), etc. </FormDescription> <FormMessage /> </FormItem> )} />
-                  {isPending ? (
-                    <div className="space-y-2 mt-4"> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-3/4" /> </div>
-                  ) : state.assessment ? (
-                    <p className="text-sm text-muted-foreground mt-4">{state.assessment}</p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground mt-4"> Click "Analyze Deal" to get an AI-powered assessment. </p>
-                  )}
-                  {state.message && !state.assessment && ( <p className="text-sm text-destructive mt-4">{state.message}</p> )}
-                </CardContent>
-              </Card>
             </div>
             <div className="col-span-2">
                 <ProFormaTable data={proFormaData} />
             </div>
+            <div className="col-span-2">
+                 <Card>
+                    <CardHeader> <CardTitle className="flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
+                    <CardContent>
+                      <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="hidden"> <FormControl><Input type="text" {...field} /></FormControl> </FormItem> )} />
+                      <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>AI Advisor Prompt</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> e.g., "Analyze market conditions for zip code 90210," or "Suggest financing options for a first-time investor." </FormDescription> <FormMessage /> </FormItem> )} />
+                      {isPending ? (
+                        <div className="space-y-2 mt-4"> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-3/4" /> </div>
+                      ) : state.assessment ? (
+                        <p className="text-sm text-muted-foreground mt-4 whitespace-pre-wrap">{state.assessment}</p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground mt-4"> Click "Analyze with AI" to get an AI-powered assessment. </p>
+                      )}
+                      {state.message && !state.assessment && ( <p className="text-sm text-destructive mt-4">{state.message}</p> )}
+                    </CardContent>
+                  </Card>
+            </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
-            <Button type="submit" disabled={isPending || isSaving}> {isPending ? 'Analyzing...' : 'Analyze Deal'} </Button>
+            <Button type="submit" disabled={isPending || isSaving}> {isPending ? 'Analyzing with AI...' : 'Analyze with AI'} </Button>
             <Button variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}> {isSaving ? 'Saving...' : 'Save Deal'} </Button>
           </CardFooter>
         </form>
