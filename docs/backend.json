@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "UserProfile": {
@@ -46,28 +45,75 @@
         },
         "dealType": {
           "type": "string",
-          "description": "Type of deal (Rental Property, House Flip, Commercial Multifamily)."
+          "enum": ["Rental Property", "House Flip", "Commercial Multifamily"]
         },
         "dealName": {
-          "type": "string",
-          "description": "Name of the deal."
+          "type": "string"
         },
         "purchasePrice": {
-          "type": "number",
-          "description": "Purchase price of the property."
-        },
-        "monthlyCashFlow": {
-          "type": "number",
-          "description": "Monthly cash flow of the deal."
-        },
-        "cocReturn": {
-          "type": "number",
-          "description": "Cash-on-cash return of the deal."
+          "type": "number"
         },
         "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "marketConditions": {
+            "type": "string"
+        },
+        "downPayment": {
+            "type": "number"
+        },
+        "interestRate": {
+            "type": "number"
+        },
+        "loanTerm": {
+            "type": "number"
+        },
+        "monthlyIncome": {
+            "type": "number"
+        },
+        "monthlyExpenses": {
+            "type": "number"
+        },
+        "monthlyCashFlow": {
+          "type": "number"
+        },
+        "cocReturn": {
+          "type": "number"
+        },
+        "arv": {
+          "type": "number"
+        },
+        "rehabCost": {
+          "type": "number"
+        },
+        "holdingCosts": {
+            "type": "number"
+        },
+        "sellingCosts": {
+            "type": "number"
+        },
+        "netProfit": {
+            "type": "number"
+        },
+        "roi": {
+            "type": "number"
+        },
+        "noi": {
+            "type": "number"
+        },
+        "capRate": {
+            "type": "number"
+        },
+        "status": {
             "type": "string",
-            "format": "date-time",
-            "description": "Timestamp of when the deal was created."
+            "enum": ["In Works", "Negotiating", "Bought", "Owned & Operating", "Sold"]
+        },
+        "isPublished": {
+            "type": "boolean"
+        },
+        "investorNotes": {
+            "type": "string"
         }
       },
       "required": [
@@ -75,10 +121,32 @@
         "dealType",
         "dealName",
         "purchasePrice",
-        "monthlyCashFlow",
-        "cocReturn",
-        "createdAt"
+        "createdAt",
+        "status",
+        "isPublished"
       ]
+    },
+    "DealComment": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "DealComment",
+        "type": "object",
+        "description": "A comment on a specific deal.",
+        "properties": {
+            "author": {
+                "type": "string",
+                "description": "Name of the person who wrote the comment."
+            },
+            "text": {
+                "type": "string",
+                "description": "The content of the comment."
+            },
+            "createdAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Timestamp of when the comment was created."
+            }
+        },
+        "required": ["author", "text", "createdAt"]
     }
   },
   "auth": {
@@ -100,6 +168,12 @@
         "$ref": "#/entities/Deal"
       },
       "description": "Stores deals associated with a specific user. This is a subcollection of the user's profile."
+    },
+    "/users/{userId}/deals/{dealId}/comments/{commentId}": {
+        "schema": {
+            "$ref": "#/entities/DealComment"
+        },
+        "description": "Stores comments for a specific deal."
     }
   }
 }

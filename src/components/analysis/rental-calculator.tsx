@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -36,7 +36,8 @@ import {
   Bar,
   CartesianGrid,
 } from "recharts";
-import { useUser, useFirestore, addDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirestore } from "@/firebase";
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection, serverTimestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { InputWithIcon } from "../ui/input-with-icon";
@@ -44,12 +45,12 @@ import { InputWithIcon } from "../ui/input-with-icon";
 
 const formSchema = z.object({
   dealName: z.string().min(3, "Please enter a name for the deal."),
-  purchasePrice: z.coerce.number().min(0),
-  downPayment: z.coerce.number().min(0),
-  interestRate: z.coerce.number().min(0).max(100),
-  loanTerm: z.coerce.number().int().min(1),
-  monthlyIncome: z.coerce.number().min(0),
-  monthlyExpenses: z.coerce.number().min(0),
+  purchasePrice: z.coerce.number().min(0, "Purchase price must be positive."),
+  downPayment: z.coerce.number().min(0, "Down payment must be positive."),
+  interestRate: z.coerce.number().min(0).max(100, "Interest rate must be between 0 and 100."),
+  loanTerm: z.coerce.number().int().min(1, "Loan term must be at least 1 year."),
+  monthlyIncome: z.coerce.number().min(0, "Monthly income must be positive."),
+  monthlyExpenses: z.coerce.number().min(0, "Monthly expenses must be positive."),
   marketConditions: z.string().min(10, "Please describe market conditions."),
 });
 
@@ -107,27 +108,32 @@ export default function RentalCalculator() {
     }
   }, [state]);
 
-
   const watchedValues = form.watch();
-  const { purchasePrice, downPayment, monthlyIncome, monthlyExpenses } = watchedValues;
-  
-  const loanAmount = purchasePrice - downPayment;
-  const monthlyInterestRate = (watchedValues.interestRate / 100) / 12;
-  const numberOfPayments = watchedValues.loanTerm * 12;
-  
-  const mortgagePayment = loanAmount > 0 && monthlyInterestRate > 0 ? loanAmount * (monthlyInterestRate * Math.pow(1 + monthlyInterestRate, numberOfPayments)) / (Math.pow(1 + monthlyInterestRate, numberOfPayments) - 1) : 0;
-  
-  const totalMonthlyExpenses = monthlyExpenses + mortgagePayment;
-  const monthlyCashFlow = monthlyIncome - totalMonthlyExpenses;
-  const annualCashFlow = monthlyCashFlow * 12;
-  const cocReturn = downPayment > 0 ? (annualCashFlow / downPayment) * 100 : 0;
-  
-  const chartData = [
-    { name: "Income", value: monthlyIncome, fill: "hsl(var(--primary))" },
-    { name: "Expenses", value: monthlyExpenses, fill: "hsl(var(--destructive))" },
-    { name: "Mortgage", value: mortgagePayment, fill: "hsl(var(--accent))" },
-    { name: "Cash Flow", value: monthlyCashFlow > 0 ? monthlyCashFlow : 0, fill: "hsl(var(--chart-2))" }
-  ];
+
+  const { monthlyCashFlow, cocReturn, mortgagePayment, loanAmount, chartData } = useMemo(() => {
+    const { purchasePrice, downPayment, interestRate, loanTerm, monthlyIncome, monthlyExpenses } = watchedValues;
+    const loanAmount = purchasePrice - downPayment;
+    const monthlyInterestRate = (interestRate / 100) / 12;
+    const numberOfPayments = loanTerm * 12;
+    
+    const mortgagePayment = loanAmount > 0 && monthlyInterestRate > 0 
+      ? loanAmount * (monthlyInterestRate * Math.pow(1 + monthlyInterestRate, numberOfPayments)) / (Math.pow(1 + monthlyInterestRate, numberOfPayments) - 1) 
+      : 0;
+    
+    const totalMonthlyExpenses = monthlyExpenses + mortgagePayment;
+    const monthlyCashFlow = monthlyIncome - totalMonthlyExpenses;
+    const annualCashFlow = monthlyCashFlow * 12;
+    const cocReturn = downPayment > 0 ? (annualCashFlow / downPayment) * 100 : 0;
+    
+    const chartData = [
+      { name: "Income", value: monthlyIncome, fill: "hsl(var(--primary))" },
+      { name: "Expenses", value: monthlyExpenses, fill: "hsl(var(--destructive))" },
+      { name: "Mortgage", value: parseFloat(mortgagePayment.toFixed(2)), fill: "hsl(var(--accent))" },
+      { name: "Cash Flow", value: monthlyCashFlow > 0 ? parseFloat(monthlyCashFlow.toFixed(2)) : 0, fill: "hsl(var(--chart-2))" }
+    ];
+
+    return { monthlyCashFlow, cocReturn, mortgagePayment, loanAmount, chartData };
+  }, [watchedValues]);
 
   const handleSaveDeal = async () => {
     if (!user) {
@@ -153,6 +159,8 @@ export default function RentalCalculator() {
         cocReturn: parseFloat(cocReturn.toFixed(2)),
         userId: user.uid,
         createdAt: serverTimestamp(),
+        status: 'In Works',
+        isPublished: false,
     };
 
     const dealsCol = collection(firestore, `users/${user.uid}/deals`);
@@ -248,5 +256,3 @@ export default function RentalCalculator() {
     </Card>
   );
 }
-
-    
