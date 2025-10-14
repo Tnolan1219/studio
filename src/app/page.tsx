@@ -1,42 +1,39 @@
-"use client";
+'use client';
 
 import { useState } from 'react';
 import { AuthModal } from '@/components/auth-modal';
 
 const Logo = () => (
-  <svg 
-    width="128" 
-    height="128" 
-    viewBox="0 0 100 100" 
-    xmlns="http://www.w3.org/2000/svg" 
-    className="mx-auto mb-6 animate-pulse-slow"
+  <svg
+    width="128"
+    height="128"
+    viewBox="0 0 100 100"
+    xmlns="http://www.w3.org/2000/svg"
+    className="mx-auto mb-6"
   >
     <defs>
-      <linearGradient id="neonDuckGradient" x1="0%" y1="100%" x2="100%" y2="0%">
-        <stop offset="0%" style={{stopColor: 'hsl(var(--primary) / 0.7)'}} />
-        <stop offset="100%" style={{stopColor: 'hsl(var(--primary))'}} />
+      <linearGradient id="cyanGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+        <stop offset="0%" style={{ stopColor: 'hsl(var(--primary))' }} />
+        <stop offset="100%" style={{ stopColor: 'hsl(190, 100%, 70%)' }} />
       </linearGradient>
-      <filter id="neonGlow" x="-50%" y="-50%" width="200%" height="200%">
-        <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
+      <filter id="cyanGlow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
         <feMerge>
           <feMergeNode in="blur" />
           <feMergeNode in="SourceGraphic" />
         </feMerge>
       </filter>
     </defs>
-    <g style={{ filter: 'url(#neonGlow)' }} fill="url(#neonDuckGradient)">
-      {/* Head and Beak */}
-      <path d="M 85,25 C 85,18 78,15 72,15 C 65,15 60,20 60,27 C 60,34 65,39 72,39 C 78,39 84,36 85,35 M 92,27 C 92,26 91,22 85,25" />
-      {/* Eye */}
-      <path d="M 75 26 A 1 1 0 0 1 75 28" stroke="hsl(var(--primary))" strokeWidth="1.5" fill="none" />
-       {/* Body and Neck */}
-      <path d="M 60,27 C 50,45 35,50 25,50 C 15,50 10,45 10,38 C 10,30 20,30 30,35 C 30,35 20,45 30,55 C 40,65 55,60 65,50 C 75,40 70,30 60,27 Z" />
-      {/* Wing/Tail - simplified into one flowing element */}
-      <path d="M 30,55 C 20,75 25,90 40,90 C 55,90 65,75 60,60 C 55,45 40,50 30,55 Z" />
+    <g style={{ filter: 'url(#cyanGlow)' }}>
+      <path
+        d="M 50,15 L 85,75 L 15,75 Z"
+        fill="url(#cyanGradient)"
+        stroke="hsl(var(--primary))"
+        strokeWidth="2"
+      />
     </g>
   </svg>
 );
-
 
 export default function LandingPage() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -51,11 +48,11 @@ export default function LandingPage() {
         <p className="mt-4 text-lg text-muted-foreground">
           Your Real Estate Investment Co-Pilot
         </p>
-        <button 
-            onClick={() => setIsAuthModalOpen(true)}
-            className="mt-8 px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-lg shadow-lg hover:bg-primary/90 transition-colors"
+        <button
+          onClick={() => setIsAuthModalOpen(true)}
+          className="mt-8 px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-lg shadow-lg hover:bg-primary/90 transition-colors"
         >
-            Enter App
+          Enter App
         </button>
       </div>
       <AuthModal isOpen={isAuthModalOpen} onOpenChange={setIsAuthModalOpen} />
