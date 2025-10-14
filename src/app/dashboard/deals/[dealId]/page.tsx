@@ -15,9 +15,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
-import { BarChart, Building, Home, Repeat, Trash2, Edit, MessageSquare, Send, Eye, EyeOff } from 'lucide-react';
+import { BarChart, Building, Home, Repeat, Trash2, Edit, MessageSquare, Send, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ProFormaTable } from '@/components/analysis/pro-forma-table';
+import { useDashboardTab } from '@/hooks/use-dashboard-tab';
+import DealEditForm from '@/components/deal-edit-form';
+
 
 const DEAL_STATUSES: DealStatus[] = ['In Works', 'Negotiating', 'Bought', 'Owned & Operating', 'Sold'];
 
@@ -103,10 +106,12 @@ export default function DealDetailPage() {
     const { user } = useUser();
     const firestore = useFirestore();
     const router = useRouter();
+    const { setActiveTab } = useDashboardTab();
 
     const [newComment, setNewComment] = useState('');
     const [investorNotes, setInvestorNotes] = useState('');
     const [isEditingNotes, setIsEditingNotes] = useState(false);
+    const [isEditingDeal, setIsEditingDeal] = useState(false);
 
     const dealRef = useMemoFirebase(() => {
         if (!user || !dealId) return null;
@@ -184,6 +189,12 @@ export default function DealDetailPage() {
         deleteDocumentNonBlocking(dealRef);
         toast({ title: 'Deal Deleted', description: `${deal?.dealName} has been removed.`, variant: 'destructive'});
         router.push('/dashboard');
+        setActiveTab('deals');
+    }
+    
+    const handleBackToDeals = () => {
+        router.push('/dashboard');
+        setActiveTab('deals');
     }
 
     if (isDealLoading) {
@@ -208,23 +219,40 @@ export default function DealDetailPage() {
             </div>
         )
     }
+    
+    if (isEditingDeal) {
+        return (
+            <DealEditForm 
+                deal={deal} 
+                onSave={() => setIsEditingDeal(false)}
+                onCancel={() => setIsEditingDeal(false)}
+            />
+        )
+    }
 
 
     return (
         <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-6 animate-fade-in">
             <Card className="bg-card/60 backdrop-blur-sm">
                 <CardHeader>
-                    <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                    <div className="flex flex-col md:flex-row justify-between md:items-start gap-4">
                         <div>
+                             <Button variant="ghost" size="sm" className="mb-2" onClick={handleBackToDeals}>
+                                <ArrowLeft className="w-4 h-4 mr-2" />
+                                Back to Deals
+                            </Button>
                             <div className="flex items-center gap-3">
                                 <DealTypeIcon type={deal.dealType} />
                                 <CardTitle className="text-3xl font-headline">{deal.dealName}</CardTitle>
+                                 <Button variant="ghost" size="icon" onClick={() => setIsEditingDeal(true)}>
+                                    <Edit className="w-4 h-4" />
+                                </Button>
                             </div>
                             <CardDescription>
                                 {deal.dealType} Analysis | Created {deal.createdAt && formatDistanceToNow(deal.createdAt.toDate(), { addSuffix: true })}
                             </CardDescription>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-shrink-0">
                              <Select value={deal.status} onValueChange={handleStatusChange}>
                                 <SelectTrigger className="w-[180px]">
                                     <SelectValue placeholder="Set Status" />
