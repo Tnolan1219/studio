@@ -37,12 +37,12 @@ import {
   Tooltip,
   CartesianGrid
 } from 'recharts';
-import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
 import { ProFormaTable } from './pro-forma-table';
-import type { ProFormaEntry, Deal } from '@/lib/types';
+import type { ProFormaEntry, Deal, UserProfile } from '@/lib/types';
 import { Switch } from '@/components/ui/switch';
 import AdvancedCommercialCalculator from './advanced-commercial-calculator';
 import { Label } from '@/components/ui/label';
@@ -169,9 +169,10 @@ interface CommercialCalculatorProps {
     deal?: Deal;
     onSave?: () => void;
     onCancel?: () => void;
+    dealCount?: number;
 }
 
-export default function CommercialCalculator({ deal, onSave, onCancel }: CommercialCalculatorProps) {
+export default function CommercialCalculator({ deal, onSave, onCancel, dealCount = 0 }: CommercialCalculatorProps) {
   const [state, formAction] = useActionState(getDealAssessment, {
     message: '',
     assessment: null,
@@ -185,9 +186,15 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
   const [isPending, startTransition] = useTransition();
   const [isSaving, setIsSaving] = useState(false);
 
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+  const { data: profileData } = useDoc<UserProfile>(userProfileRef);
+
   useEffect(() => {
+    // When editing, determine which mode to start in.
     if (isEditMode) {
-      // When editing, determine which mode to start in.
       setIsAdvancedMode(!!deal.isAdvanced);
     }
   }, [isEditMode, deal]);
@@ -291,6 +298,19 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
       return;
     }
 
+     if (!isEditMode) {
+      const plan = profileData?.plan || 'Free';
+      const limits = { Free: 5, Pro: 15, Executive: Infinity };
+      if (dealCount >= limits[plan]) {
+        toast({
+            title: `Deal Limit Reached for ${plan} Plan`,
+            description: `You have ${dealCount} deals. Please upgrade your plan to save more.`,
+            variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     setIsSaving(true);
     const formValues = form.getValues();
     const dealData = {
@@ -322,7 +342,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
   };
 
   if (isAdvancedMode) {
-      return <AdvancedCommercialCalculator deal={deal} onSave={onSave} onCancel={onCancel} />;
+      return <AdvancedCommercialCalculator deal={deal} onSave={onSave} onCancel={onCancel} dealCount={dealCount}/>;
   }
 
   return (
@@ -342,7 +362,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
       </CardHeader>
       
       {isAdvancedMode ? (
-        <AdvancedCommercialCalculator deal={deal} onSave={onSave} onCancel={onCancel} />
+        <AdvancedCommercialCalculator deal={deal} onSave={onSave} onCancel={onCancel} dealCount={dealCount} />
       ) : (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(handleAnalyzeWrapper)}>

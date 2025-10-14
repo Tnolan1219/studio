@@ -126,7 +126,8 @@ export default function OnboardingPage() {
     const profileData = {
         ...data,
         email: user.email,
-        isOnboardingComplete: true
+        isOnboardingComplete: true,
+        plan: 'Free' // Assign default plan
     };
     
     setDocumentNonBlocking(userProfileRef, profileData, { merge: true });

@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserProfile": {
@@ -39,6 +40,11 @@
         "isOnboardingComplete": {
             "type": "boolean",
             "description": "Flag to indicate if the user has completed the onboarding process."
+        },
+        "plan": {
+          "type": "string",
+          "description": "The user's subscription plan.",
+          "enum": ["Free", "Pro", "Executive"]
         }
       },
       "required": [

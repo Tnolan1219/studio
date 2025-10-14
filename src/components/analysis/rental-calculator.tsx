@@ -37,12 +37,12 @@ import {
   Bar,
   CartesianGrid,
 } from 'recharts';
-import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
 import { ProFormaTable } from './pro-forma-table';
-import type { ProFormaEntry, Deal } from '@/lib/types';
+import type { ProFormaEntry, Deal, UserProfile } from '@/lib/types';
 
 
 const formSchema = z.object({
@@ -140,9 +140,10 @@ interface RentalCalculatorProps {
     deal?: Deal;
     onSave?: () => void;
     onCancel?: () => void;
+    dealCount?: number;
 }
 
-export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalculatorProps) {
+export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0 }: RentalCalculatorProps) {
   const [state, formAction] = useActionState(getDealAssessment, {
     message: '',
     assessment: null,
@@ -150,6 +151,12 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+  const { data: profileData } = useDoc<UserProfile>(userProfileRef);
 
   const [isPending, startTransition] = useTransition();
   const [isSaving, setIsSaving] = useState(false);
@@ -247,6 +254,19 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
     if (!isFormValid) {
       toast({ title: 'Invalid Data', description: 'Please fill out all required fields correctly before saving.', variant: 'destructive' });
       return;
+    }
+    
+    if (!isEditMode) {
+      const plan = profileData?.plan || 'Free';
+      const limits = { Free: 5, Pro: 15, Executive: Infinity };
+      if (dealCount >= limits[plan]) {
+        toast({
+            title: `Deal Limit Reached for ${plan} Plan`,
+            description: `You have ${dealCount} deals. Please upgrade your plan to save more.`,
+            variant: 'destructive',
+        });
+        return;
+      }
     }
 
     setIsSaving(true);
@@ -401,5 +421,3 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
     </Card>
   );
 }
-
-    

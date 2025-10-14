@@ -41,30 +41,33 @@ const DealCard = ({ deal }: { deal: Deal }) => {
             metricLabel = 'Return';
     }
 
+    const cashFlowValue = deal.monthlyCashFlow ?? deal.netProfit ?? deal.noi ?? 0;
+    const cashFlowLabel = deal.dealType === 'House Flip' ? 'Net Profit' : 'Cash Flow';
+
     return (
         <Link href={`/dashboard/deals/${deal.id}`} passHref>
             <Card className={`bg-card/60 backdrop-blur-sm transition-all duration-300 hover:scale-105 cursor-pointer h-full flex flex-col ${getProfitabilityClass(deal)}`}>
                 <CardHeader>
                     <div className="flex justify-between items-start">
-                        <div>
-                            <CardTitle className="text-lg">{deal.dealName}</CardTitle>
+                        <div className='overflow-hidden'>
+                            <CardTitle className="text-lg truncate">{deal.dealName}</CardTitle>
                             <CardDescription>{deal.dealType}</CardDescription>
                         </div>
-                        <Badge variant="outline">{deal.status}</Badge>
+                        <Badge variant="outline" className='flex-shrink-0'>{deal.status}</Badge>
                     </div>
                 </CardHeader>
                 <CardContent className="grid grid-cols-3 gap-2 text-center flex-grow">
-                     <div>
+                     <div className='overflow-hidden'>
                         <p className="text-xs text-muted-foreground">Price</p>
-                        <p className="text-lg font-bold">${(deal.purchasePrice / 1000).toFixed(0)}k</p>
+                        <p className="text-lg font-bold truncate">${(deal.purchasePrice / 1000).toFixed(0)}k</p>
                     </div>
-                    <div>
+                    <div className='overflow-hidden'>
                         <p className="text-xs text-muted-foreground">{metricLabel}</p>
-                        <p className="text-lg font-bold">{metric?.toFixed(1)}%</p>
+                        <p className="text-lg font-bold truncate">{metric?.toFixed(1)}%</p>
                     </div>
-                    <div>
-                        <p className="text-xs text-muted-foreground">Cash Flow</p>
-                        <p className="text-lg font-bold">${deal.monthlyCashFlow ?? deal.netProfit ?? deal.noi ?? 0}/mo</p>
+                    <div className='overflow-hidden'>
+                        <p className="text-xs text-muted-foreground">{cashFlowLabel}</p>
+                        <p className="text-lg font-bold truncate">${cashFlowValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                     </div>
                 </CardContent>
             </Card>

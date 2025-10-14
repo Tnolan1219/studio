@@ -1,3 +1,4 @@
+
 'use client';
 import { Timestamp } from "firebase/firestore";
 
@@ -9,6 +10,7 @@ export type UserProfile = {
     country?: string;
     state?: string;
     financialGoal?: string;
+    plan?: 'Free' | 'Pro' | 'Executive';
 };
 
 export type DealStatus = 'In Works' | 'Negotiating' | 'Bought' | 'Owned & Operating' | 'Sold';
