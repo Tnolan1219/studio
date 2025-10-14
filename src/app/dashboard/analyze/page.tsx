@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -13,7 +12,7 @@ import { collection, query } from 'firebase/firestore';
 import type { Deal } from '@/lib/types';
 
 
-export default function AnalyzeTab() {
+export default function AnalyzePage() {
   const { user } = useUser();
   const firestore = useFirestore();
 
