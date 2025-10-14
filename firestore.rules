@@ -1,79 +1,101 @@
 /**
- * @fileOverview Firestore Security Rules for TKN Fi RE application.
+ * @fileoverview Firestore Security Rules for TKN Fi RE application.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model.  Each user can only access and modify their own profile data and the deals they have saved.
+ * This ruleset enforces a strict user-ownership model for user profiles and their associated data (deals and comments).
+ * Users can only access their own profile data and the deals they have created.
+ * Comments are also user-owned within the context of a specific deal.
  *
  * Data Structure:
- * - `/users/{userId}`: Stores user profile information. `userId` must match the authenticated user's UID.
- * - `/users/{userId}/deals/{dealId}`: Stores real estate deals saved by the user.  `userId` in the path must match the authenticated user's UID.
+ * - /users/{userId}: User profile information.
+ * - /users/{userId}/deals/{dealId}: Saved real estate deals for each user.
+ * - /users/{userId}/deals/{dealId}/comments/{commentId}: Comments on specific deals.
  *
  * Key Security Decisions:
- * - User listing is disallowed for privacy.
- * - Strict ownership is enforced on all write operations.
- * - No role-based access control is implemented in this initial version.
+ * - User listing is disallowed.
+ * - All write operations are strictly validated against user ownership.
  *
  * Denormalization for Authorization:
- * - Each `Deal` document has a `userId` field. This allows rules to verify ownership without additional reads.
+ * - Deals have a `userId` field to easily check ownership.
+ * - Comments have an `author` field to easily check ownership.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Protects user profile information, ensuring only the authenticated user can access their profile.
-     * @path /users/{userId}
-     * @allow (get, create, update, delete) User with UID 'user123' can access /users/user123.
-     * @deny (get, create, update, delete) User with UID 'user456' cannot access /users/user123.
-     * @principle Enforces document ownership for all operations.
+     * @description Secure user profiles. Only the authenticated user can read or write their own profile.
+     * @path /databases/{database}/documents/users/{userId}
+     * @allow (get, create, update, delete) User with UID "CAG6gKiNjJYKOMfNHCpVSbgLf4q1" can access their own profile.
+     * @deny (get, create, update, delete) User with UID "DIFFERENT_UID" cannot access profile of "CAG6gKiNjJYKOMfNHCpVSbgLf4q1".
+     * @principle Enforces document ownership for all operations on user profiles.
      */
     match /users/{userId} {
+      // Helper function to check if the request is from the owner of the user profile.
       function isOwner(userId) {
-        return request.auth.uid == userId;
+        return request.auth != null && request.auth.uid == userId;
       }
 
+      // Helper function to check if the user is signed in.
       function isSignedIn() {
         return request.auth != null;
       }
 
-      //Helper function to combine ownership check with existence check
-      function isExistingOwner(userId) {
-        return isOwner(userId) && existsAfter(/databases/$(database)/documents/users/$(userId));
-      }
-
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false; // User listing is not allowed.
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Protects saved real estate deals, ensuring only the owner can access them.
-     * @path /users/{userId}/deals/{dealId}
-     * @allow (get, create, update, delete) User 'user123' can access /users/user123/deals/deal001 if they own it.
-     * @deny (get, create, update, delete) User 'user456' cannot access /users/user123/deals/deal001 because they are not the owner.
-     * @principle Enforces document ownership for all operations on saved deals.
+     * @description Secure deals subcollection. Only the owner of the user profile can read or write deals.
+     * @path /databases/{database}/documents/users/{userId}/deals/{dealId}
+     * @allow (get, create, update, delete) User with UID "CAG6gKiNjJYKOMfNHCpVSbgLf4q1" can access their own deal.
+     * @deny (get, create, update, delete) User with UID "DIFFERENT_UID" cannot access deal of "CAG6gKiNjJYKOMfNHCpVSbgLf4q1".
+     * @principle Enforces document ownership for all operations on deals.
      */
     match /users/{userId}/deals/{dealId} {
+      // Helper function to check if the request is from the owner of the deal
       function isOwner(userId) {
-        return request.auth.uid == userId;
+        return request.auth != null && request.auth.uid == userId;
       }
 
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      //Helper function to combine ownership check with existence check
+      //Helper function to validate ownership on an existing document
       function isExistingOwner(userId) {
-        return isOwner(userId) && existsAfter(/databases/$(database)/documents/users/$(userId)/deals/$(dealId));
+        return isOwner(userId) && resource != null;
       }
 
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+      /**
+       * @description Secure comments subcollection within deals. Only the owner of the user profile can read or write comments.
+       * @path /databases/{database}/documents/users/{userId}/deals/{dealId}/comments/{commentId}
+       * @allow (get, create, update, delete) User with UID "CAG6gKiNjJYKOMfNHCpVSbgLf4q1" can access their own deal comment.
+       * @deny (get, create, update, delete) User with UID "DIFFERENT_UID" cannot access deal comment of "CAG6gKiNjJYKOMfNHCpVSbgLf4q1".
+       * @principle Enforces document ownership for all operations on deal comments.
+       */
+    match /users/{userId}/deals/{dealId}/comments/{commentId} {
+        // Helper function to check if the request is from the owner of the comment
+        function isOwner(userId) {
+            return request.auth != null && request.auth.uid == userId;
+        }
+
+        //Helper function to validate ownership on an existing document
+        function isExistingOwner(userId) {
+          return isOwner(userId) && resource != null;
+        }
+
+        allow get: if isOwner(userId);
+        allow list: if false;
+        allow create: if isOwner(userId);
+        allow update: if isExistingOwner(userId);
+        allow delete: if isExistingOwner(userId);
     }
   }
 }
