@@ -34,7 +34,7 @@
   }
 
   .dark {
-    --background: 0 0% 0%;
+    --background: 220 20% 7%;
     --foreground: 0 0% 98%;
     --card: 220 13% 9%;
     --card-foreground: 0 0% 98%;
@@ -122,5 +122,24 @@
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .tab-button .liquid-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: hsl(var(--primary) / 0.8);
+      transform: translateY(100%);
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .tab-button:hover .liquid-fill {
+      transform: translateY(75%);
+    }
+
+    .tab-button[data-variant="default"] .liquid-fill {
+      transform: translateY(0);
     }
 }
