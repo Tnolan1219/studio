@@ -33,6 +33,10 @@ const webBrowserTool = ai.defineTool(
       outputSchema: z.string(),
     },
     async ({ query }) => {
+        if (!process.env.TAVILY_API_KEY) {
+            return "Web searching is disabled. The TAVILY_API_KEY environment variable is not set.";
+        }
+
       console.log(`Briefing AI is browsing the web for: ${query}`);
       try {
         const response = await fetch('https://api.tavily.com/search', {

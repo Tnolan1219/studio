@@ -31,8 +31,10 @@ const webBrowserTool = ai.defineTool(
     outputSchema: z.string(),
   },
   async ({ query }) => {
-    // This is a simplified web browser for demonstration.
-    // In a real app, you would use a more robust search API (e.g., Google Custom Search).
+    if (!process.env.TAVILY_API_KEY) {
+        return "Web searching is disabled. The TAVILY_API_KEY environment variable is not set.";
+    }
+    
     console.log(`AI is browsing the web for: ${query}`);
     try {
       // Use the Tavily search API for more reliable results.
@@ -42,7 +44,7 @@ const webBrowserTool = ai.defineTool(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            api_key: process.env.TAVILY_API_KEY, // Assumes TAVILY_API_KEY is in .env
+            api_key: process.env.TAVILY_API_KEY,
             query: query,
             search_depth: "basic",
             include_answer: true,
