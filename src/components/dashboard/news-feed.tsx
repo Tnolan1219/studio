@@ -5,12 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Newspaper, Send, Sparkles } from 'lucide-react';
-import { useUser } from '@/firebase';
+import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { answerRealEstateQuestion } from '@/ai/flows/answer-real-estate-question';
 import { generateNewsBriefing } from '@/ai/flows/generate-news-briefing';
 import { marked } from 'marked';
+import { doc } from 'firebase/firestore';
+import type { UserProfile } from '@/lib/types';
+
 
 interface AiResponse {
     question: string;
@@ -20,13 +23,21 @@ interface AiResponse {
 
 export function NewsFeed() {
     const { user } = useUser();
+    const firestore = useFirestore();
     const [nationalNews, setNationalNews] = useState('');
     const [stateNews, setStateNews] = useState('');
     const [isBriefingLoading, startBriefingTransition] = useTransition();
     const [aiQuery, setAiQuery] = useState('');
     const [aiResponse, setAiResponse] = useState<AiResponse | null>(null);
 
-    const userState = user?.isAnonymous ? 'the US' : (user?.displayName ? 'California' : 'the US'); // Mocking state for now
+    const userProfileRef = useMemoFirebase(() => {
+        if (!user || user.isAnonymous) return null;
+        return doc(firestore, `users/${user.uid}`);
+    }, [firestore, user]);
+
+    const { data: profileData } = useDoc<UserProfile>(userProfileRef);
+
+    const userState = profileData?.state || 'the US';
 
     useEffect(() => {
         if (user) { 
