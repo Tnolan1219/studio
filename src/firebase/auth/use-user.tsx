@@ -31,7 +31,7 @@ export const useUser = (): UserHookResult => {
     }
 
     // Set loading state to true whenever the auth instance changes.
-    setUserState({ user: null, isUserLoading: true, userError: null });
+    setUserState(prevState => ({ ...prevState, isUserLoading: true }));
 
     const unsubscribe = onAuthStateChanged(
       auth,

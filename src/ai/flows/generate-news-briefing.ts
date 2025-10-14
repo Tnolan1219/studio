@@ -45,5 +45,9 @@ export async function generateNewsBriefing(input: GenerateNewsBriefingInput): Pr
       input: input,
       model: ai.model('gemini-2.5-flash'),
     });
-    return response.output()!;
+    const output = response.output();
+    if (!output) {
+      throw new Error('No output from AI');
+    }
+    return output;
 }

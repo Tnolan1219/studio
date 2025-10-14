@@ -31,5 +31,9 @@ export async function generateFinancialGoalExample(): Promise<GenerateFinancialG
     const response = await prompt.generate({
       model: ai.model('gemini-2.5-flash'),
     });
-    return response.output()!;
+    const output = response.output();
+    if (!output) {
+        throw new Error('No output from AI');
+    }
+    return output;
 }

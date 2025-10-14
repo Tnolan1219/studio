@@ -1,4 +1,3 @@
-
 import Link from 'next/link';
 import { Briefcase, LogOut, User, Settings, LogIn } from 'lucide-react';
 import { useRouter } from 'next/navigation';
