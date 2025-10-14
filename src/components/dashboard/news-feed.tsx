@@ -83,7 +83,7 @@ export function NewsFeed() {
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <Newspaper size={20} />
-                    AI Market Researcher
+                    Your Real Estate Briefing
                 </CardTitle>
                 <CardDescription>Your personalized real estate news and analysis hub.</CardDescription>
             </CardHeader>
