@@ -1,7 +1,6 @@
+'use client';
 
-"use client";
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,6 +9,7 @@ import { useUser } from '@/firebase';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { answerRealEstateQuestion } from '@/ai/flows/answer-real-estate-question';
+import { generateNewsBriefing } from '@/ai/flows/generate-news-briefing';
 import { marked } from 'marked';
 
 interface AiResponse {
@@ -22,36 +22,27 @@ export function NewsFeed() {
     const { user } = useUser();
     const [nationalNews, setNationalNews] = useState('');
     const [stateNews, setStateNews] = useState('');
-    const [isLoading, setIsLoading] = useState(true);
+    const [isBriefingLoading, startBriefingTransition] = useTransition();
     const [aiQuery, setAiQuery] = useState('');
     const [aiResponse, setAiResponse] = useState<AiResponse | null>(null);
 
     const userState = user?.isAnonymous ? 'the US' : (user?.displayName ? 'California' : 'the US'); // Mocking state for now
 
     useEffect(() => {
-        const fetchNews = async () => {
-            setIsLoading(true);
-            try {
-                const nationalPromise = answerRealEstateQuestion({ question: "Latest national real estate market trends in the US" });
-                const statePromise = answerRealEstateQuestion({ question: `Key real estate metrics in ${userState} (median price, avg rent, mortgage rates)` });
-
-                const [nationalResult, stateResult] = await Promise.all([nationalPromise, statePromise]);
-
-                setNationalNews(await marked(nationalResult.answer));
-                setStateNews(await marked(stateResult.answer));
-            } catch (error) {
-                console.error("Failed to fetch AI news summaries:", error);
-                setNationalNews("<p>Could not load national news. Please try again later.</p>");
-                setStateNews("<p>Could not load state news. Please try again later.</p>");
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        if (user) { // Only fetch when user is loaded
-            fetchNews();
+        if (user) { 
+            startBriefingTransition(async () => {
+                try {
+                    const result = await generateNewsBriefing({ investmentPreferences: userState });
+                    setNationalNews(await marked(result.nationalSummary));
+                    setStateNews(await marked(result.localSummary));
+                } catch (error) {
+                    console.error("Failed to fetch AI news briefing:", error);
+                    const errorMessage = "<p>Could not load briefing. The AI service may be temporarily unavailable.</p>";
+                    setNationalNews(errorMessage);
+                    setStateNews(errorMessage);
+                }
+            });
         }
-
     }, [user, userState]);
 
     const handleAiQuery = async () => {
@@ -92,13 +83,13 @@ export function NewsFeed() {
                     <AccordionItem value="item-1">
                         <AccordionTrigger>National RE News</AccordionTrigger>
                         <AccordionContent className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground">
-                            {isLoading ? renderSkeleton() : <div dangerouslySetInnerHTML={{ __html: nationalNews }} />}
+                            {isBriefingLoading ? renderSkeleton() : <div dangerouslySetInnerHTML={{ __html: nationalNews }} />}
                         </AccordionContent>
                     </AccordionItem>
                     <AccordionItem value="item-2">
                         <AccordionTrigger>{userState} RE News</AccordionTrigger>
                         <AccordionContent className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground">
-                             {isLoading ? renderSkeleton() : <div dangerouslySetInnerHTML={{ __html: stateNews }} />}
+                             {isBriefingLoading ? renderSkeleton() : <div dangerouslySetInnerHTML={{ __html: stateNews }} />}
                         </AccordionContent>
                     </AccordionItem>
                     <AccordionItem value="item-3">

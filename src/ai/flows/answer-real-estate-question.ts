@@ -35,20 +35,32 @@ const webBrowserTool = ai.defineTool(
     // In a real app, you would use a more robust search API (e.g., Google Custom Search).
     console.log(`AI is browsing the web for: ${query}`);
     try {
-      // For this example, we'll simulate a search by directly fetching a DuckDuckGo search results page.
-      // This is not a robust solution but demonstrates the capability.
-      const response = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1`);
+      // Use the Tavily search API for more reliable results.
+      const response = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            api_key: process.env.TAVILY_API_KEY, // Assumes TAVILY_API_KEY is in .env
+            query: query,
+            search_depth: "basic",
+            include_answer: true,
+            max_results: 1
+        })
+      });
+
       if (!response.ok) {
         return `Error fetching search results: ${response.statusText}`;
       }
       const data: any = await response.json();
 
-      if (data.AbstractText) {
-        return `Topic: ${data.Heading}\n\n${data.AbstractText}`;
+      if (data.answer) {
+        return data.answer;
       }
       
-      if (data.RelatedTopics && data.RelatedTopics.length > 0) {
-        return `Found several related topics for "${query}":\n\n` + data.RelatedTopics.map((topic: any) => `- ${topic.Text}`).join('\n');
+      if (data.results && data.results.length > 0) {
+        return `Title: ${data.results[0].title}\n\nContent: ${data.results[0].content}`;
       }
 
       return `No direct answer found for "${query}". Try rephrasing your question.`;
