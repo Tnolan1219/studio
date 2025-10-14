@@ -173,13 +173,13 @@ export default function DealDetailPage() {
     };
 
     const handlePostComment = () => {
-        if (!dealRef || !newComment.trim()) return;
+        if (!dealRef || !newComment.trim() || !user) return;
         const commentsCol = collection(dealRef, 'comments');
         addDocumentNonBlocking(commentsCol, {
             text: newComment,
-            author: user?.displayName || 'Anonymous',
+            author: user.displayName || 'Anonymous',
             createdAt: serverTimestamp(),
-        }).catch(error => { console.error("Error adding comment: ", error) });
+        });
         setNewComment('');
         toast({ title: 'Comment Posted' });
     };

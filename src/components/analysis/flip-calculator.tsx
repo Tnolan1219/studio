@@ -37,8 +37,8 @@ import {
   Bar,
   CartesianGrid,
 } from 'recharts';
-import { useUser, useFirestore } from '@/firebase';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { useUser, useFirestore, addDocumentNonBlocking } from '@/firebase';
+import { collection, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
 
@@ -144,7 +144,7 @@ export default function FlipCalculator() {
   }, [watchedValues]);
 
   const handleSaveDeal = async () => {
-    if (!user || !firestore) {
+    if (!user) {
       toast({ title: 'Authentication Required', description: 'Please sign in to save deals.', variant: 'destructive' });
       return;
     }
@@ -171,15 +171,10 @@ export default function FlipCalculator() {
       isPublished: false,
     };
     
-    try {
-        await addDoc(collection(firestore, `users/${user.uid}/deals`), dealData);
-        toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
-    } catch (error) {
-        console.error("Error saving deal:", error);
-        toast({ title: 'Error Saving Deal', description: 'Could not save your deal. Please try again.', variant: 'destructive' });
-    } finally {
-        setIsSaving(false);
-    }
+    const dealsCol = collection(firestore, `users/${user.uid}/deals`);
+    addDocumentNonBlocking(dealsCol, dealData);
+    toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
+    setIsSaving(false);
   };
   
   return (
