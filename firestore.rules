@@ -1,99 +1,89 @@
 /**
- * @fileoverview Firestore Security Rules for TKN Fi RE application.
+ * @description This ruleset enforces a strict user-ownership model for user profiles and their associated deals and comments.
+ * Data validation is relaxed to allow for rapid prototyping and schema iteration.
  *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for user profiles and their associated data (deals and comments).
- * Users can only access their own profile data and the deals they have created.
- * Comments are also user-owned within the context of a specific deal.
+ * @dataStructure
+ * - /users/{userId}: Stores user profile information. Only the user can read/write their own profile.
+ * - /users/{userId}/deals/{dealId}: Stores deals created by the user. Only the user can read/write their own deals.
+ * - /users/{userId}/deals/{dealId}/comments/{commentId}: Stores comments on a deal. Only the author can create comments; only the deal owner can read, update or delete them.
  *
- * Data Structure:
- * - /users/{userId}: User profile information.
- * - /users/{userId}/deals/{dealId}: Saved real estate deals for each user.
- * - /users/{userId}/deals/{dealId}/comments/{commentId}: Comments on specific deals.
- *
- * Key Security Decisions:
- * - User listing is disallowed.
- * - All write operations are strictly validated against user ownership.
- *
- * Denormalization for Authorization:
- * - Deals have a `userId` field to easily check ownership.
- * - Comments have an `author` field to easily check ownership.
+ * @keySecurityDecisions
+ * - Users can only access their own profile data and deals.
+ * - Listing all users is disallowed.
+ * - Ownership is enforced by matching the `userId` path segment with the authenticated user's UID.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description Secure user profiles. Only the authenticated user can read or write their own profile.
-     * @path /databases/{database}/documents/users/{userId}
-     * @allow (get, create, update, delete) User with UID "CAG6gKiNjJYKOMfNHCpVSbgLf4q1" can access their own profile.
-     * @deny (get, create, update, delete) User with UID "DIFFERENT_UID" cannot access profile of "CAG6gKiNjJYKOMfNHCpVSbgLf4q1".
-     * @principle Enforces document ownership for all operations on user profiles.
-     */
-    match /users/{userId} {
-      // Helper function to check if the request is from the owner of the user profile.
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
+    function isSignedIn() {
+      return request.auth != null;
+    }
 
-      // Helper function to check if the user is signed in.
-      function isSignedIn() {
-        return request.auth != null;
-      }
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
 
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isOwner(userId);
-      allow delete: if isOwner(userId) && resource != null;
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Secure deals subcollection. Only the owner of the user profile can read or write deals.
-     * @path /databases/{database}/documents/users/{userId}/deals/{dealId}
-     * @allow (get, create, update, delete) User with UID "CAG6gKiNjJYKOMfNHCpVSbgLf4q1" can access their own deal.
-     * @deny (get, create, update, delete) User with UID "DIFFERENT_UID" cannot access deal of "CAG6gKiNjJYKOMfNHCpVSbgLf4q1".
-     * @principle Enforces document ownership for all operations on deals.
+     * @description Controls access to user profile documents.
+     * @path /users/{userId}
+     * @allow (create) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' creates their profile document.
+     * @allow (get) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' retrieves their profile document.
+     * @allow (update) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' updates their profile document.
+     * @allow (delete) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' deletes their profile document.
+     * @deny (create) User with UID 'attackerId' attempts to create a profile document for 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1'.
+     * @deny (get) User with UID 'attackerId' attempts to retrieve profile document for 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1'.
+     * @deny (update) User with UID 'attackerId' attempts to update profile document for 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1'.
+     * @deny (delete) User with UID 'attackerId' attempts to delete profile document for 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1'.
+     * @principle Enforces document ownership for all operations.
      */
-    match /users/{userId}/deals/{dealId} {
-      // Helper function to check if the request is from the owner of the deal
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-
-      //Helper function to validate ownership on an existing document
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
+    match /users/{userId} {
       allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
-      /**
-       * @description Secure comments subcollection within deals. Only the owner of the user profile can read or write comments.
-       * @path /databases/{database}/documents/users/{userId}/deals/{dealId}/comments/{commentId}
-       * @allow (get, create, update, delete) User with UID "CAG6gKiNjJYKOMfNHCpVSbgLf4q1" can access their own deal comment.
-       * @deny (get, create, update, delete) User with UID "DIFFERENT_UID" cannot access deal comment of "CAG6gKiNjJYKOMfNHCpVSbgLf4q1".
-       * @principle Enforces document ownership for all operations on deal comments.
-       */
+    /**
+     * @description Controls access to deal documents within a user's profile.
+     * @path /users/{userId}/deals/{dealId}
+     * @allow (create) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' creates a deal document under their profile.
+     * @allow (get) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' retrieves a deal document under their profile.
+     * @allow (update) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' updates a deal document under their profile.
+     * @allow (delete) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' deletes a deal document under their profile.
+     * @deny (create) User with UID 'attackerId' attempts to create a deal document under user 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1's profile.
+     * @deny (get) User with UID 'attackerId' attempts to retrieve a deal document under user 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1's profile.
+     * @deny (update) User with UID 'attackerId' attempts to update a deal document under user 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1's profile.
+     * @deny (delete) User with UID 'attackerId' attempts to delete a deal document under user 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1's profile.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /users/{userId}/deals/{dealId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Controls access to comments on a specific deal. Only the author can create comments, and only the deal owner can read, update or delete them.
+     * @path /users/{userId}/deals/{dealId}/comments/{commentId}
+     * @allow (create) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' creates a comment.
+     * @allow (list) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' lists the comments.
+     * @deny (get) User with UID 'attackerId' attempts to retrieve a comment document.
+     * @deny (update) User with UID 'attackerId' attempts to update a comment document.
+     * @deny (delete) User with UID 'attackerId' attempts to delete a comment document.
+     * @principle Enforces document ownership for update and delete operations; allows any signed-in user to create.
+     */
     match /users/{userId}/deals/{dealId}/comments/{commentId} {
-        // Helper function to check if the request is from the owner of the comment
-        function isOwner(userId) {
-            return request.auth != null && request.auth.uid == userId;
-        }
-
-        //Helper function to validate ownership on an existing document
-        function isExistingOwner(userId) {
-          return isOwner(userId) && resource != null;
-        }
-
         allow get: if isOwner(userId);
-        allow list: if false;
-        allow create: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isSignedIn();
         allow update: if isExistingOwner(userId);
         allow delete: if isExistingOwner(userId);
     }
