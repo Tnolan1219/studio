@@ -10,7 +10,6 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
-import { generate } from 'genkit';
 
 
 const GenerateDealAssessmentInputSchema = z.object({
@@ -64,10 +63,9 @@ Provide a detailed, professional-grade assessment.`,
 export async function generateDealAssessment(
   input: GenerateDealAssessmentInput
 ): Promise<GenerateDealAssessmentOutput> {
-   const { output } = await generate({
-    prompt: prompt,
+   const response = await prompt.generate({
     input: input,
     model: ai.model('gemini-2.5-flash'),
   });
-  return output;
+  return response.output()!;
 }

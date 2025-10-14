@@ -9,7 +9,7 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z} from 'zod';
 
 const SummarizeFinancialNewsInputSchema = z.object({
   investmentPreferences: z
@@ -30,12 +30,6 @@ export type SummarizeFinancialNewsOutput = z.infer<
   typeof SummarizeFinancialNewsOutputSchema
 >;
 
-export async function summarizeFinancialNews(
-  input: SummarizeFinancialNewsInput
-): Promise<SummarizeFinancialNewsOutput> {
-  return summarizeFinancialNewsFlow(input);
-}
-
 const prompt = ai.definePrompt({
   name: 'summarizeFinancialNewsPrompt',
   input: {schema: SummarizeFinancialNewsInputSchema},
@@ -48,14 +42,12 @@ const prompt = ai.definePrompt({
   Summary:`,
 });
 
-const summarizeFinancialNewsFlow = ai.defineFlow(
-  {
-    name: 'summarizeFinancialNewsFlow',
-    inputSchema: SummarizeFinancialNewsInputSchema,
-    outputSchema: SummarizeFinancialNewsOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
-  }
-);
+export async function summarizeFinancialNews(
+  input: SummarizeFinancialNewsInput
+): Promise<SummarizeFinancialNewsOutput> {
+  const response = await prompt.generate({
+    input: input,
+    model: ai.model('gemini-2.5-flash'),
+  });
+  return response.output()!;
+}

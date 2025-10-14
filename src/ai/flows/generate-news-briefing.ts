@@ -10,8 +10,6 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { generate } from 'genkit';
-
 
 const GenerateNewsBriefingInputSchema = z.object({
   investmentPreferences: z.string().describe('User\'s location and investment goals (e.g., "California", "passive income").'),
@@ -43,10 +41,9 @@ Provide only the data requested in the output schema.
 
 
 export async function generateNewsBriefing(input: GenerateNewsBriefingInput): Promise<GenerateNewsBriefingOutput> {
-    const { output } = await generate({
-      prompt: prompt,
+    const response = await prompt.generate({
       input: input,
       model: ai.model('gemini-2.5-flash'),
     });
-    return output;
+    return response.output()!;
 }

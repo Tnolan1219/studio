@@ -9,8 +9,6 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { generate } from 'genkit';
-
 
 const GenerateFinancialGoalExampleOutputSchema = z.object({
   example: z.string().describe('A well-defined, inspiring real estate financial goal.'),
@@ -30,9 +28,8 @@ const prompt = ai.definePrompt({
 
 
 export async function generateFinancialGoalExample(): Promise<GenerateFinancialGoalExampleOutput> {
-    const { output } = await generate({
-      prompt: prompt,
+    const response = await prompt.generate({
       model: ai.model('gemini-2.5-flash'),
     });
-    return output;
+    return response.output()!;
 }

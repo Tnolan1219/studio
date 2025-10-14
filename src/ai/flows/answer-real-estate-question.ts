@@ -10,8 +10,6 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { generate } from 'genkit';
-
 
 const AnswerRealEstateQuestionInputSchema = z.object({
   question: z.string().describe('The user\'s question about real estate.'),
@@ -36,10 +34,9 @@ const prompt = ai.definePrompt({
 });
 
 export async function answerRealEstateQuestion(input: AnswerRealEstateQuestionInput): Promise<AnswerRealEstateQuestionOutput> {
-  const { output } = await generate({
-    prompt: prompt,
+  const response = await prompt.generate({
     input: input,
     model: ai.model('gemini-2.5-flash'),
   });
-  return output;
+  return response.output()!;
 }
