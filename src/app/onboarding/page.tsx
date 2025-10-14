@@ -85,7 +85,6 @@ export default function OnboardingPage() {
   });
 
   useEffect(() => {
-    // If user is not logged in or has already completed onboarding, redirect
     if (!isUserLoading && !user) {
       router.push('/');
     }

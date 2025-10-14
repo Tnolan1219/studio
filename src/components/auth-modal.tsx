@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
-import { useAuth, useUser, useFirestore } from '@/firebase';
+import { useAuth, useUser, useFirestore, useFirebase } from '@/firebase';
 import { 
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword, 
@@ -75,8 +75,7 @@ export function AuthModal({
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const auth = useAuth();
-  const { isUserLoading } = useUser();
+  const { auth, isUserLoading } = useFirebase();
   const router = useRouter();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -85,7 +84,6 @@ export function AuthModal({
   const handleSuccessfulLogin = async (user: User) => {
     if (!user || !firestore) return;
 
-    // For guest users, bypass onboarding and go straight to the dashboard.
     if (user.isAnonymous) {
       router.push('/dashboard');
       onOpenChange(false);
@@ -96,11 +94,8 @@ export function AuthModal({
     const userProfileSnap = await getDoc(userProfileRef);
 
     if (userProfileSnap.exists() && userProfileSnap.data()?.isOnboardingComplete) {
-        // This is an existing user who has completed onboarding.
         router.push('/dashboard');
     } else {
-        // This is a new user or one who hasn't finished onboarding.
-        // Pre-populate their profile with basic info, merging with any existing data.
         await setDoc(userProfileRef, { 
             name: user.displayName || '', 
             email: user.email 
