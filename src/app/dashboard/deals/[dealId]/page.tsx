@@ -227,11 +227,11 @@ export default function DealDetailPage() {
                 financialData = `Purchase Price: ${deal.purchasePrice}, ARV: ${deal.arv}, Rehab Cost: ${deal.rehabCost}, Net Profit: ${deal.netProfit}, ROI: ${deal.roi}`;
             }
 
-            const formData = new FormData();
-            formData.append('dealType', deal.dealType);
-            formData.append('financialData', financialData);
-            formData.append('marketConditions', deal.marketConditions);
-            const result = await getDealAssessment(formData);
+            const result = await getDealAssessment({
+              dealType: deal.dealType,
+              financialData,
+              marketConditions: deal.marketConditions
+            });
             setAiResult(result);
         });
     }

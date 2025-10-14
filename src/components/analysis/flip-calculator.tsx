@@ -118,12 +118,12 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
             Rehab Cost: ${data.rehabCost}, Holding Length: ${data.holdingLength} months,
             Selling Costs: ${data.sellingCosts}%
         `;
-        const formData = new FormData();
-        formData.append('dealType', 'House Flip');
-        formData.append('financialData', financialData);
-        formData.append('marketConditions', data.marketConditions);
         
-        const result = await getDealAssessment(formData);
+        const result = await getDealAssessment({
+          dealType: 'House Flip',
+          financialData,
+          marketConditions: data.marketConditions,
+        });
         setAiResult(result);
     });
   };

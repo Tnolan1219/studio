@@ -308,13 +308,12 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
             Purchase Price: ${data.purchasePrice}, Rehab Cost: ${data.rehabCost}, Down Payment: ${data.downPayment},
             Year 1 Gross Potential Rent: ${year1.grossPotentialRent}, Year 1 NOI: ${year1.noi}, Year 1 Cash Flow: ${year1.cashFlowBeforeTax}
         `;
-
-        const payload = new FormData();
-        payload.append('dealType', 'Commercial Multifamily (Advanced)');
-        payload.append('financialData', financialData);
-        payload.append('marketConditions', data.marketConditions);
         
-        const result = await getDealAssessment(payload);
+        const result = await getDealAssessment({
+          dealType: 'Commercial Multifamily (Advanced)',
+          financialData,
+          marketConditions: data.marketConditions
+        });
         setAiResult(result);
     });
   };

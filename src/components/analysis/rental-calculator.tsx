@@ -204,12 +204,11 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
             Gross Monthly Income: ${data.grossMonthlyIncome}, Total Monthly Expenses: ${monthlyExpenses.toFixed(2)}
         `;
 
-        const formData = new FormData();
-        formData.append('dealType', 'Rental Property');
-        formData.append('financialData', financialData);
-        formData.append('marketConditions', data.marketConditions);
-        
-        const result = await getDealAssessment(formData);
+        const result = await getDealAssessment({
+          dealType: 'Rental Property',
+          financialData,
+          marketConditions: data.marketConditions,
+        });
         setAiResult(result);
     });
   };
