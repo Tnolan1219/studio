@@ -1,19 +1,16 @@
 
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase';
 import { Header } from '@/components/header';
 import { Home as HomeIcon, BarChart2, Briefcase, User } from 'lucide-react';
-import HomeTab from '@/components/dashboard/home-tab';
-import AnalyzeTab from '@/components/dashboard/analyze-tab';
-import DealsTab from '@/components/dashboard/deals-tab';
-import ProfileTab from '@/components/dashboard/profile-tab';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useDashboardTab } from '@/hooks/use-dashboard-tab';
+import DashboardClient from '@/components/dashboard/dashboard-client';
 
 export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
@@ -61,10 +58,7 @@ export default function DashboardPage() {
     <div className="flex min-h-screen w-full flex-col">
       <Header />
       <main className="flex-1 p-6 md:p-12 bg-transparent pb-28">
-        {activeTab === 'home' && <HomeTab />}
-        {activeTab === 'analyze' && <AnalyzeTab />}
-        {activeTab === 'deals' && <DealsTab />}
-        {activeTab === 'profile' && <ProfileTab />}
+        <DashboardClient />
       </main>
       <footer className="fixed bottom-0 left-0 right-0 z-50 h-24 pointer-events-none">
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto">
