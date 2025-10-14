@@ -1,12 +1,12 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
-import { useAuth, useUser, useFirestore, useFirebase } from '@/firebase';
+import { useAuth, useFirestore, useFirebase } from '@/firebase';
 import { 
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword, 

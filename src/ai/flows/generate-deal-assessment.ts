@@ -10,6 +10,8 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
+import { generate } from 'genkit';
+
 
 const GenerateDealAssessmentInputSchema = z.object({
   dealType: z
@@ -29,11 +31,6 @@ const GenerateDealAssessmentOutputSchema = z.object({
 });
 export type GenerateDealAssessmentOutput = z.infer<typeof GenerateDealAssessmentOutputSchema>;
 
-export async function generateDealAssessment(
-  input: GenerateDealAssessmentInput
-): Promise<GenerateDealAssessmentOutput> {
-  return generateDealAssessmentFlow(input);
-}
 
 const prompt = ai.definePrompt({
   name: 'generateDealAssessmentPrompt',
@@ -64,14 +61,13 @@ Provide specific, actionable recommendations to increase the property's value an
 Provide a detailed, professional-grade assessment.`,
 });
 
-const generateDealAssessmentFlow = ai.defineFlow(
-  {
-    name: 'generateDealAssessmentFlow',
-    inputSchema: GenerateDealAssessmentInputSchema,
-    outputSchema: GenerateDealAssessmentOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
-  }
-);
+export async function generateDealAssessment(
+  input: GenerateDealAssessmentInput
+): Promise<GenerateDealAssessmentOutput> {
+   const { output } = await generate({
+    prompt: prompt,
+    input: input,
+    model: ai.model('gemini-2.5-flash'),
+  });
+  return output;
+}

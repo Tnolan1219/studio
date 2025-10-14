@@ -9,16 +9,14 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import { generate } from 'genkit';
+
 
 const GenerateFinancialGoalExampleOutputSchema = z.object({
   example: z.string().describe('A well-defined, inspiring real estate financial goal.'),
 });
 
 export type GenerateFinancialGoalExampleOutput = z.infer<typeof GenerateFinancialGoalExampleOutputSchema>;
-
-export async function generateFinancialGoalExample(): Promise<GenerateFinancialGoalExampleOutput> {
-    return generateFinancialGoalExampleFlow();
-}
 
 const prompt = ai.definePrompt({
     name: 'generateFinancialGoalExamplePrompt',
@@ -31,13 +29,10 @@ const prompt = ai.definePrompt({
 });
 
 
-const generateFinancialGoalExampleFlow = ai.defineFlow(
-    {
-        name: 'generateFinancialGoalExampleFlow',
-        outputSchema: GenerateFinancialGoalExampleOutputSchema,
-    },
-    async () => {
-        const { output } = await prompt();
-        return output!;
-    }
-);
+export async function generateFinancialGoalExample(): Promise<GenerateFinancialGoalExampleOutput> {
+    const { output } = await generate({
+      prompt: prompt,
+      model: ai.model('gemini-2.5-flash'),
+    });
+    return output;
+}
