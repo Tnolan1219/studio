@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useActionState, useState, useMemo, useTransition, useEffect } from 'react';
+import { useState, useMemo, useTransition, useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -236,10 +235,8 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
     { value: 'detailed_analysis', label: 'AI Analysis', icon: Sparkles },
   ];
 
-   const [state, formAction] = useActionState(getDealAssessment, {
-    message: '',
-    assessment: null,
-  });
+  const [isPending, startTransition] = useTransition();
+  const [aiResult, setAiResult] = useState<{message: string, assessment: string | null} | null>(null);
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -250,7 +247,6 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
   }, [firestore, user]);
   const { data: profileData } = useDoc<UserProfile>(userProfileRef);
   
-  const [isPending, startTransition] = useTransition();
   const [isSaving, setIsSaving] = useState(false);
   const [sensitivityVar1, setSensitivityVar1] = useState<SensitivityVariable>('exitCapRate');
   const [sensitivityVar2, setSensitivityVar2] = useState<SensitivityVariable>('annualIncomeGrowth');
@@ -304,7 +300,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
   });
 
   const handleAnalyzeWrapper = (data: FormData) => {
-    startTransition(() => {
+    startTransition(async () => {
         const proForma = calculateProForma(data);
         const year1 = proForma[0] || {};
         const financialData = `
@@ -317,7 +313,9 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
         payload.append('dealType', 'Commercial Multifamily (Advanced)');
         payload.append('financialData', financialData);
         payload.append('marketConditions', data.marketConditions);
-        formAction(payload);
+        
+        const result = await getDealAssessment(payload);
+        setAiResult(result);
     });
   };
 
@@ -775,12 +773,12 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                             <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>AI Advisor Prompt</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> e.g., "Analyze the pros and cons of a triple-net lease for this property." </FormDescription> <FormMessage /> </FormItem> )} />
                             {isPending ? (
                                 <div className="space-y-2 mt-4"> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-3/4" /> </div>
-                            ) : state.assessment ? (
-                                <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: state.assessment }} />
+                            ) : aiResult?.assessment ? (
+                                <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
                             ) : (
                                 <p className="text-sm text-muted-foreground mt-4"> Click "Run Analysis" to get an AI-powered assessment. </p>
                             )}
-                            {state.message && !state.assessment && ( <p className="text-sm text-destructive mt-4">{state.message}</p> )}
+                            {aiResult?.message && !aiResult.assessment && ( <p className="text-sm text-destructive mt-4">{aiResult.message}</p> )}
                             </CardContent>
                         </Card>
                     </TabsContent>

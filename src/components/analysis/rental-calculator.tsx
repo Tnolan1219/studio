@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useActionState, useState, useMemo, useTransition, useEffect } from 'react';
+import { useState, useMemo, useTransition, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -144,10 +143,8 @@ interface RentalCalculatorProps {
 }
 
 export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0 }: RentalCalculatorProps) {
-  const [state, formAction] = useActionState(getDealAssessment, {
-    message: '',
-    assessment: null,
-  });
+  const [isPending, startTransition] = useTransition();
+  const [aiResult, setAiResult] = useState<{message: string, assessment: string | null} | null>(null);
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -158,7 +155,6 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
   }, [firestore, user]);
   const { data: profileData } = useDoc<UserProfile>(userProfileRef);
 
-  const [isPending, startTransition] = useTransition();
   const [isSaving, setIsSaving] = useState(false);
   
   const isEditMode = !!deal;
@@ -197,7 +193,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
   }, [deal, isEditMode, form]);
 
   const handleAnalyzeWrapper = (data: FormData) => {
-    startTransition(() => {
+    startTransition(async () => {
         const proForma = calculateProForma(data);
         const year1 = proForma[0] || {};
         const monthlyExpenses = (year1.operatingExpenses || 0) / 12;
@@ -212,7 +208,9 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
         formData.append('dealType', 'Rental Property');
         formData.append('financialData', financialData);
         formData.append('marketConditions', data.marketConditions);
-        formAction(formData);
+        
+        const result = await getDealAssessment(formData);
+        setAiResult(result);
     });
   };
 
@@ -401,12 +399,12 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
                       <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>AI Advisor Prompt</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> e.g., "Analyze market conditions for zip code 90210," or "Suggest financing options for a first-time investor." </FormDescription> <FormMessage /> </FormItem> )} />
                       {isPending ? (
                         <div className="space-y-2 mt-4"> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-3/4" /> </div>
-                      ) : state.assessment ? (
-                        <div className="text-sm text-muted-foreground mt-4 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: state.assessment }} />
+                      ) : aiResult?.assessment ? (
+                        <div className="text-sm text-muted-foreground mt-4 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
                       ) : (
                         <p className="text-sm text-muted-foreground mt-4"> Click "Analyze with AI" to get an AI-powered assessment. </p>
                       )}
-                      {state.message && !state.assessment && ( <p className="text-sm text-destructive mt-4">{state.message}</p> )}
+                      {aiResult?.message && !aiResult.assessment && ( <p className="text-sm text-destructive mt-4">{aiResult.message}</p> )}
                     </CardContent>
                   </Card>
             </div>

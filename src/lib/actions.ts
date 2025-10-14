@@ -1,4 +1,4 @@
-"use server";
+'use server';
 
 import { generateDealAssessment } from "@/ai/flows/generate-deal-assessment";
 import { z } from "zod";
@@ -10,7 +10,7 @@ const dealAssessmentSchema = z.object({
   marketConditions: z.string(),
 });
 
-export async function getDealAssessment(prevState: any, formData: FormData) {
+export async function getDealAssessment(formData: FormData) {
   const validatedFields = dealAssessmentSchema.safeParse({
     dealType: formData.get("dealType"),
     financialData: formData.get("financialData"),

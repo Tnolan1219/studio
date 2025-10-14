@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { setDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -16,7 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
-import { BarChart, Building, Home, Repeat, Trash2, Edit, MessageSquare, Send, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { BarChart, Building, Home, Repeat, Trash2, Edit, MessageSquare, Send, Eye, EyeOff, ArrowLeft, Sparkles } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ProFormaTable } from '@/components/analysis/pro-forma-table';
 import { useDashboardTab } from '@/hooks/use-dashboard-tab';
@@ -24,6 +23,7 @@ import RentalCalculator from '@/components/analysis/rental-calculator';
 import FlipCalculator from '@/components/analysis/flip-calculator';
 import CommercialCalculator from '@/components/analysis/commercial-calculator';
 import type { ProFormaEntry } from '@/lib/types';
+import { getDealAssessment } from '@/lib/actions';
 
 
 const DEAL_STATUSES: DealStatus[] = ['In Works', 'Negotiating', 'Bought', 'Owned & Operating', 'Sold'];
@@ -118,6 +118,8 @@ export default function DealDetailPage() {
     const [investorNotes, setInvestorNotes] = useState('');
     const [isEditingNotes, setIsEditingNotes] = useState(false);
     const [isEditingDeal, setIsEditingDeal] = useState(false);
+    const [isAIPending, startAITransition] = useTransition();
+    const [aiResult, setAiResult] = useState<{message: string, assessment: string | null} | null>(null);
 
     const dealRef = useMemoFirebase(() => {
         if (!user || !dealId) return null;
@@ -151,7 +153,7 @@ export default function DealDetailPage() {
                     (deal.otherExpenses / deal.holdingLength)
                 ) * deal.holdingLength;
                 const financingCosts = (deal.purchasePrice - deal.downPayment) * (deal.interestRate/100) * (deal.holdingLength/12);
-                const totalInvestment = deal.downPayment + deal.rehabCost + acquisitionCosts + holdingCosts + financingCosts;
+                const totalInvestment = deal.downPayment + deal.rehabCost + acquisitionCosts;
                 return [
                     { label: 'Net Profit', value: `$${deal.netProfit?.toFixed(2)}`},
                     { label: 'ROI', value: `${deal.roi?.toFixed(2)}%`},
@@ -213,6 +215,25 @@ export default function DealDetailPage() {
     const handleSaveEdit = () => {
         toast({ title: "Changes Saved", description: "Your deal has been updated." });
         setIsEditingDeal(false);
+    }
+
+    const handleGenerateInsights = () => {
+        if (!deal) return;
+        startAITransition(async () => {
+            let financialData = '';
+            if (deal.dealType === 'Rental Property' || deal.dealType === 'Commercial Multifamily') {
+                financialData = `Purchase Price: ${deal.purchasePrice}, Monthly Income: ${deal.grossMonthlyIncome}, NOI: ${deal.noi}, Cap Rate: ${deal.capRate}`;
+            } else if (deal.dealType === 'House Flip') {
+                financialData = `Purchase Price: ${deal.purchasePrice}, ARV: ${deal.arv}, Rehab Cost: ${deal.rehabCost}, Net Profit: ${deal.netProfit}, ROI: ${deal.roi}`;
+            }
+
+            const formData = new FormData();
+            formData.append('dealType', deal.dealType);
+            formData.append('financialData', financialData);
+            formData.append('marketConditions', deal.marketConditions);
+            const result = await getDealAssessment(formData);
+            setAiResult(result);
+        });
     }
     
     if (isDealLoading) {
@@ -394,10 +415,28 @@ export default function DealDetailPage() {
                             </div>
                         </CardFooter>
                     </Card>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><Sparkles size={16} className="text-primary"/>AI Insights</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {isAIPending ? (
+                                <div className="space-y-2 mt-4"> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-3/4" /> </div>
+                            ) : aiResult?.assessment ? (
+                                <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
+                            ) : (
+                                 <p className="text-sm text-muted-foreground">Get an AI-powered analysis of this deal's strengths and weaknesses.</p>
+                            )}
+                            {aiResult?.message && !aiResult.assessment && ( <p className="text-sm text-destructive mt-4">{aiResult.message}</p> )}
+                        </CardContent>
+                        <CardFooter>
+                            <Button onClick={handleGenerateInsights} disabled={isAIPending} className="w-full">
+                                {isAIPending ? 'Generating...' : 'Generate AI Insights'}
+                            </Button>
+                        </CardFooter>
+                    </Card>
                 </div>
             </div>
         </div>
     );
 }
-
-    
