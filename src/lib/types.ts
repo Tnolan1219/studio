@@ -5,6 +5,7 @@ export type UserProfile = {
     id?: string;
     name?: string;
     email?: string;
+    photoURL?: string;
     country?: string;
     state?: string;
     financialGoal?: string;
@@ -109,5 +110,3 @@ export type ProFormaEntry = {
     loanBalance: number;
     equity: number;
 }
-
-    

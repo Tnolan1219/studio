@@ -13,9 +13,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, useDoc, useMemoFirebase, useFirestore } from '@/firebase';
 import { ThemeToggle } from './theme-toggle';
 import { useDashboardTab } from '@/hooks/use-dashboard-tab';
+import { doc } from 'firebase/firestore';
+import type { UserProfile } from '@/lib/types';
+
 
 const ValentorLogo = () => (
     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary">
@@ -55,8 +58,16 @@ export function Header() {
 function UserNav() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
+  const firestore = useFirestore();
   const router = useRouter();
   const { setActiveTab } = useDashboardTab();
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: profileData } = useDoc<UserProfile>(userProfileRef);
 
   const handleLogout = () => {
     auth.signOut();
@@ -82,17 +93,20 @@ function UserNav() {
 
   const getInitials = () => {
     if (user.isAnonymous) return 'G';
-    if (user.displayName) return user.displayName.split(' ').map((n) => n[0]).join('');
+    const name = profileData?.name || user.displayName;
+    if (name) return name.split(' ').map((n) => n[0]).join('').toUpperCase();
     if (user.email) return user.email.charAt(0).toUpperCase();
     return 'U';
   }
+  
+  const photoURL = profileData?.photoURL || user.photoURL;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            {user.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName || 'User'} data-ai-hint="person" />}
+            {photoURL && <AvatarImage src={photoURL} alt={profileData?.name || 'User'} data-ai-hint="person" />}
             <AvatarFallback>{getInitials()}</AvatarFallback>
           </Avatar>
         </Button>
@@ -100,7 +114,7 @@ function UserNav() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.isAnonymous ? "Guest User" : user.displayName || 'User'}</p>
+            <p className="text-sm font-medium leading-none">{user.isAnonymous ? "Guest User" : profileData?.name || 'User'}</p>
             <p className="text-xs leading-none text-muted-foreground">
               {user.isAnonymous ? "Logged in as guest" : user.email}
             </p>
