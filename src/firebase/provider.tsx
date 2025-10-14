@@ -4,24 +4,11 @@ import React, { DependencyList, createContext, useContext, ReactNode, useMemo } 
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
 import { Auth } from 'firebase/auth';
-import { useUser, UserHookResult } from './auth/use-user';
-
-interface FirebaseProviderProps {
-  children: ReactNode;
-  firebaseApp: FirebaseApp;
-  firestore: Firestore;
-  auth: Auth;
-}
+import { initializeFirebase } from '@/firebase';
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 // Combined state for the Firebase context
 export interface FirebaseContextState {
-  firebaseApp: FirebaseApp;
-  firestore: Firestore;
-  auth: Auth;
-}
-
-// Return type for useFirebase()
-export interface FirebaseServices {
   firebaseApp: FirebaseApp;
   firestore: Firestore;
   auth: Auth;
@@ -31,24 +18,27 @@ export interface FirebaseServices {
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
 /**
- * FirebaseProvider manages and provides Firebase service instances.
- * It no longer manages user state directly.
+ * Manages and provides Firebase service instances. This is the single, stable provider
+ * for the entire application. It initializes Firebase on the client-side once.
  */
-export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
-  children,
-  firebaseApp,
-  firestore,
-  auth,
+export const FirebaseProvider: React.FC<{children: ReactNode}> = ({
+  children
 }) => {
+  const firebaseServices = useMemo(() => {
+    // Initialize Firebase on the client side, once per component lifecycle.
+    return initializeFirebase();
+  }, []); // Empty dependency array ensures this runs only once.
+  
   // Memoize the context value to prevent unnecessary re-renders.
   const contextValue = useMemo((): FirebaseContextState => ({
-    firebaseApp,
-    firestore,
-    auth,
-  }), [firebaseApp, firestore, auth]);
+    firebaseApp: firebaseServices.firebaseApp,
+    firestore: firebaseServices.firestore,
+    auth: firebaseServices.auth,
+  }), [firebaseServices]);
 
   return (
     <FirebaseContext.Provider value={contextValue}>
+      <FirebaseErrorListener />
       {children}
     </FirebaseContext.Provider>
   );
@@ -58,18 +48,14 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
  * Hook to access core Firebase services.
  * Throws error if used outside a FirebaseProvider.
  */
-export const useFirebase = (): FirebaseServices => {
+export const useFirebase = (): FirebaseContextState => {
   const context = useContext(FirebaseContext);
 
   if (context === undefined) {
     throw new Error('useFirebase must be used within a FirebaseProvider.');
   }
 
-  return {
-    firebaseApp: context.firebaseApp,
-    firestore: context.firestore,
-    auth: context.auth,
-  };
+  return context;
 };
 
 /** Hook to access Firebase Auth instance. */
@@ -100,8 +86,3 @@ export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | 
   
   return memoized;
 }
-
-// The useUser hook is now imported from its own file and remains the primary way
-// to access user state.
-export { useUser };
-export type { UserHookResult };
