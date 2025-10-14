@@ -98,6 +98,7 @@
         "status": { "type": "string" },
         "isPublished": { "type": "boolean" },
         "investorNotes": { "type": "string" },
+        "isAdvanced": { "type": "boolean" },
         "unitMix": {
             "type": "array",
             "items": {

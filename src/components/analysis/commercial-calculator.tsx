@@ -75,6 +75,7 @@ const formSchema = z.object({
   marketConditions: z.string().min(10, 'Please describe market conditions.'),
   rehabCost: z.coerce.number().optional().default(0),
   closingCosts: z.coerce.number().optional().default(0),
+  isAdvanced: z.boolean().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -184,6 +185,13 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
   const [isPending, startTransition] = useTransition();
   const [isSaving, setIsSaving] = useState(false);
 
+  useEffect(() => {
+    if (isEditMode) {
+      // When editing, determine which mode to start in.
+      setIsAdvancedMode(!!deal.isAdvanced);
+    }
+  }, [isEditMode, deal]);
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -210,15 +218,10 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
       annualAppreciation: 4,
       sellingCosts: 5,
       marketConditions: 'High-traffic downtown area with strong retail demand. What are the pros and cons of a triple-net lease for this property?',
+      isAdvanced: false,
     },
   });
   
-  useEffect(() => {
-    if (isEditMode) {
-      setIsAdvancedMode(true);
-    }
-  }, [isEditMode]);
-
   useEffect(() => {
     if (isEditMode && deal) {
       form.reset(deal);
@@ -301,6 +304,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
       createdAt: isEditMode && deal ? deal.createdAt : serverTimestamp(),
       status: isEditMode && deal ? deal.status : 'In Works',
       isPublished: isEditMode && deal ? deal.isPublished : false,
+      isAdvanced: false, // Simple calculator always saves as non-advanced
     };
 
     if (isEditMode && deal) {
@@ -317,7 +321,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
     setIsSaving(false);
   };
 
-  if (isEditMode) {
+  if (isAdvancedMode) {
       return <AdvancedCommercialCalculator deal={deal} onSave={onSave} onCancel={onCancel} />;
   }
 
@@ -338,7 +342,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
       </CardHeader>
       
       {isAdvancedMode ? (
-        <AdvancedCommercialCalculator />
+        <AdvancedCommercialCalculator deal={deal} onSave={onSave} onCancel={onCancel} />
       ) : (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(handleAnalyzeWrapper)}>
@@ -461,5 +465,3 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
     </Card>
   );
 }
-
-    

@@ -95,6 +95,7 @@ const formSchema = z.object({
   exitCapRate: z.coerce.number().min(0).max(100),
 
   marketConditions: z.string().min(10, 'Please describe market conditions.'),
+  isAdvanced: z.boolean().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -280,6 +281,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
       holdingLength: 10,
       exitCapRate: 5.5,
       marketConditions: 'Analyze this deal using advanced metrics. Consider value-add opportunities by renovating 10 units in Year 2 for a 20% rent premium. What would the IRR and Equity Multiple be over a 10 year hold?',
+      isAdvanced: true,
     },
   });
 
@@ -475,6 +477,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
       createdAt: isEditMode ? deal.createdAt : serverTimestamp(),
       status: isEditMode ? deal.status : 'In Works',
       isPublished: isEditMode ? deal.isPublished : false,
+      isAdvanced: true,
     };
     
     if (isEditMode) {

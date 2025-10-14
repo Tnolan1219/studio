@@ -83,6 +83,7 @@ export type Deal = {
     status: DealStatus;
     isPublished: boolean;
     investorNotes?: string;
+    isAdvanced?: boolean;
 };
 
 export type Testimonial = {
