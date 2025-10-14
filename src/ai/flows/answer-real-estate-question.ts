@@ -23,7 +23,7 @@ export type AnswerRealEstateQuestionOutput = z.infer<typeof AnswerRealEstateQues
 
 const prompt = ai.definePrompt({
   name: 'realEstateQuestionPrompt',
-  input: { schema: AnswerRealestateQuestionInputSchema },
+  input: { schema: AnswerRealEstateQuestionInputSchema },
   output: { schema: AnswerRealEstateQuestionOutputSchema },
   prompt: `You are an expert real estate AI assistant.
   The user has a question: "{{{question}}}"
