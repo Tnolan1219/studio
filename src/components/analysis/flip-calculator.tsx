@@ -113,15 +113,13 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
 
   const handleAnalyzeWrapper = (data: FormData) => {
     startTransition(async () => {
-        const financialData = `
+        const result = await getDealAssessment({
+          dealType: 'House Flip',
+          financialData: `
             Purchase Price: ${data.purchasePrice}, After Repair Value (ARV): ${data.arv},
             Rehab Cost: ${data.rehabCost}, Holding Length: ${data.holdingLength} months,
             Selling Costs: ${data.sellingCosts}%
-        `;
-        
-        const result = await getDealAssessment({
-          dealType: 'House Flip',
-          financialData,
+        `,
           marketConditions: data.marketConditions,
         });
         setAiResult(result);
@@ -302,7 +300,7 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
                   ) : aiResult?.assessment ? (
                     <div className="text-sm text-muted-foreground mt-4 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
                   ) : (
-                    <p className="text-sm text-muted-foreground mt-4"> Click "Analyze with AI" to get an AI-powered assessment. </p>
+                    <p className="text-sm text-muted-foreground mt-4"> Click "Run Analysis" to get an AI-powered assessment. </p>
                   )}
                   {aiResult?.message && !aiResult.assessment && ( <p className="text-sm text-destructive mt-4">{aiResult.message}</p> )}
                 </CardContent>

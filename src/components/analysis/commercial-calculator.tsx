@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useActionState, useState, useMemo, useTransition, useEffect } from 'react';
@@ -244,16 +243,14 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
         const annualExpenses = data.operatingExpenses.reduce((acc, item) => acc + (item.amount * 12), 0);
         const noi = annualIncome * (1- (data.vacancyRate/100)) - annualExpenses;
 
-        const financialData = `
+        const result = await getDealAssessment({
+          dealType: 'Commercial Multifamily',
+          financialData: `
             Purchase Price: ${data.purchasePrice},
             Gross Potential Rent (Annual): ${annualIncome.toFixed(2)},
             Vacancy: ${data.vacancyRate}%, Total Operating Expenses (Annual): ${annualExpenses.toFixed(2)},
             Calculated Year 1 NOI: ${noi.toFixed(2)}
-        `;
-
-        const result = await getDealAssessment({
-          dealType: 'Commercial Multifamily',
-          financialData,
+        `,
           marketConditions: data.marketConditions,
         });
         setAiResult(result);

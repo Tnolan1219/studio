@@ -303,15 +303,14 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
     startTransition(async () => {
         const proForma = calculateProForma(data);
         const year1 = proForma[0] || {};
-        const financialData = `
-            Advanced Analysis:
-            Purchase Price: ${data.purchasePrice}, Rehab Cost: ${data.rehabCost}, Down Payment: ${data.downPayment},
-            Year 1 Gross Potential Rent: ${year1.grossPotentialRent}, Year 1 NOI: ${year1.noi}, Year 1 Cash Flow: ${year1.cashFlowBeforeTax}
-        `;
         
         const result = await getDealAssessment({
           dealType: 'Commercial Multifamily (Advanced)',
-          financialData,
+          financialData: `
+            Advanced Analysis:
+            Purchase Price: ${data.purchasePrice}, Rehab Cost: ${data.rehabCost}, Down Payment: ${data.downPayment},
+            Year 1 Gross Potential Rent: ${year1.grossPotentialRent}, Year 1 NOI: ${year1.noi}, Year 1 Cash Flow: ${year1.cashFlowBeforeTax}
+        `,
           marketConditions: data.marketConditions
         });
         setAiResult(result);

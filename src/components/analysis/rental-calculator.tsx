@@ -198,15 +198,13 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
         const year1 = proForma[0] || {};
         const monthlyExpenses = (year1.operatingExpenses || 0) / 12;
 
-        const financialData = `
+        const result = await getDealAssessment({
+          dealType: 'Rental Property',
+          financialData: `
             Purchase Price: ${data.purchasePrice}, Rehab: ${data.rehabCost}, ARV: ${data.arv},
             Down Payment: ${data.downPayment}, Interest Rate: ${data.interestRate}%, Loan Term: ${data.loanTerm} years,
             Gross Monthly Income: ${data.grossMonthlyIncome}, Total Monthly Expenses: ${monthlyExpenses.toFixed(2)}
-        `;
-
-        const result = await getDealAssessment({
-          dealType: 'Rental Property',
-          financialData,
+        `,
           marketConditions: data.marketConditions,
         });
         setAiResult(result);
@@ -401,7 +399,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
                       ) : aiResult?.assessment ? (
                         <div className="text-sm text-muted-foreground mt-4 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
                       ) : (
-                        <p className="text-sm text-muted-foreground mt-4"> Click "Analyze with AI" to get an AI-powered assessment. </p>
+                        <p className="text-sm text-muted-foreground mt-4"> Click "Run Analysis" to get an AI-powered assessment. </p>
                       )}
                       {aiResult?.message && !aiResult.assessment && ( <p className="text-sm text-destructive mt-4">{aiResult.message}</p> )}
                     </CardContent>
