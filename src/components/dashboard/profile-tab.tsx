@@ -26,14 +26,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking, useUploadFile } from "@/firebase";
+import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking } from "@/firebase";
 import { doc } from 'firebase/firestore';
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { Skeleton } from "../ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import type { UserProfile } from "@/lib/types";
-import { Progress } from "../ui/progress";
-import { Upload } from "lucide-react";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters.").optional(),
@@ -50,9 +48,6 @@ export default function ProfileTab() {
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const { uploadFile, uploadProgress, isUploading, error: uploadError } = useUploadFile();
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -95,28 +90,6 @@ export default function ProfileTab() {
     });
   }
 
-  const handleAvatarClick = () => {
-    if (isUploading) return;
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && user) {
-        try {
-            const downloadURL = await uploadFile(file, `profile-pictures/${user.uid}`);
-            if (userProfileRef) {
-                setDocumentNonBlocking(userProfileRef, { photoURL: downloadURL }, { merge: true });
-                form.setValue('photoURL', downloadURL, { shouldDirty: true });
-                toast({ title: "Profile Picture Updated!" });
-            }
-        } catch (error) {
-            toast({ title: "Upload Failed", description: "Could not upload your profile picture. Please try again.", variant: 'destructive' });
-        }
-    }
-  };
-
-
   const getInitials = () => {
     if (!user) return "";
     if (user.isAnonymous) return 'G';
@@ -127,7 +100,6 @@ export default function ProfileTab() {
   }
 
   const currentPhotoURL = form.watch('photoURL');
-
 
   if (isUserLoading || (user && !user.isAnonymous && isProfileLoading)) {
     return (
@@ -174,26 +146,13 @@ export default function ProfileTab() {
         <Card className="bg-card/60 backdrop-blur-sm max-w-4xl mx-auto">
         <CardHeader>
             <div className="flex items-center gap-4">
-                <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
-                    <Avatar className="h-24 w-24 border-2 border-primary/50 group-hover:border-primary transition-all">
-                        <AvatarImage src={currentPhotoURL || ""} alt={form.getValues('name') || ""} data-ai-hint="person" />
-                        <AvatarFallback className="text-3xl">{getInitials()}</AvatarFallback>
-                    </Avatar>
-                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                       <Upload className="h-8 w-8 text-white" />
-                    </div>
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg" className="hidden" />
-                </div>
+                <Avatar className="h-24 w-24 border-2 border-primary/50">
+                    <AvatarImage src={currentPhotoURL || ""} alt={form.getValues('name') || ""} data-ai-hint="person" />
+                    <AvatarFallback className="text-3xl">{getInitials()}</AvatarFallback>
+                </Avatar>
                 <div>
                     <CardTitle className="text-2xl font-headline">User Profile</CardTitle>
                     <CardDescription>Manage your account and personal information.</CardDescription>
-                    {isUploading && (
-                        <div className="mt-2 w-full">
-                             <Progress value={uploadProgress} className="h-2" />
-                             <p className="text-xs text-muted-foreground mt-1">{uploadProgress.toFixed(0)}% uploaded</p>
-                        </div>
-                    )}
-                    {uploadError && <p className="text-xs text-destructive mt-1">{uploadError}</p>}
                 </div>
             </div>
         </CardHeader>
@@ -224,8 +183,8 @@ export default function ProfileTab() {
                     </Tooltip>
                   </TooltipProvider>
                 ) : (
-                  <Button type="submit" disabled={form.formState.isSubmitting || !form.formState.isDirty || isUploading}>
-                    {isUploading ? 'Uploading...' : 'Save Changes'}
+                  <Button type="submit" disabled={form.formState.isSubmitting || !form.formState.isDirty}>
+                    Save Changes
                   </Button>
                 )}
             </CardFooter>
