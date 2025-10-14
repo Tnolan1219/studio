@@ -76,7 +76,7 @@ export function AuthModal({
   onOpenChange: (open: boolean) => void;
 }) {
   const auth = useAuth();
-  const { user, isUserLoading } = useUser();
+  const { isUserLoading } = useUser();
   const router = useRouter();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -136,6 +136,9 @@ export function AuthModal({
         break;
       case 'auth/weak-password':
         message = 'The password is too weak. Please choose a stronger one.';
+        break;
+      case 'auth/popup-closed-by-user':
+        message = 'Sign-in popup closed before completion.';
         break;
     }
     setAuthError(message);

@@ -3,8 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirestore } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { useUser, useFirestore, setDocumentNonBlocking } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -130,23 +130,14 @@ export default function OnboardingPage() {
         isOnboardingComplete: true
     };
     
-    try {
-        await setDoc(userProfileRef, profileData, { merge: true });
+    setDocumentNonBlocking(userProfileRef, profileData, { merge: true });
         
-        toast({
-          title: 'Profile Created!',
-          description: 'Welcome to Valentor Financial. You are now being redirected.',
-        });
-        
-        router.push('/dashboard');
-    } catch (error) {
-        console.error("Failed to save profile:", error);
-        toast({
-            variant: "destructive",
-            title: "Uh oh! Something went wrong.",
-            description: "Could not save your profile. Please try again.",
-        });
-    }
+    toast({
+      title: 'Profile Created!',
+      description: 'Welcome to Valentor Financial. You are now being redirected.',
+    });
+    
+    router.push('/dashboard');
   };
 
   const progress = ((currentStep + 1) / STEPS.length) * 100;
