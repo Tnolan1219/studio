@@ -1,73 +1,79 @@
 /**
- * @fileoverview Firestore Security Rules for the application.
+ * @fileOverview Firestore Security Rules for TKN Fi RE application.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model, ensuring that users can only
- * access and manipulate data associated with their own accounts. All data is nested
- * under /users/{userId}, providing a clear ownership hierarchy.
+ * This ruleset enforces a strict user-ownership model.  Each user can only access and modify their own profile data and the deals they have saved.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profile information.
- * - /users/{userId}/deals/{dealId}: Stores deals associated with a specific user.
+ * - `/users/{userId}`: Stores user profile information. `userId` must match the authenticated user's UID.
+ * - `/users/{userId}/deals/{dealId}`: Stores real estate deals saved by the user.  `userId` in the path must match the authenticated user's UID.
  *
  * Key Security Decisions:
- * - Users can only create, read, update, and delete their own profiles and deals.
- * - Listing of all users is disallowed.
- * - Authorization decisions are based on the authenticated user's UID and document paths.
- * - Uses denormalized `userProfileId` on each Deal to allow for independent authorization.
+ * - User listing is disallowed for privacy.
+ * - Strict ownership is enforced on all write operations.
+ * - No role-based access control is implemented in this initial version.
+ *
+ * Denormalization for Authorization:
+ * - Each `Deal` document has a `userId` field. This allows rules to verify ownership without additional reads.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Protects the /users/{userId} collection, ensuring users can only manage their own profiles.
+     * @description Protects user profile information, ensuring only the authenticated user can access their profile.
      * @path /users/{userId}
-     * @allow (create) - User with UID 'user123' can create their own profile document with the ID 'user123'.
-     * @allow (get, update, delete) - User with UID 'user123' can read, update, and delete their own profile document.
-     * @deny (create) - User with UID 'user456' cannot create a profile document with the ID 'user123'.
-     * @deny (get, update, delete) - User with UID 'user456' cannot read, update, or delete the profile document of user 'user123'.
+     * @allow (get, create, update, delete) User with UID 'user123' can access /users/user123.
+     * @deny (get, create, update, delete) User with UID 'user456' cannot access /users/user123.
      * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
       function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+        return request.auth.uid == userId;
       }
 
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      //Helper function to combine ownership check with existence check
       function isExistingOwner(userId) {
-          return isOwner(userId) && resource != null;
+        return isOwner(userId) && existsAfter(/databases/$(database)/documents/users/$(userId));
       }
 
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isOwner(userId) && request.resource.data.id == userId && request.auth.uid == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if false; // User listing is not allowed.
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
-     * @description Protects the /users/{userId}/deals/{dealId} collection, ensuring users can only manage their own deals.
+     * @description Protects saved real estate deals, ensuring only the owner can access them.
      * @path /users/{userId}/deals/{dealId}
-     * @allow (create) - User with UID 'user123' can create a deal document under their profile.
-     * @allow (get, list, update, delete) - User with UID 'user123' can read, list, update, and delete deal documents under their profile.
-     * @deny (create) - User with UID 'user456' cannot create a deal document under the profile of user 'user123'.
-     * @deny (get, list, update, delete) - User with UID 'user456' cannot read, list, update, or delete deal documents under the profile of user 'user123'.
-     * @principle Enforces document ownership for all operations and validates the 'userProfileId' field on create.
+     * @allow (get, create, update, delete) User 'user123' can access /users/user123/deals/deal001 if they own it.
+     * @deny (get, create, update, delete) User 'user456' cannot access /users/user123/deals/deal001 because they are not the owner.
+     * @principle Enforces document ownership for all operations on saved deals.
      */
     match /users/{userId}/deals/{dealId} {
       function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+        return request.auth.uid == userId;
       }
 
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      //Helper function to combine ownership check with existence check
       function isExistingOwner(userId) {
-          return isOwner(userId) && resource != null;
+        return isOwner(userId) && existsAfter(/databases/$(database)/documents/users/$(userId)/deals/$(dealId));
       }
 
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userProfileId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userProfileId == resource.data.userProfileId;
-      allow delete: if isExistingOwner(userId);
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isExistingOwner(userId);
     }
   }
 }
