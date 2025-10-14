@@ -6,8 +6,8 @@
   :root {
     --background: 48 33% 97%;
     --foreground: 224 71.4% 4.1%;
-    --card: 48 33% 97%;
-    --card-foreground: 224 71.4% 4.1%;
+    --card: 220 13% 18%;
+    --card-foreground: 0 0% 98%;
     --popover: 0 0% 100%;
     --popover-foreground: 224 71.4% 4.1%;
     --primary: 185 100% 50%;
@@ -36,7 +36,7 @@
   .dark {
     --background: 220 20% 7%;
     --foreground: 0 0% 98%;
-    --card: 220 13% 9%;
+    --card: 220 13% 13%;
     --card-foreground: 0 0% 98%;
     --popover: 224 71.4% 4.1%;
     --popover-foreground: 210 40% 98%;
@@ -136,10 +136,11 @@
     }
 
     .tab-button:hover .liquid-fill {
-      transform: translateY(75%);
+      transform: translateY(0);
     }
 
-    .tab-button[data-variant="default"] .liquid-fill {
+    .tab-button[data-state="active"] .liquid-fill,
+    .tab-button[aria-selected="true"] .liquid-fill {
       transform: translateY(0);
     }
 }
