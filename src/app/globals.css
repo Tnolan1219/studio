@@ -34,7 +34,7 @@
   }
 
   .dark {
-    --background: 222 89% 6%;
+    --background: 0 0% 0%;
     --foreground: 0 0% 98%;
     --card: 220 13% 9%;
     --card-foreground: 0 0% 98%;
@@ -71,7 +71,7 @@
     @apply bg-background text-foreground;
   }
   .dark {
-     background: radial-gradient(circle at 0% 0%, hsl(var(--primary) / 0.15), transparent 30%), #05080E;
+     background: hsl(var(--background));
   }
   .font-headline {
     color: hsl(var(--primary));
