@@ -37,7 +37,7 @@ import {
   Bar,
   CartesianGrid,
 } from 'recharts';
-import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
 import { collection, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
@@ -75,14 +75,14 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
     const proForma: ProFormaEntry[] = [];
     const {
         purchasePrice, rehabCost, closingCosts, downPayment, interestRate, loanTerm,
-        grossMonthlyIncome, vacancy, annualIncomeGrowth,
+        grossMonthlyIncome, vacancy, annualIncomeGrowth, annualExpenseGrowth,
         propertyTaxes, insurance, repairsAndMaintenance,
         capitalExpenditures, managementFee, otherExpenses, annualAppreciation
     } = values;
 
     if (!purchasePrice || !loanTerm) return [];
 
-    const loanAmount = purchasePrice + rehabCost + closingCosts - downPayment;
+    const loanAmount = purchasePrice + rehabCost + (purchasePrice * (closingCosts / 100)) - downPayment;
     const monthlyInterestRate = interestRate / 100 / 12;
     const numberOfPayments = loanTerm * 12;
     const debtService = numberOfPayments > 0 && monthlyInterestRate > 0 ?
@@ -96,17 +96,12 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
     let currentLoanBalance = loanAmount;
     
     for (let year = 1; year <= 10; year++) {
-        const currentOpEx = 
-            (propertyTaxes / 100 * currentPropertyValue) + 
-            (insurance / 100 * currentPropertyValue) + 
-            (repairsAndMaintenance / 100 * currentGrossRent) + 
-            (capitalExpenditures / 100 * currentGrossRent) + 
-            (managementFee / 100 * currentGrossRent) + 
-            (otherExpenses / 100 * currentGrossRent);
-
+        const expenseRate = (propertyTaxes + insurance + repairsAndMaintenance + vacancy + capitalExpenditures + managementFee + otherExpenses) / 100;
+        const currentOpEx = currentGrossRent * expenseRate;
+        
         const vacancyLoss = currentGrossRent * (vacancy / 100);
         const effectiveGrossIncome = currentGrossRent - vacancyLoss;
-        const noi = effectiveGrossIncome - currentOpEx;
+        const noi = effectiveGrossIncome - (currentOpEx - vacancyLoss); // Subtract out vacancy since it's already in OpEx bundle
 
         let yearEndLoanBalance = currentLoanBalance;
         if(monthlyInterestRate > 0) {
@@ -124,7 +119,7 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
             grossPotentialRent: currentGrossRent,
             vacancyLoss,
             effectiveGrossIncome,
-            operatingExpenses: currentOpEx,
+            operatingExpenses: (currentOpEx - vacancyLoss),
             noi,
             debtService,
             cashFlowBeforeTax: noi - debtService,
@@ -163,7 +158,7 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: isEditMode ? deal : {
+    defaultValues: {
       dealName: 'My Next Rental',
       purchasePrice: 250000,
       closingCosts: 3,
@@ -189,7 +184,7 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
   });
 
   useEffect(() => {
-    if (isEditMode) {
+    if (isEditMode && deal) {
       form.reset(deal);
     }
   }, [deal, isEditMode, form]);
@@ -217,19 +212,19 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
   const watchedValues = form.watch();
 
   const { monthlyCashFlow, cocReturn, capRate, noi, chartData, proFormaData } = useMemo(() => {
-    const { purchasePrice, rehabCost, closingCosts, downPayment, grossMonthlyIncome } = watchedValues;
+    const { purchasePrice, rehabCost, closingCosts, downPayment } = watchedValues;
     const proForma = calculateProForma(watchedValues);
     const year1 = proForma[0] || {};
     
     const totalInvestment = downPayment + (closingCosts/100 * purchasePrice) + rehabCost;
     const noi = year1.noi || 0;
     const monthlyCashFlow = (year1.cashFlowBeforeTax || 0) / 12;
-    const cocReturn = totalInvestment > 0 ? ((monthlyCashFlow * 12) / totalInvestment) * 100 : 0;
+    const cocReturn = totalInvestment > 0 ? ((year1.cashFlowBeforeTax || 0) / totalInvestment) * 100 : 0;
     const arv = purchasePrice + rehabCost;
     const capRate = arv > 0 ? (noi / arv) * 100 : 0;
 
     const chartData = [
-        { name: 'Income', value: grossMonthlyIncome, fill: 'hsl(var(--primary))' },
+        { name: 'Income', value: watchedValues.grossMonthlyIncome, fill: 'hsl(var(--primary))' },
         { name: 'Expenses', value: (year1.operatingExpenses || 0) / 12, fill: 'hsl(var(--destructive))' },
         { name: 'Mortgage', value: (year1.debtService || 0) / 12, fill: 'hsl(var(--accent))' },
         { name: 'Cash Flow', value: monthlyCashFlow > 0 ? monthlyCashFlow : 0, fill: 'hsl(var(--chart-2))' },
@@ -265,12 +260,12 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
       noi: parseFloat(noi.toFixed(2)),
       capRate: parseFloat(capRate.toFixed(2)),
       userId: user.uid,
-      createdAt: isEditMode ? deal.createdAt : serverTimestamp(),
-      status: isEditMode ? deal.status : 'In Works',
-      isPublished: isEditMode ? deal.isPublished : false,
+      createdAt: isEditMode && deal ? deal.createdAt : serverTimestamp(),
+      status: isEditMode && deal ? deal.status : 'In Works',
+      isPublished: isEditMode && deal ? deal.isPublished : false,
     };
     
-    if (isEditMode) {
+    if (isEditMode && deal) {
       const dealRef = doc(firestore, `users/${user.uid}/deals`, deal.id);
       setDocumentNonBlocking(dealRef, dealData, { merge: true });
       toast({ title: 'Changes Saved', description: `${dealData.dealName} has been updated.` });
@@ -304,7 +299,7 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
                           <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.1" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                          <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.1" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Rehab Costs</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.01" {...field}/></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan Term (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -321,10 +316,10 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
 
               <div className="space-y-4">
                    <Card>
-                      <CardHeader><CardTitle className="text-lg">Operating Expenses (% of Income/Value)</CardTitle></CardHeader>
+                      <CardHeader><CardTitle className="text-lg">Operating Expenses (% of Income)</CardTitle></CardHeader>
                       <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                          <FormField name="propertyTaxes" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Taxes (% ARV)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="insurance" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Insurance (% ARV)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                          <FormField name="propertyTaxes" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Taxes</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                          <FormField name="insurance" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Insurance</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="repairsAndMaintenance" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Maintenance</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="vacancy" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Vacancy</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="capitalExpenditures" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>CapEx</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -406,3 +401,5 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
     </Card>
   );
 }
+
+    

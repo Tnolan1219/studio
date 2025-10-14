@@ -37,7 +37,7 @@ import {
   Bar,
   CartesianGrid,
 } from 'recharts';
-import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
 import { collection, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
@@ -84,7 +84,7 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: isEditMode ? deal : {
+    defaultValues: {
       dealName: 'Maple Street Flip',
       purchasePrice: 180000,
       arv: 280000,
@@ -103,7 +103,7 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
   });
 
   useEffect(() => {
-    if (isEditMode) {
+    if (isEditMode && deal) {
       form.reset(deal);
     }
   }, [deal, isEditMode, form]);
@@ -129,7 +129,7 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
     const { purchasePrice, rehabCost, closingCosts, holdingLength, interestRate, downPayment, propertyTaxes, insurance, otherExpenses, sellingCosts, arv, loanTerm } = watchedValues;
 
     const loanAmount = purchasePrice - downPayment;
-    const acquisitionCosts = closingCosts/100 * purchasePrice;
+    const acquisitionCosts = (closingCosts/100) * purchasePrice;
 
     const holdingCosts = (
         (propertyTaxes/100 * purchasePrice / 12) +
@@ -139,8 +139,8 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
 
     const financingCosts = loanTerm > 0 ? (loanAmount * (interestRate/100) * (holdingLength/12)) : 0;
     
-    const totalCashNeeded = downPayment + rehabCost + acquisitionCosts;
-    const finalSellingCosts = sellingCosts/100 * arv;
+    const totalCashNeeded = downPayment + rehabCost + acquisitionCosts + holdingCosts + financingCosts;
+    const finalSellingCosts = (sellingCosts/100) * arv;
     
     const totalCosts = purchasePrice + rehabCost + acquisitionCosts + holdingCosts + financingCosts + finalSellingCosts;
     const netProfit = arv - totalCosts;
@@ -182,12 +182,12 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
       netProfit: parseFloat(netProfit.toFixed(2)),
       roi: parseFloat(roi.toFixed(2)),
       userId: user.uid,
-      createdAt: isEditMode ? deal.createdAt : serverTimestamp(),
-      status: isEditMode ? deal.status : 'In Works',
-      isPublished: isEditMode ? deal.isPublished : false,
+      createdAt: isEditMode && deal ? deal.createdAt : serverTimestamp(),
+      status: isEditMode && deal ? deal.status : 'In Works',
+      isPublished: isEditMode && deal ? deal.isPublished : false,
     };
     
-    if (isEditMode) {
+    if (isEditMode && deal) {
         const dealRef = doc(firestore, `users/${user.uid}/deals`, deal.id);
         setDocumentNonBlocking(dealRef, dealData, { merge: true });
         toast({ title: 'Changes Saved', description: `${dealData.dealName} has been updated.` });
@@ -217,7 +217,7 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
                       <CardContent className="grid grid-cols-2 gap-4">
                           <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                          <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Rehab Costs</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="arv" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>After Repair Value (ARV)</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                       </CardContent>
@@ -252,7 +252,7 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
                 <CardContent className="grid grid-cols-2 gap-4">
                   <div> <p className="text-sm text-muted-foreground">Net Profit</p> <p className="text-2xl font-bold">${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
                   <div> <p className="text-sm text-muted-foreground">ROI on Cash</p> <p className="text-2xl font-bold">{roi.toFixed(2)}%</p> </div>
-                  <div> <p className="text-sm text-muted-foreground">Total Cash Needed</p> <p className="font-bold">${totalInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
+                  <div> <p className="text-sm text-muted-foreground">Total Cash Invested</p> <p className="font-bold">${totalInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
                   <div> <p className="text-sm text-muted-foreground">ARV</p> <p className="font-bold">${watchedValues.arv.toLocaleString()}</p> </div>
                 </CardContent>
               </Card>
@@ -301,3 +301,5 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
     </Card>
   );
 }
+
+    

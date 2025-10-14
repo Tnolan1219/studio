@@ -37,7 +37,7 @@ import {
   Tooltip,
   CartesianGrid
 } from 'recharts';
-import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
 import { collection, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
@@ -179,14 +179,14 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
   const firestore = useFirestore();
   const { toast } = useToast();
   
+  const isEditMode = !!deal;
   const [isAdvancedMode, setIsAdvancedMode] = useState(isEditMode);
   const [isPending, startTransition] = useTransition();
   const [isSaving, setIsSaving] = useState(false);
-  const isEditMode = !!deal;
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: isEditMode ? deal : {
+    defaultValues: {
       dealName: 'Downtown Commercial Center',
       purchasePrice: 5000000,
       unitMix: [
@@ -214,7 +214,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
   });
 
   useEffect(() => {
-    if (isEditMode) {
+    if (isEditMode && deal) {
       form.reset(deal);
       setIsAdvancedMode(true);
     }
@@ -293,12 +293,12 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
       noi: parseFloat(noi.toFixed(2)),
       capRate: parseFloat(capRate.toFixed(2)),
       userId: user.uid,
-      createdAt: isEditMode ? deal.createdAt : serverTimestamp(),
-      status: isEditMode ? deal.status : 'In Works',
-      isPublished: isEditMode ? deal.isPublished : false,
+      createdAt: isEditMode && deal ? deal.createdAt : serverTimestamp(),
+      status: isEditMode && deal ? deal.status : 'In Works',
+      isPublished: isEditMode && deal ? deal.isPublished : false,
     };
 
-    if (isEditMode) {
+    if (isEditMode && deal) {
       const dealRef = doc(firestore, `users/${user.uid}/deals`, deal.id);
       setDocumentNonBlocking(dealRef, dealData, { merge: true });
       toast({ title: 'Changes Saved', description: `${dealData.dealName} has been updated.` });
@@ -456,3 +456,5 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
     </Card>
   );
 }
+
+    

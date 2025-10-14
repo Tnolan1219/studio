@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { setDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import type { Deal, DealComment, DealStatus, ProFormaEntry } from '@/lib/types';
+import type { Deal, DealComment, DealStatus } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,6 +23,7 @@ import { useDashboardTab } from '@/hooks/use-dashboard-tab';
 import RentalCalculator from '@/components/analysis/rental-calculator';
 import FlipCalculator from '@/components/analysis/flip-calculator';
 import CommercialCalculator from '@/components/analysis/commercial-calculator';
+import type { ProFormaEntry } from '@/lib/types';
 
 
 const DEAL_STATUSES: DealStatus[] = ['In Works', 'Negotiating', 'Bought', 'Owned & Operating', 'Sold'];
@@ -52,7 +53,7 @@ const calculateProForma = (deal: Deal): ProFormaEntry[] => {
     const proForma: ProFormaEntry[] = [];
     if (!deal) return proForma;
 
-    const loanAmount = deal.purchasePrice + deal.rehabCost + deal.closingCosts - deal.downPayment;
+    const loanAmount = deal.purchasePrice + deal.rehabCost + (deal.purchasePrice * (deal.closingCosts / 100)) - deal.downPayment;
     const monthlyInterestRate = deal.interestRate / 100 / 12;
     const numberOfPayments = deal.loanTerm * 12;
     const debtService = numberOfPayments > 0 && monthlyInterestRate > 0 ?
@@ -60,14 +61,17 @@ const calculateProForma = (deal: Deal): ProFormaEntry[] => {
         : 0;
 
     let currentGrossRent = deal.grossMonthlyIncome * 12;
-    let currentExpenses = (deal.propertyTaxes + deal.insurance + deal.repairsAndMaintenance + deal.capitalExpenditures + deal.managementFee + deal.otherExpenses) / 100 * (deal.grossMonthlyIncome * 12);
-    let currentPropertyValue = deal.purchasePrice + deal.rehabCost;
+    const arv = deal.purchasePrice + deal.rehabCost;
+
+    let currentPropertyValue = arv;
     let currentLoanBalance = loanAmount;
     
     for (let year = 1; year <= 10; year++) {
+        const expenseRate = (deal.propertyTaxes + deal.insurance + deal.repairsAndMaintenance + deal.vacancy + deal.capitalExpenditures + deal.managementFee + deal.otherExpenses) / 100;
+        const currentOpEx = currentGrossRent * expenseRate;
         const vacancyLoss = currentGrossRent * (deal.vacancy / 100);
         const effectiveGrossIncome = currentGrossRent - vacancyLoss;
-        const noi = effectiveGrossIncome - currentExpenses;
+        const noi = effectiveGrossIncome - (currentOpEx - vacancyLoss);
 
         let yearEndLoanBalance = currentLoanBalance;
         if (monthlyInterestRate > 0) {
@@ -85,7 +89,7 @@ const calculateProForma = (deal: Deal): ProFormaEntry[] => {
             grossPotentialRent: currentGrossRent,
             vacancyLoss,
             effectiveGrossIncome,
-            operatingExpenses: currentExpenses,
+            operatingExpenses: currentOpEx,
             noi,
             debtService,
             cashFlowBeforeTax: noi - debtService,
@@ -95,7 +99,6 @@ const calculateProForma = (deal: Deal): ProFormaEntry[] => {
         });
         
         currentGrossRent *= (1 + deal.annualIncomeGrowth / 100);
-        currentExpenses *= (1 + deal.annualExpenseGrowth / 100);
         currentPropertyValue *= (1 + deal.annualAppreciation / 100);
         currentLoanBalance = yearEndLoanBalance;
     }
@@ -141,7 +144,14 @@ export default function DealDetailPage() {
                     { label: 'CoC Return', value: `${deal.cocReturn?.toFixed(2)}%`},
                 ];
             case 'House Flip':
-                const totalInvestment = deal.purchasePrice + deal.rehabCost + (deal.closingCosts / 100 * deal.purchasePrice);
+                 const acquisitionCosts = deal.purchasePrice * (deal.closingCosts / 100);
+                 const holdingCosts = (
+                    (deal.propertyTaxes/100 * deal.purchasePrice / 12) +
+                    (deal.insurance/100 * deal.purchasePrice / 12) +
+                    (deal.otherExpenses / deal.holdingLength)
+                ) * deal.holdingLength;
+                const financingCosts = (deal.purchasePrice - deal.downPayment) * (deal.interestRate/100) * (deal.holdingLength/12);
+                const totalInvestment = deal.downPayment + deal.rehabCost + acquisitionCosts + holdingCosts + financingCosts;
                 return [
                     { label: 'Net Profit', value: `$${deal.netProfit?.toFixed(2)}`},
                     { label: 'ROI', value: `${deal.roi?.toFixed(2)}%`},
@@ -153,7 +163,7 @@ export default function DealDetailPage() {
         }
     }, [deal]);
 
-    const proFormaData = useMemo(() => deal ? calculateProForma(deal) : [], [deal]);
+    const proFormaData = useMemo(() => (deal && deal.dealType !== 'House Flip') ? calculateProForma(deal) : [], [deal]);
     
     const handleStatusChange = (status: DealStatus) => {
         if (!dealRef) return;
@@ -201,6 +211,7 @@ export default function DealDetailPage() {
     }
 
     const handleSaveEdit = () => {
+        toast({ title: "Changes Saved", description: "Your deal has been updated." });
         setIsEditingDeal(false);
     }
     
@@ -307,18 +318,20 @@ export default function DealDetailPage() {
                             ))}
                         </CardContent>
                     </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Pro Forma (10-Year Projection)</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {proFormaData.length > 0 ? (
-                                <ProFormaTable data={proFormaData} />
-                            ) : (
-                                <p className="text-sm text-muted-foreground">Pro forma data not available for this deal type.</p>
-                            )}
-                        </CardContent>
-                    </Card>
+                    {deal.dealType !== 'House Flip' && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Pro Forma (10-Year Projection)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {proFormaData.length > 0 ? (
+                                    <ProFormaTable data={proFormaData} />
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">Pro forma data not available for this deal type.</p>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
                      <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center justify-between">
@@ -386,3 +399,5 @@ export default function DealDetailPage() {
         </div>
     );
 }
+
+    
