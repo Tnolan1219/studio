@@ -180,7 +180,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
   const { toast } = useToast();
   
   const isEditMode = !!deal;
-  const [isAdvancedMode, setIsAdvancedMode] = useState(isEditMode);
+  const [isAdvancedMode, setIsAdvancedMode] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [isSaving, setIsSaving] = useState(false);
 
@@ -212,11 +212,16 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
       marketConditions: 'High-traffic downtown area with strong retail demand. What are the pros and cons of a triple-net lease for this property?',
     },
   });
+  
+  useEffect(() => {
+    if (isEditMode) {
+      setIsAdvancedMode(true);
+    }
+  }, [isEditMode]);
 
   useEffect(() => {
     if (isEditMode && deal) {
       form.reset(deal);
-      setIsAdvancedMode(true);
     }
   }, [deal, isEditMode, form]);
 
