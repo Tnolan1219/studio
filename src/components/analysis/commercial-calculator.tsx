@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useActionState, useState, useMemo, useTransition } from 'react';
+import { useActionState, useState, useMemo, useTransition, useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -37,12 +37,12 @@ import {
   Tooltip,
   CartesianGrid
 } from 'recharts';
-import { useUser, useFirestore, addDocumentNonBlocking } from '@/firebase';
-import { collection, serverTimestamp } from 'firebase/firestore';
+import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { collection, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
 import { ProFormaTable } from './pro-forma-table';
-import type { ProFormaEntry } from '@/lib/types';
+import type { ProFormaEntry, Deal } from '@/lib/types';
 import { Switch } from '@/components/ui/switch';
 import AdvancedCommercialCalculator from './advanced-commercial-calculator';
 import { Label } from '@/components/ui/label';
@@ -86,6 +86,8 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
         unitMix, otherIncomes, operatingExpenses, vacancyRate,
         annualIncomeGrowth, annualExpenseGrowth, annualAppreciation
     } = values;
+
+    if (!purchasePrice || !loanTerm) return [];
 
     const loanAmount = purchasePrice + rehabCost + closingCosts - downPayment;
     const monthlyInterestRate = interestRate / 100 / 12;
@@ -162,8 +164,13 @@ const LineItemInput = ({ control, name, formLabel, fieldLabel, placeholder, icon
     );
 };
 
+interface CommercialCalculatorProps {
+    deal?: Deal;
+    onSave?: () => void;
+    onCancel?: () => void;
+}
 
-export default function CommercialCalculator() {
+export default function CommercialCalculator({ deal, onSave, onCancel }: CommercialCalculatorProps) {
   const [state, formAction] = useActionState(getDealAssessment, {
     message: '',
     assessment: null,
@@ -172,13 +179,14 @@ export default function CommercialCalculator() {
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const [isAdvancedMode, setIsAdvancedMode] = useState(false);
+  const [isAdvancedMode, setIsAdvancedMode] = useState(isEditMode);
   const [isPending, startTransition] = useTransition();
   const [isSaving, setIsSaving] = useState(false);
+  const isEditMode = !!deal;
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
+    defaultValues: isEditMode ? deal : {
       dealName: 'Downtown Commercial Center',
       purchasePrice: 5000000,
       unitMix: [
@@ -204,6 +212,13 @@ export default function CommercialCalculator() {
       marketConditions: 'High-traffic downtown area with strong retail demand. What are the pros and cons of a triple-net lease for this property?',
     },
   });
+
+  useEffect(() => {
+    if (isEditMode) {
+      form.reset(deal);
+      setIsAdvancedMode(true);
+    }
+  }, [deal, isEditMode, form]);
 
   const { fields: unitMixFields, append: appendUnit, remove: removeUnit } = useFieldArray({
     control: form.control,
@@ -269,31 +284,44 @@ export default function CommercialCalculator() {
     }
 
     setIsSaving(true);
+    const formValues = form.getValues();
     const dealData = {
-      ...form.getValues(),
-      dealType: 'Commercial Multifamily',
+      ...formValues,
+      dealType: 'Commercial Multifamily' as const,
       monthlyCashFlow: parseFloat(monthlyCashFlow.toFixed(2)),
       cocReturn: parseFloat(cocReturn.toFixed(2)),
       noi: parseFloat(noi.toFixed(2)),
       capRate: parseFloat(capRate.toFixed(2)),
       userId: user.uid,
-      createdAt: serverTimestamp(),
-      status: 'In Works',
-      isPublished: false,
+      createdAt: isEditMode ? deal.createdAt : serverTimestamp(),
+      status: isEditMode ? deal.status : 'In Works',
+      isPublished: isEditMode ? deal.isPublished : false,
     };
 
-    const dealsCol = collection(firestore, `users/${user.uid}/deals`);
-    addDocumentNonBlocking(dealsCol, dealData);
-    toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
+    if (isEditMode) {
+      const dealRef = doc(firestore, `users/${user.uid}/deals`, deal.id);
+      setDocumentNonBlocking(dealRef, dealData, { merge: true });
+      toast({ title: 'Changes Saved', description: `${dealData.dealName} has been updated.` });
+      if (onSave) onSave();
+    } else {
+      const dealsCol = collection(firestore, `users/${user.uid}/deals`);
+      addDocumentNonBlocking(dealsCol, dealData);
+      toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
+      form.reset();
+    }
     setIsSaving(false);
   };
+
+  if (isEditMode) {
+      return <AdvancedCommercialCalculator deal={deal} onSave={onSave} onCancel={onCancel} />;
+  }
 
   return (
     <Card className="bg-card/60 backdrop-blur-sm">
       <CardHeader>
         <div className="flex justify-between items-center">
             <div>
-                 <CardTitle className="font-headline">Commercial Multifamily Analyzer</CardTitle>
+                 <CardTitle className="font-headline">{isEditMode ? `Editing: ${deal.dealName}` : 'Commercial Multifamily Analyzer'}</CardTitle>
                  <CardDescription> A lightweight analysis for quick underwriting of multifamily deals. </CardDescription>
             </div>
              <div className="flex items-center space-x-2">
@@ -418,8 +446,9 @@ export default function CommercialCalculator() {
 
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
+                {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
                 <Button type="submit" disabled={isPending || isSaving}> {isPending ? 'Analyzing...' : 'Run Analysis'} </Button>
-                <Button variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}> {isSaving ? 'Saving...' : 'Save Deal'} </Button>
+                <Button variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}> {isSaving ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
             </CardFooter>
             </form>
         </Form>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -19,7 +20,9 @@ import { BarChart, Building, Home, Repeat, Trash2, Edit, MessageSquare, Send, Ey
 import { formatDistanceToNow } from 'date-fns';
 import { ProFormaTable } from '@/components/analysis/pro-forma-table';
 import { useDashboardTab } from '@/hooks/use-dashboard-tab';
-import DealEditForm from '@/components/deal-edit-form';
+import RentalCalculator from '@/components/analysis/rental-calculator';
+import FlipCalculator from '@/components/analysis/flip-calculator';
+import CommercialCalculator from '@/components/analysis/commercial-calculator';
 
 
 const DEAL_STATUSES: DealStatus[] = ['In Works', 'Negotiating', 'Bought', 'Owned & Operating', 'Sold'];
@@ -138,7 +141,7 @@ export default function DealDetailPage() {
                     { label: 'CoC Return', value: `${deal.cocReturn?.toFixed(2)}%`},
                 ];
             case 'House Flip':
-                const totalInvestment = deal.purchasePrice + deal.rehabCost;
+                const totalInvestment = deal.purchasePrice + deal.rehabCost + (deal.closingCosts / 100 * deal.purchasePrice);
                 return [
                     { label: 'Net Profit', value: `$${deal.netProfit?.toFixed(2)}`},
                     { label: 'ROI', value: `${deal.roi?.toFixed(2)}%`},
@@ -197,6 +200,10 @@ export default function DealDetailPage() {
         setActiveTab('deals');
     }
 
+    const handleSaveEdit = () => {
+        setIsEditingDeal(false);
+    }
+    
     if (isDealLoading) {
         return (
             <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -221,13 +228,17 @@ export default function DealDetailPage() {
     }
     
     if (isEditingDeal) {
-        return (
-            <DealEditForm 
-                deal={deal} 
-                onSave={() => setIsEditingDeal(false)}
-                onCancel={() => setIsEditingDeal(false)}
-            />
-        )
+        switch(deal.dealType) {
+            case 'Rental Property':
+                return <RentalCalculator deal={deal} onSave={handleSaveEdit} onCancel={() => setIsEditingDeal(false)} />;
+            case 'House Flip':
+                return <FlipCalculator deal={deal} onSave={handleSaveEdit} onCancel={() => setIsEditingDeal(false)} />;
+            case 'Commercial Multifamily':
+                return <CommercialCalculator deal={deal} onSave={handleSaveEdit} onCancel={() => setIsEditingDeal(false)} />;
+            default:
+                 setIsEditingDeal(false); // Fallback for unknown deal types
+                 return null;
+        }
     }
 
 

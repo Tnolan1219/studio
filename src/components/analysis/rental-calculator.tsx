@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useActionState, useState, useMemo, useTransition } from 'react';
+import { useActionState, useState, useMemo, useTransition, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -37,12 +37,12 @@ import {
   Bar,
   CartesianGrid,
 } from 'recharts';
-import { useUser, useFirestore, addDocumentNonBlocking } from '@/firebase';
-import { collection, serverTimestamp } from 'firebase/firestore';
+import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { collection, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
 import { ProFormaTable } from './pro-forma-table';
-import type { ProFormaEntry } from '@/lib/types';
+import type { ProFormaEntry, Deal } from '@/lib/types';
 
 
 const formSchema = z.object({
@@ -75,10 +75,12 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
     const proForma: ProFormaEntry[] = [];
     const {
         purchasePrice, rehabCost, closingCosts, downPayment, interestRate, loanTerm,
-        grossMonthlyIncome, vacancy, annualIncomeGrowth, annualExpenseGrowth,
-        annualAppreciation, propertyTaxes, insurance, repairsAndMaintenance,
-        capitalExpenditures, managementFee, otherExpenses
+        grossMonthlyIncome, vacancy, annualIncomeGrowth,
+        propertyTaxes, insurance, repairsAndMaintenance,
+        capitalExpenditures, managementFee, otherExpenses, annualAppreciation
     } = values;
+
+    if (!purchasePrice || !loanTerm) return [];
 
     const loanAmount = purchasePrice + rehabCost + closingCosts - downPayment;
     const monthlyInterestRate = interestRate / 100 / 12;
@@ -90,19 +92,18 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
     let currentGrossRent = grossMonthlyIncome * 12;
     const arv = purchasePrice + rehabCost;
     
-    // Expenses can be a mix of % of income and % of value.
-    let currentOpEx = 
-        (propertyTaxes / 100 * arv) + 
-        (insurance / 100 * arv) + 
-        (repairsAndMaintenance / 100 * currentGrossRent) + 
-        (capitalExpenditures / 100 * currentGrossRent) + 
-        (managementFee / 100 * currentGrossRent) + 
-        (otherExpenses / 100 * currentGrossRent);
-
     let currentPropertyValue = arv;
     let currentLoanBalance = loanAmount;
     
     for (let year = 1; year <= 10; year++) {
+        const currentOpEx = 
+            (propertyTaxes / 100 * currentPropertyValue) + 
+            (insurance / 100 * currentPropertyValue) + 
+            (repairsAndMaintenance / 100 * currentGrossRent) + 
+            (capitalExpenditures / 100 * currentGrossRent) + 
+            (managementFee / 100 * currentGrossRent) + 
+            (otherExpenses / 100 * currentGrossRent);
+
         const vacancyLoss = currentGrossRent * (vacancy / 100);
         const effectiveGrossIncome = currentGrossRent - vacancyLoss;
         const noi = effectiveGrossIncome - currentOpEx;
@@ -133,15 +134,6 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
         });
         
         currentGrossRent *= (1 + annualIncomeGrowth / 100);
-        // Recalculate expenses that depend on income
-        currentOpEx = 
-            (propertyTaxes / 100 * arv * Math.pow(1 + annualAppreciation / 100, year -1)) + 
-            (insurance / 100 * arv * Math.pow(1 + annualAppreciation / 100, year -1)) + 
-            (repairsAndMaintenance / 100 * currentGrossRent) + 
-            (capitalExpenditures / 100 * currentGrossRent) + 
-            (managementFee / 100 * currentGrossRent) + 
-            (otherExpenses / 100 * currentGrossRent);
-
         currentPropertyValue *= (1 + annualAppreciation / 100);
         currentLoanBalance = yearEndLoanBalance;
     }
@@ -149,8 +141,13 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
     return proForma;
 };
 
+interface RentalCalculatorProps {
+    deal?: Deal;
+    onSave?: () => void;
+    onCancel?: () => void;
+}
 
-export default function RentalCalculator() {
+export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalculatorProps) {
   const [state, formAction] = useActionState(getDealAssessment, {
     message: '',
     assessment: null,
@@ -161,10 +158,12 @@ export default function RentalCalculator() {
 
   const [isPending, startTransition] = useTransition();
   const [isSaving, setIsSaving] = useState(false);
+  
+  const isEditMode = !!deal;
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
+    defaultValues: isEditMode ? deal : {
       dealName: 'My Next Rental',
       purchasePrice: 250000,
       closingCosts: 3,
@@ -188,6 +187,12 @@ export default function RentalCalculator() {
       marketConditions: 'Analyze the rental market in the 90210 zip code. What are the average rents for a 3-bedroom house?',
     },
   });
+
+  useEffect(() => {
+    if (isEditMode) {
+      form.reset(deal);
+    }
+  }, [deal, isEditMode, form]);
 
   const handleAnalyzeWrapper = (data: FormData) => {
     startTransition(() => {
@@ -250,31 +255,42 @@ export default function RentalCalculator() {
     }
 
     setIsSaving(true);
+    const formValues = form.getValues();
+    
     const dealData = {
-      ...form.getValues(),
-      dealType: 'Rental Property',
+      ...formValues,
+      dealType: 'Rental Property' as const,
       monthlyCashFlow: parseFloat(monthlyCashFlow.toFixed(2)),
       cocReturn: parseFloat(cocReturn.toFixed(2)),
       noi: parseFloat(noi.toFixed(2)),
       capRate: parseFloat(capRate.toFixed(2)),
       userId: user.uid,
-      createdAt: serverTimestamp(),
-      status: 'In Works',
-      isPublished: false,
+      createdAt: isEditMode ? deal.createdAt : serverTimestamp(),
+      status: isEditMode ? deal.status : 'In Works',
+      isPublished: isEditMode ? deal.isPublished : false,
     };
+    
+    if (isEditMode) {
+      const dealRef = doc(firestore, `users/${user.uid}/deals`, deal.id);
+      setDocumentNonBlocking(dealRef, dealData, { merge: true });
+      toast({ title: 'Changes Saved', description: `${dealData.dealName} has been updated.` });
+      if (onSave) onSave();
+    } else {
+      const dealsCol = collection(firestore, `users/${user.uid}/deals`);
+      addDocumentNonBlocking(dealsCol, dealData);
+      toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
+      form.reset();
+    }
 
-    const dealsCol = collection(firestore, `users/${user.uid}/deals`);
-    addDocumentNonBlocking(dealsCol, dealData);
-    toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
     setIsSaving(false);
   };
 
   return (
     <Card className="bg-card/60 backdrop-blur-sm">
       <CardHeader>
-        <CardTitle className="font-headline">Rental Property Analyzer (BRRRR Method)</CardTitle>
+        <CardTitle className="font-headline">{isEditMode ? `Editing: ${deal.dealName}` : 'Rental Property Analyzer (BRRRR Method)'}</CardTitle>
         <CardDescription>
-          Analyze a rental property purchase, including rehab, using the BRRRR (Buy, Rehab, Rent, Refinance, Repeat) strategy.
+          {isEditMode ? 'Update the details for your rental property.' : 'Analyze a rental property purchase, including rehab, using the BRRRR strategy.'}
         </CardDescription>
       </CardHeader>
       <Form {...form}>
@@ -381,9 +397,9 @@ export default function RentalCalculator() {
             </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
-            <Button type="submit" disabled={isPending || isSaving}> {isPending ? 'Analyzing with AI...' : 'Analyze with AI'} </Button>
-            <Button variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}> {isSaving ? 'Saving...' : 'Save Deal'} </Button>
-
+            {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
+            <Button type="submit" disabled={isPending || isSaving}> {isPending ? 'Analyzing...' : 'Run Analysis'} </Button>
+            <Button variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}> {isSaving ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
           </CardFooter>
         </form>
       </Form>

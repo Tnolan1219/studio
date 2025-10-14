@@ -1,5 +1,6 @@
+// This component is no longer used and has been replaced by logic within the main calculator components.
+// It can be safely deleted.
 'use client';
-
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';

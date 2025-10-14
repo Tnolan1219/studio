@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useActionState, useState, useMemo, useTransition } from 'react';
+import { useActionState, useState, useMemo, useTransition, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -37,10 +37,12 @@ import {
   Bar,
   CartesianGrid,
 } from 'recharts';
-import { useUser, useFirestore, addDocumentNonBlocking } from '@/firebase';
-import { collection, serverTimestamp } from 'firebase/firestore';
+import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { collection, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
+import type { Deal } from '@/lib/types';
+
 
 const formSchema = z.object({
   dealName: z.string().min(3, 'Please enter a name for the deal.'),
@@ -61,7 +63,13 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-export default function FlipCalculator() {
+interface FlipCalculatorProps {
+    deal?: Deal;
+    onSave?: () => void;
+    onCancel?: () => void;
+}
+
+export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculatorProps) {
   const [state, formAction] = useActionState(getDealAssessment, {
     message: '',
     assessment: null,
@@ -72,10 +80,11 @@ export default function FlipCalculator() {
 
   const [isPending, startTransition] = useTransition();
   const [isSaving, setIsSaving] = useState(false);
+  const isEditMode = !!deal;
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
+    defaultValues: isEditMode ? deal : {
       dealName: 'Maple Street Flip',
       purchasePrice: 180000,
       arv: 280000,
@@ -92,6 +101,12 @@ export default function FlipCalculator() {
       marketConditions: "What are the risks of flipping in a cooling market? Suggest value-add renovations for this property type.",
     },
   });
+
+  useEffect(() => {
+    if (isEditMode) {
+      form.reset(deal);
+    }
+  }, [deal, isEditMode, form]);
 
   const handleAnalyzeWrapper = (data: FormData) => {
     startTransition(() => {
@@ -160,28 +175,37 @@ export default function FlipCalculator() {
     }
 
     setIsSaving(true);
+    const formValues = form.getValues();
     const dealData = {
-      ...form.getValues(),
-      dealType: 'House Flip',
+      ...formValues,
+      dealType: 'House Flip' as const,
       netProfit: parseFloat(netProfit.toFixed(2)),
       roi: parseFloat(roi.toFixed(2)),
       userId: user.uid,
-      createdAt: serverTimestamp(),
-      status: 'In Works',
-      isPublished: false,
+      createdAt: isEditMode ? deal.createdAt : serverTimestamp(),
+      status: isEditMode ? deal.status : 'In Works',
+      isPublished: isEditMode ? deal.isPublished : false,
     };
     
-    const dealsCol = collection(firestore, `users/${user.uid}/deals`);
-    addDocumentNonBlocking(dealsCol, dealData);
-    toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
+    if (isEditMode) {
+        const dealRef = doc(firestore, `users/${user.uid}/deals`, deal.id);
+        setDocumentNonBlocking(dealRef, dealData, { merge: true });
+        toast({ title: 'Changes Saved', description: `${dealData.dealName} has been updated.` });
+        if (onSave) onSave();
+    } else {
+        const dealsCol = collection(firestore, `users/${user.uid}/deals`);
+        addDocumentNonBlocking(dealsCol, dealData);
+        toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
+        form.reset();
+    }
     setIsSaving(false);
   };
   
   return (
     <Card className="bg-card/60 backdrop-blur-sm">
       <CardHeader>
-        <CardTitle className="font-headline">House Flip Analyzer</CardTitle>
-        <CardDescription> Calculate the potential profit and ROI for your next house flip project. </CardDescription>
+        <CardTitle className="font-headline">{isEditMode ? `Editing: ${deal.dealName}` : 'House Flip Analyzer'}</CardTitle>
+        <CardDescription>{isEditMode ? 'Update the details for your house flip.' : 'Calculate the potential profit and ROI for your next house flip project.'}</CardDescription>
       </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleAnalyzeWrapper)}>
@@ -268,8 +292,9 @@ export default function FlipCalculator() {
             </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
-            <Button type="submit" disabled={isPending || isSaving}> {isPending ? 'Analyzing with AI...' : 'Analyze with AI'} </Button>
-            <Button variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}> {isSaving ? 'Saving...' : 'Save Deal'} </Button>
+            {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
+            <Button type="submit" disabled={isPending || isSaving}> {isPending ? 'Analyzing...' : 'Run Analysis'} </Button>
+            <Button variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}> {isSaving ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
           </CardFooter>
         </form>
       </Form>

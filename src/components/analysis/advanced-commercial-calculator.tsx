@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useActionState, useState, useMemo, useTransition } from 'react';
+import { useActionState, useState, useMemo, useTransition, useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -36,14 +36,13 @@ import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
 import { InputWithIcon } from '../ui/input-with-icon';
 import { Button } from '../ui/button';
-import { useUser, useFirestore } from '@/firebase';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, serverTimestamp } from 'firebase/firestore';
+import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { collection, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { Textarea } from '../ui/textarea';
 import { ProFormaTable } from './pro-forma-table';
-import type { ProFormaEntry } from '@/lib/types';
+import type { ProFormaEntry, Deal } from '@/lib/types';
 import {
   ResponsiveContainer,
   BarChart as RechartsBarChart,
@@ -216,8 +215,13 @@ const LineItemInput = ({ control, name, formLabel, fieldLabel, placeholder, icon
     );
 };
 
+interface AdvancedCommercialCalculatorProps {
+    deal?: Deal;
+    onSave?: () => void;
+    onCancel?: () => void;
+}
 
-export default function AdvancedCommercialCalculator() {
+export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }: AdvancedCommercialCalculatorProps) {
     
   const tabs = [
     { value: 'overview', label: 'Overview', icon: Building },
@@ -243,11 +247,12 @@ export default function AdvancedCommercialCalculator() {
   const [sensitivityVar1, setSensitivityVar1] = useState<SensitivityVariable>('exitCapRate');
   const [sensitivityVar2, setSensitivityVar2] = useState<SensitivityVariable>('annualIncomeGrowth');
   const [sensitivityMetric, setSensitivityMetric] = useState<SensitivityMetric>('irr');
+  const isEditMode = !!deal;
 
 
    const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
+    defaultValues: isEditMode ? deal : {
       dealName: 'Advanced Commercial Center',
       purchasePrice: 5000000,
       closingCosts: 2,
@@ -277,6 +282,12 @@ export default function AdvancedCommercialCalculator() {
       marketConditions: 'Analyze this deal using advanced metrics. Consider value-add opportunities by renovating 10 units in Year 2 for a 20% rent premium. What would the IRR and Equity Multiple be over a 10 year hold?',
     },
   });
+
+  useEffect(() => {
+    if (isEditMode) {
+      form.reset(deal);
+    }
+  }, [deal, isEditMode, form]);
 
   const { fields: unitMixFields, append: appendUnit, remove: removeUnit } = useFieldArray({
     control: form.control,
@@ -450,9 +461,10 @@ export default function AdvancedCommercialCalculator() {
     }
 
     setIsSaving(true);
+    const formValues = form.getValues();
     const dealData = {
-      ...form.getValues(),
-      dealType: 'Commercial Multifamily',
+      ...formValues,
+      dealType: 'Commercial Multifamily' as const,
       monthlyCashFlow: parseFloat(monthlyCashFlow.toFixed(2)),
       cocReturn: parseFloat(cocReturn.toFixed(2)),
       noi: parseFloat(noi.toFixed(2)),
@@ -460,16 +472,24 @@ export default function AdvancedCommercialCalculator() {
       roi: parseFloat(unleveredIRR.toFixed(2)),
       netProfit: parseFloat(netSaleProceeds.toFixed(2)),
       userId: user.uid,
-      createdAt: serverTimestamp(),
-      status: 'In Works',
-      isPublished: false,
+      createdAt: isEditMode ? deal.createdAt : serverTimestamp(),
+      status: isEditMode ? deal.status : 'In Works',
+      isPublished: isEditMode ? deal.isPublished : false,
     };
-
-    const dealsCol = collection(firestore, `users/${user.uid}/deals`);
-    addDocumentNonBlocking(dealsCol, dealData).catch(error => {
-        toast({ title: 'Error Saving Deal', description: error.message, variant: 'destructive' });
-    });
-    toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
+    
+    if (isEditMode) {
+        const dealRef = doc(firestore, `users/${user.uid}/deals`, deal.id);
+        setDocumentNonBlocking(dealRef, dealData, { merge: true });
+        toast({ title: 'Changes Saved', description: `${dealData.dealName} has been updated.` });
+        if (onSave) onSave();
+    } else {
+        const dealsCol = collection(firestore, `users/${user.uid}/deals`);
+        addDocumentNonBlocking(dealsCol, dealData).catch(error => {
+            toast({ title: 'Error Saving Deal', description: error.message, variant: 'destructive' });
+        });
+        toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
+        form.reset();
+    }
     setIsSaving(false);
   };
   
@@ -744,15 +764,12 @@ export default function AdvancedCommercialCalculator() {
 
                 </Tabs>
                 <CardFooter className="flex justify-end gap-2 mt-6">
+                    {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
                     <Button type="submit" disabled={isPending || isSaving}> {isPending ? 'Analyzing...' : 'Run Analysis'} </Button>
-                    <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}> {isSaving ? 'Saving...' : 'Save Deal'} </Button>
+                    <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}> {isSaving ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
                 </CardFooter>
             </form>
         </Form>
     </CardContent>
   );
 }
-
-    
-
-    
