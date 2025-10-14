@@ -6,44 +6,38 @@
       "type": "object",
       "description": "Represents a user's profile in the TKN Fi RE application.",
       "properties": {
-        "id": {
+        "name": {
           "type": "string",
-          "description": "Unique identifier for the user profile."
+          "description": "User's full name."
         },
         "email": {
           "type": "string",
           "description": "User's email address.",
           "format": "email"
         },
-        "name": {
+        "country": {
           "type": "string",
-          "description": "User's full name."
+          "description": "User's country of residence."
         },
         "state": {
           "type": "string",
           "description": "User's state of residence."
         },
-        "country": {
+        "experience": {
           "type": "string",
-          "description": "User's country of residence."
-        },
-        "age": {
-          "type": "number",
-          "description": "User's age."
+          "description": "User's real estate investment experience level."
         },
         "financialGoal": {
           "type": "string",
           "description": "User's primary financial goal."
         },
-        "planStatus": {
-          "type": "string",
-          "description": "User's subscription plan status (Free, Pro, Executive)."
+        "isOnboardingComplete": {
+            "type": "boolean",
+            "description": "Flag to indicate if the user has completed the onboarding process."
         }
       },
       "required": [
-        "id",
-        "email",
-        "name"
+        "email"
       ]
     },
     "Deal": {
@@ -52,89 +46,132 @@
       "type": "object",
       "description": "Represents a saved real estate deal analyzed by a user.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the deal."
-        },
         "userId": {
           "type": "string",
-          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N Deal)"
+          "description": "The UID of the user who owns this deal."
         },
         "dealName": {
           "type": "string",
           "description": "Name of the deal."
         },
-        "propertyType": {
+        "dealType": {
           "type": "string",
-          "description": "Type of property (Rental, Flip, Commercial)."
+          "description": "Type of property (Rental Property, House Flip, Commercial Multifamily)."
         },
-        "purchasePrice": {
-          "type": "number",
-          "description": "Purchase price of the property."
+        "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of when the deal was created."
         },
-        "monthlyCashFlow": {
-          "type": "number",
-          "description": "Estimated monthly cash flow of the property."
+        "purchasePrice": { "type": "number" },
+        "closingCosts": { "type": "number" },
+        "rehabCost": { "type": "number" },
+        "arv": { "type": "number" },
+        "downPayment": { "type": "number" },
+        "loanTerm": { "type": "number" },
+        "interestRate": { "type": "number" },
+        "grossMonthlyIncome": { "type": "number" },
+        "propertyTaxes": { "type": "number" },
+        "insurance": { "type": "number" },
+        "repairsAndMaintenance": { "type": "number" },
+        "vacancy": { "type": "number" },
+        "capitalExpenditures": { "type": "number" },
+        "managementFee": { "type": "number" },
+        "otherExpenses": { "type": "number" },
+        "annualIncomeGrowth": { "type": "number" },
+        "annualExpenseGrowth": { "type": "number" },
+        "annualAppreciation": { "type": "number" },
+        "holdingLength": { "type": "number" },
+        "sellingCosts": { "type": "number" },
+        "monthlyCashFlow": { "type": "number" },
+        "cocReturn": { "type": "number" },
+        "noi": { "type": "number" },
+        "capRate": { "type": "number" },
+        "roi": { "type": "number" },
+        "netProfit": { "type": "number" },
+        "marketConditions": { "type": "string" },
+        "status": { "type": "string" },
+        "isPublished": { "type": "boolean" },
+        "investorNotes": { "type": "string" },
+        "unitMix": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "type": {"type": "string"},
+                    "count": {"type": "number"},
+                    "rent": {"type": "number"}
+                }
+            }
         },
-        "cocReturn": {
-          "type": "number",
-          "description": "Cash-on-cash return for the property."
+        "otherIncomes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "amount": {"type": "number"}
+                }
+            }
+        },
+        "operatingExpenses": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "amount": {"type": "number"}
+                }
+            }
         }
       },
       "required": [
-        "id",
         "userId",
         "dealName",
-        "propertyType",
-        "purchasePrice"
+        "dealType",
+        "purchasePrice",
+        "createdAt"
       ]
+    },
+    "DealComment": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "DealComment",
+        "type": "object",
+        "description": "A comment on a specific deal.",
+        "properties": {
+            "text": {
+                "type": "string"
+            },
+            "author": {
+                "type": "string"
+            },
+            "createdAt": {
+                "type": "string",
+                "format": "date-time"
+            }
+        },
+        "required": ["text", "author", "createdAt"]
     }
   },
   "auth": {
     "providers": [
       "password",
-      "anonymous"
+      "anonymous",
+      "google.com"
     ]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "UserProfile",
-          "schema": {
-            "$ref": "#/backend/entities/UserProfile"
-          },
-          "description": "Stores user profiles, keyed by their unique Firebase Auth ID.  This path enforces path-based ownership, ensuring only the authenticated user can access their profile data.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The Firebase Auth UID of the user."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/deals/{dealId}",
-        "definition": {
-          "entityName": "Deal",
-          "schema": {
-            "$ref": "#/backend/entities/Deal"
-          },
-          "description": "Stores real estate deals saved by a user.  This subcollection structure enforces path-based ownership. The `userId` field within each Deal document is redundant but maintained for potential data integrity checks. It allows each user to only access their own saved deals.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The Firebase Auth UID of the user who owns the deal."
-            },
-            {
-              "name": "dealId",
-              "description": "The unique ID of the saved deal."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and QAPs. User profiles are stored under `/users/{userId}` for private data accessible only by the user. Saved deals are stored under `/users/{userId}/deals/{dealId}` as a subcollection, maintaining the user's ownership. This structure avoids `get()` calls in security rules, enabling atomic operations. The design enforces a homogeneous security posture for all documents within each collection. User roles are derived from the user ID, eliminating the need for custom claims and providing a clear, debuggable authorization model. Data clarity is ensured through explicit field naming and schema definitions."
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Stores user profile information."
+    },
+    "/users/{userId}/deals/{dealId}": {
+      "schema": { "$ref": "#/entities/Deal" },
+      "description": "Subcollection for storing a user's saved deals."
+    },
+    "/users/{userId}/deals/{dealId}/comments/{commentId}": {
+        "schema": { "$ref": "#/entities/DealComment" },
+        "description": "Subcollection for storing comments on a specific deal."
+    }
   }
 }

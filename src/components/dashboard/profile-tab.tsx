@@ -26,8 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
-import { setDoc } from 'firebase/firestore';
+import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking } from "@/firebase";
 import { doc } from 'firebase/firestore';
 import { useEffect } from "react";
 import { Skeleton } from "../ui/skeleton";
@@ -80,20 +79,11 @@ export default function ProfileTab() {
   async function onSubmit(data: ProfileFormValues) {
     if (!userProfileRef || !user || user.isAnonymous) return;
     
-    try {
-        await setDoc(userProfileRef, data, { merge: true });
-        toast({
-          title: "Profile Updated",
-          description: "Your information has been saved successfully.",
-        });
-    } catch (error) {
-        console.error("Error updating profile:", error);
-        toast({
-          title: "Update Failed",
-          description: "Could not save your profile. Please try again.",
-          variant: "destructive",
-        });
-    }
+    setDocumentNonBlocking(userProfileRef, data, { merge: true });
+    toast({
+      title: "Profile Updated",
+      description: "Your information has been saved successfully.",
+    });
   }
 
   const getInitials = () => {
@@ -186,7 +176,7 @@ export default function ProfileTab() {
                     </Tooltip>
                   </TooltipProvider>
                 ) : (
-                  <Button type="submit" disabled={form.formState.isSubmitting}>Save Changes</Button>
+                  <Button type="submit" disabled={form.formState.isSubmitting || !form.formState.isDirty}>Save Changes</Button>
                 )}
             </CardFooter>
             </form>
