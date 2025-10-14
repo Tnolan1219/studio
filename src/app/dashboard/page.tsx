@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from 'react';
@@ -12,11 +13,12 @@ import ProfileTab from '@/components/dashboard/profile-tab';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useDashboardTab } from '@/hooks/use-dashboard-tab';
 
 export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("home");
+  const { activeTab, setActiveTab } = useDashboardTab();
 
   useEffect(() => {
     if (!isUserLoading && !user) {

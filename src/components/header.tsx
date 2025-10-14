@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import { Briefcase, LogOut, User, Settings, LogIn } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -14,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth, useUser } from '@/firebase';
 import { ThemeToggle } from './theme-toggle';
+import { useDashboardTab } from '@/hooks/use-dashboard-tab';
 
 const ValentorLogo = () => (
     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary">
@@ -54,6 +56,7 @@ function UserNav() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
+  const { setActiveTab } = useDashboardTab();
 
   const handleLogout = () => {
     auth.signOut();
@@ -105,15 +108,15 @@ function UserNav() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setActiveTab('profile')}>
             <User className="mr-2 h-4 w-4" />
             <span>Profile</span>
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setActiveTab('deals')}>
             <Briefcase className="mr-2 h-4 w-4" />
             <span>My Deals</span>
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setActiveTab('profile')}>
             <Settings className="mr-2 h-4 w-4" />
             <span>Settings</span>
           </DropdownMenuItem>
