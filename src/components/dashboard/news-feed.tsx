@@ -1,36 +1,16 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
-import { summarizeFinancialNews } from '@/ai/flows/summarize-financial-news';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { mockNewsHeadlines, mockUser } from "@/lib/mock-data";
+import { mockNewsHeadlines } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Newspaper } from 'lucide-react';
 
 export function NewsFeed() {
-    const [summary, setSummary] = useState('');
-    const [isLoading, setIsLoading] = useState(true);
+    const [summary, setSummary] = useState("The Federal Reserve's recent announcement on interest rate stability is expected to calm the housing market. Meanwhile, a slight increase in inventory in major cities and a drop in lumber prices may provide some relief for builders and buyers alike. Tech sector growth continues to fuel rental demand in key markets.");
+    const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
-
-    useEffect(() => {
-        async function fetchSummary() {
-            try {
-                setIsLoading(true);
-                setError('');
-                const result = await summarizeFinancialNews({
-                    investmentPreferences: mockUser.financialGoal,
-                    newsHeadlines: mockNewsHeadlines
-                });
-                setSummary(result.summary);
-            } catch (e) {
-                console.error(e);
-                setError('Failed to load news summary. Please try again.');
-            } finally {
-                setIsLoading(false);
-            }
-        }
-        fetchSummary();
-    }, []);
 
     return (
         <Card className="bg-card/60 backdrop-blur-sm">
