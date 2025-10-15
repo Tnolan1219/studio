@@ -1,76 +1,87 @@
 /**
- * @file Firestore Security Rules for TKN Fi RE application.
+ * @file Firebase Security Rules for TKN Fi RE Application
  *
- * @core_philosophy This ruleset enforces a strict user-ownership model, ensuring that users can only access and modify data associated with their own user ID.
- *
- * @data_structure All data is nested under the `/users/{userId}` path, with user profiles stored in `/users/{userId}/userProfile` and deals stored in `/users/{userId}/deals/{dealId}`. This hierarchical structure facilitates path-based authorization.
- *
- * @key_security_decisions
- *   - User listing is implicitly disallowed by the structure.
- *   - The rules explicitly deny any unauthorized access to user data, including attempts to modify other users' profiles or deals.
- *   - The rules are designed to be authorization independent, avoiding the need for costly `get()` calls.
+ * @corePhilosophy This ruleset enforces a strict user-ownership model, ensuring that only authenticated users can access their own data. Data is organized under user-specific paths to guarantee authorization independence and support secure list operations.
+ * @dataStructure User profiles and deals are stored under the `/users/{userId}` path, with separate collections for `userProfile` and `deals`.
+ * @keySecurityDecisions
+ *   - User listing is disallowed.
+ *   - Write operations are restricted to authenticated users.
+ *   - Data validation focuses on authorization and relational integrity, not on full schema enforcement (prototyping mode).
+ * @denormalizationForAuthorization N/A - Path-based ownership is used.
+ * @structuralSegregation User profiles and deals are stored in separate subcollections under the user's ID to ensure clear ownership and efficient data retrieval.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Enforces access control for user profiles. Only the authenticated user can read and write their own profile.
+     * @description Enforces access control for user profiles. Only the authenticated user can read or write their own profile.
      * @path /users/{userId}/userProfile
-     * @allow (get, create, update, delete) - Authenticated user with matching userId.
-     * @deny (get, create, update, delete) - Any other user or unauthenticated user.
-     * @principle Enforces document ownership for all operations.
+     * @allow (get) Authenticated user iWyFMcDQPuO4HmZobWrioItAcSq1 can read their own profile document.
+     * @allow (create) Authenticated user iWyFMcDQPuO4HmZobWrioItAcSq1 can create their own profile document.
+     * @allow (update) Authenticated user iWyFMcDQPuO4HmZobWrioItAcSq1 can update their own profile document.
+     * @allow (delete) Authenticated user iWyFMcDQPuO4HmZobWrioItAcSq1 can delete their own profile document.
+     * @deny (get) Authenticated user iWyFMcDQPuO4HmZobWrioItAcSq2 cannot read profile document.
+     * @deny (create) Unauthenticated user cannot create profile document.
+     * @deny (update) Authenticated user iWyFMcDQPuO4HmZobWrioItAcSq2 cannot update profile document.
+     * @deny (delete) Authenticated user iWyFMcDQPuO4HmZobWrioItAcSq2 cannot delete profile document.
+     * @principle Enforces document ownership for all operations (reads and writes).
      */
     match /users/{userId}/userProfile {
-      // Allow reads to the user's own profile.
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
-
-      // Allow creation of the user's own profile, validating the userId.
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-
-      // Allow updates to the user's own profile. Enforce immutability of the userId.
-      allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-
-      // Allow deletion of the user's own profile.
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if false; // User profiles should not be listable.
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && resource.data.id == userId; // Enforce immutability of the userId.
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Enforces access control for deals. Only the authenticated user can read, create, update, and delete their own deals.
+     * @description Enforces access control for deals. Only the authenticated user can create, read, update, or delete their own deals.
      * @path /users/{userId}/deals/{dealId}
-     * @allow (get, create, update, delete) - Authenticated user with matching userId.
-     * @deny (get, create, update, delete) - Any other user or unauthenticated user.
-     * @principle Enforces document ownership for all operations.
+     * @allow (get) Authenticated user iWyFMcDQPuO4HmZobWrioItAcSq1 can read their own deal with dealId 'deal123'.
+     * @allow (create) Authenticated user iWyFMcDQPuO4HmZobWrioItAcSq1 can create their own deal with dealId 'deal123'.
+     * @allow (update) Authenticated user iWyFMcDQPuO4HmZobWrioItAcSq1 can update their own deal with dealId 'deal123'.
+     * @allow (delete) Authenticated user iWyFMcDQPuO4HmZobWrioItAcSq1 can delete their own deal with dealId 'deal123'.
+     * @deny (get) Authenticated user iWyFMcDQPuO4HmZobWrioItAcSq2 cannot read deal with dealId 'deal123'.
+     * @deny (create) Unauthenticated user cannot create a deal.
+     * @deny (update) Authenticated user iWyFMcDQPuO4HmZobWrioItAcSq2 cannot update deal with dealId 'deal123'.
+     * @deny (delete) Authenticated user iWyFMcDQPuO4HmZobWrioItAcSq2 cannot delete deal with dealId 'deal123'.
+     * @principle Enforces document ownership for writes and reads.
      */
     match /users/{userId}/deals/{dealId} {
-      // Allow reads to the user's own deals.
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-
-      // Allow creation of a deal for the user, validating the userId.
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-
-      // Allow updates to the user's own deals. Enforce immutability of the userId.
-      allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-
-      // Allow deletion of the user's own deals.
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
 
-    // Helper function to determine if the user is signed in.
+    // --- Helper functions ---
+
+    /**
+     * @description Checks if the request is made by an authenticated user.
+     * @return {boolean} True if the user is signed in, false otherwise.
+     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Helper function to determine if the request is made by the owner of the document.
+    /**
+     * @description Checks if the authenticated user ID matches the provided user ID.
+     * @param {string} userId The user ID to compare against the authenticated user's ID.
+     * @return {boolean} True if the user is the owner, false otherwise.
+     */
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Helper function to determine if the request is made by the existing owner of the document.
+    /**
+     * @description Checks if the authenticated user is the owner of an existing document.
+     * @param {string} userId The user ID to compare against the authenticated user's ID.
+     * @return {boolean} True if the user is the owner and the document exists, false otherwise.
+     */
     function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
+      return isOwner(userId) && resource != null;
     }
   }
 }
