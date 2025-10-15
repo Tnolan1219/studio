@@ -5,7 +5,7 @@
  *
  * - generateDealAssessment - A function that handles the deal assessment process.
  * - GenerateDealAssessmentInput - The input type for the generateDealAssessment function.
- * - GenerateDealAssessmentOutput - The return type for the generateDealassessment function.
+ * - GenerateDealAssessmentOutput - The return type for the generateassessment function.
  */
 
 import {ai} from '@/ai/genkit';

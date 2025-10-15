@@ -1,11 +1,15 @@
 import {genkit} from 'genkit';
 import {googleAI} from '@genkit-ai/google-genai';
+import {dotprompt} from '@genkit-ai/dotprompt';
 
-// The googleAI() plugin automatically looks for the GEMINI_API_KEY 
+// The plugins automatically look for the GEMINI_API_KEY
 // in your environment variables on the server.
-// You do not need to pass it in manually like `googleAI({apiKey: process.env.GEMINI_API_KEY})`.
-// This setup ensures your API key is never exposed to the client-side browser.
+// This setup ensures your API keys are never exposed to the client-side browser.
 export const ai = genkit({
-  plugins: [googleAI()],
-  model: 'googleai/gemini-pro',
+  plugins: [
+    googleAI(),
+    dotprompt()
+  ],
+  logLevel: "debug",
+  enableTracing: true,
 });
