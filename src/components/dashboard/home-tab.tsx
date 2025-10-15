@@ -26,6 +26,7 @@ import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebas
 import { collection, doc } from "firebase/firestore";
 import type { Deal } from '@/lib/types';
 import { useMemo } from "react";
+import { RealEstateQueryBox } from "./real-estate-query-box";
 
 export default function HomeTab() {
     const { user } = useUser();
@@ -50,7 +51,7 @@ export default function HomeTab() {
         const totalInvestment = deals.reduce((acc, deal) => acc + deal.purchasePrice, 0);
         const rentalDeals = deals.filter(deal => deal.dealType === 'Rental Property');
         const avgCocReturn = rentalDeals.length > 0
-            ? rentalDeals.reduce((acc, deal) => acc + deal.cocReturn, 0) / rentalDeals.length
+            ? rentalDeals.reduce((acc, deal) => acc + (deal.cocReturn || 0), 0) / rentalDeals.length
             : 0;
 
         return {
@@ -188,6 +189,8 @@ export default function HomeTab() {
                     </CardContent>
                 </Card>
             </div>
+
+            <RealEstateQueryBox />
         </div>
     );
 }
