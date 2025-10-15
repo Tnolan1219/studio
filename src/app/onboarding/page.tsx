@@ -38,7 +38,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { generateFinancialGoalExample } from '@/ai/flows/generate-goal-example';
-import { Wand2 } from 'lucide-react';
+import { Wand2, Loader2 } from 'lucide-react';
 
 const onboardingSchema = z.object({
   name: z.string().min(2, { message: 'Please enter your name.' }),
@@ -239,7 +239,7 @@ export default function OnboardingPage() {
                         <FormDescription className='flex justify-between items-center'>
                           <span>This helps us personalize your experience.</span>
                            <Button type="button" variant="link" size="sm" onClick={handleShowExample} disabled={isExampleLoading} className="text-primary">
-                                <Wand2 className="w-4 h-4 mr-1" />
+                                {isExampleLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Wand2 className="w-4 h-4 mr-1" />}
                                 {isExampleLoading ? 'Generating...' : 'Show an example'}
                            </Button>
                         </FormDescription>

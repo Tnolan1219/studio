@@ -28,10 +28,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking } from "@/firebase";
 import { doc } from 'firebase/firestore';
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Skeleton } from "../ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import type { UserProfile } from "@/lib/types";
+import { Loader2 } from "lucide-react";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters.").optional(),
@@ -48,6 +49,7 @@ export default function ProfileTab() {
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const [isSaving, setIsSaving] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -60,12 +62,12 @@ export default function ProfileTab() {
     resolver: zodResolver(profileSchema),
     mode: "onChange",
     defaultValues: {
-        name: profileData?.name || user?.displayName || '',
-        email: profileData?.email || user?.email || '',
-        photoURL: profileData?.photoURL || user?.photoURL || '',
-        country: profileData?.country || '',
-        state: profileData?.state || '',
-        financialGoal: profileData?.financialGoal || ''
+      name: '',
+      email: '',
+      photoURL: '',
+      country: '',
+      state: '',
+      financialGoal: ''
     }
   });
 
@@ -94,11 +96,24 @@ export default function ProfileTab() {
   async function onSubmit(data: ProfileFormValues) {
     if (!userProfileRef || !user || user.isAnonymous) return;
     
-    setDocumentNonBlocking(userProfileRef, data, { merge: true });
-    toast({
-      title: "Profile Updated",
-      description: "Your information has been saved successfully.",
-    });
+    setIsSaving(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
+      setDocumentNonBlocking(userProfileRef, data, { merge: true });
+      toast({
+        title: "Profile Updated",
+        description: "Your information has been saved successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Could not update your profile.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsSaving(false);
+      form.reset(data, { keepIsDirty: false });
+    }
   }
 
   const getInitials = () => {
@@ -168,7 +183,7 @@ export default function ProfileTab() {
                 </div>
             </div>
         </CardHeader>
-        {!isLoading && (
+        {!isLoading && profileData && (
           <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)}>
               <CardContent className="space-y-6">
@@ -196,8 +211,9 @@ export default function ProfileTab() {
                       </Tooltip>
                     </TooltipProvider>
                   ) : (
-                    <Button type="submit" disabled={form.formState.isSubmitting || !form.formState.isDirty}>
-                      Save Changes
+                    <Button type="submit" disabled={isSaving || !form.formState.isDirty}>
+                      {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {isSaving ? 'Saving...' : 'Save Changes'}
                     </Button>
                   )}
               </CardFooter>
