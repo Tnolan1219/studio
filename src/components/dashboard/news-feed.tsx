@@ -8,11 +8,10 @@ import { Newspaper, Send, Sparkles } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { answerRealEstateQuestion } from '@/ai/flows/answer-real-estate-question';
-import { generateNewsBriefing } from '@/ai/flows/generate-news-briefing';
 import { marked } from 'marked';
 import { doc } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
+import { getAIResponse } from './real-estate-query-box';
 
 
 interface AiResponse {
@@ -43,9 +42,20 @@ export function NewsFeed() {
         if (user) { 
             startBriefingTransition(async () => {
                 try {
-                    const result = await generateNewsBriefing({ investmentPreferences: userState });
-                    setNationalNews(await marked(result.nationalSummary));
-                    setStateNews(await marked(result.localSummary));
+                    const prompt = `You are a real estate market research AI. Your task is to generate a two-part briefing for a user based on their preferences, using your general knowledge. Do not use real-time data.
+    
+User Preferences: ${userState}
+
+First, generate a 'nationalSummary' by summarizing key, generally accepted national real estate market trends in the US. This should be based on your existing knowledge of market principles (e.g., supply and demand, general interest rate impacts).
+
+Second, generate a 'localSummary' by providing a general overview of the real estate market for the user's location based on their preferences. Discuss typical market characteristics for that area (e.g., "Historically a high-demand area," "Known for its stable rental market," etc.). Do not invent specific numbers like median prices or mortgage rates.
+
+Format your response as a JSON object with two keys: "nationalSummary" and "localSummary". The values should be markdown strings.
+`;
+                    const result = await getAIResponse(prompt);
+                    const parsedResult = JSON.parse(result);
+                    setNationalNews(await marked(parsedResult.nationalSummary));
+                    setStateNews(await marked(parsedResult.localSummary));
                 } catch (error) {
                     console.error("Failed to fetch AI news briefing:", error);
                     const errorMessage = "<p>Could not load briefing. The AI service may be temporarily unavailable.</p>";
@@ -62,12 +72,12 @@ export function NewsFeed() {
         setAiResponse({ question: aiQuery, answer: '', isLoading: true });
 
         try {
-            const result = await answerRealEstateQuestion({ question: aiQuery });
-            const htmlAnswer = await marked(result.answer);
+            const result = await getAIResponse(aiQuery);
+            const htmlAnswer = await marked(result);
             setAiResponse({ question: aiQuery, answer: htmlAnswer, isLoading: false });
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to answer AI question:", error);
-            setAiResponse({ question: aiQuery, answer: '<p class="text-destructive">Sorry, I couldn\'t answer that question. Please try again.</p>', isLoading: false });
+            setAiResponse({ question: aiQuery, answer: `<p class="text-destructive">Sorry, I couldn't answer that. ${error.message}</p>`, isLoading: false });
         }
         setAiQuery('');
     };

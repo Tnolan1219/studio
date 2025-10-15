@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Send, Sparkles } from "lucide-react";
-import { answerRealEstateQuestion } from '@/ai/flows/answer-real-estate-question';
 import { marked } from 'marked';
 import { Skeleton } from '../ui/skeleton';
 
@@ -22,6 +21,31 @@ const SAMPLE_QUESTIONS = [
     "How do I calculate cap rate?",
 ];
 
+/**
+ * Securely gets an AI response by calling our own backend API route.
+ * The frontend never touches API keys.
+ * @param prompt The user's question.
+ * @returns The AI's response text.
+ */
+async function getAIResponse(prompt: string): Promise<string> {
+    const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to get AI response.');
+    }
+
+    const data = await response.json();
+    return data.reply;
+}
+
+
 export function RealEstateQueryBox() {
     const [aiQuery, setAiQuery] = useState('');
     const [aiResponse, setAiResponse] = useState<AiResponse | null>(null);
@@ -32,12 +56,12 @@ export function RealEstateQueryBox() {
         setAiResponse({ question, answer: '', isLoading: true });
 
         try {
-            const result = await answerRealEstateQuestion({ question });
-            const htmlAnswer = await marked(result.answer);
+            const result = await getAIResponse(question);
+            const htmlAnswer = await marked(result);
             setAiResponse({ question, answer: htmlAnswer, isLoading: false });
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to answer AI question:", error);
-            setAiResponse({ question, answer: '<p class="text-destructive">Sorry, I couldn\'t answer that question. Please try again.</p>', isLoading: false });
+            setAiResponse({ question, answer: `<p class="text-destructive">Sorry, I couldn't answer that. ${error.message}</p>`, isLoading: false });
         }
         setAiQuery('');
     };

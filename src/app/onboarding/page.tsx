@@ -37,8 +37,9 @@ import {
 } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { generateFinancialGoalExample } from '@/ai/flows/generate-goal-example';
 import { Wand2, Loader2 } from 'lucide-react';
+import { getAIResponse } from '@/components/dashboard/real-estate-query-box';
+
 
 const onboardingSchema = z.object({
   name: z.string().min(2, { message: 'Please enter your name.' }),
@@ -105,8 +106,12 @@ export default function OnboardingPage() {
   const handleShowExample = async () => {
     setIsExampleLoading(true);
     try {
-      const result = await generateFinancialGoalExample();
-      setGoalExample(result.example);
+       const prompt = `You are an AI assistant for a real estate investment app. 
+Generate a single, concise, and inspiring example of a financial goal for a user.
+The goal should be related to real estate investing.
+Make it specific and actionable. For example: "My goal is to acquire three cash-flowing rental properties within the next five years to generate $1,500/month in passive income, allowing me to achieve financial flexibility."`;
+      const result = await getAIResponse(prompt);
+      setGoalExample(result);
     } catch (e) {
       toast({
         variant: 'destructive',
