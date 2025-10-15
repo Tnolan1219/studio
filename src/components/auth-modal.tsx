@@ -75,7 +75,7 @@ export function AuthModal({
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { auth } = useFirebase();
+  const auth = useAuth();
   const router = useRouter();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -86,6 +86,7 @@ export function AuthModal({
   const handleSuccessfulLogin = async (user: User) => {
     if (!user || !firestore) return;
 
+    // Guest users are sent straight to the dashboard
     if (user.isAnonymous) {
       router.push('/dashboard');
       onOpenChange(false);
@@ -96,23 +97,26 @@ export function AuthModal({
     const userProfileSnap = await getDoc(userProfileRef);
 
     if (userProfileSnap.exists() && userProfileSnap.data()?.isOnboardingComplete) {
-        // For returning users, still refresh their profile data from Google
-        await setDoc(userProfileRef, { 
-            name: user.displayName, 
-            email: user.email,
-            photoURL: user.photoURL,
-        }, { merge: true });
-        router.push('/dashboard');
+      // Returning user with completed onboarding
+      // Update their profile with the latest from the auth provider
+      await setDoc(userProfileRef, {
+        name: user.displayName,
+        email: user.email,
+        photoURL: user.photoURL,
+      }, { merge: true });
+      router.push('/dashboard');
     } else {
-        // For new users, create their profile and send them to onboarding
-        await setDoc(userProfileRef, { 
-            name: user.displayName, 
-            email: user.email,
-            photoURL: user.photoURL,
-            isOnboardingComplete: false, // Explicitly set onboarding as incomplete
-        }, { merge: true });
-        router.push('/onboarding');
+      // New user or returning user who didn't finish onboarding
+      // Create/update their profile and send to onboarding
+      await setDoc(userProfileRef, {
+        name: user.displayName,
+        email: user.email,
+        photoURL: user.photoURL,
+        isOnboardingComplete: false, // Explicitly set/ensure this is false
+      }, { merge: true });
+      router.push('/onboarding');
     }
+    
     onOpenChange(false);
   };
   
@@ -311,3 +315,4 @@ export function AuthModal({
     
 
     
+
