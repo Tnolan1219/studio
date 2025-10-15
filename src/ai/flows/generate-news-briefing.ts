@@ -43,7 +43,7 @@ Provide only the data requested in the output schema.
 export async function generateNewsBriefing(input: GenerateNewsBriefingInput): Promise<GenerateNewsBriefingOutput> {
     const response = await prompt.generate({
       input: input,
-      model: ai.model('gemini-2.5-flash'),
+      model: 'googleai/gemini-2.5-flash',
     });
     const output = response.output();
     if (!output) {

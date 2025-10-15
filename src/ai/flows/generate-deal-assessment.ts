@@ -65,7 +65,7 @@ export async function generateDealAssessment(
 ): Promise<GenerateDealAssessmentOutput> {
    const response = await prompt.generate({
     input: input,
-    model: ai.model('gemini-2.5-flash'),
+    model: 'googleai/gemini-2.5-flash',
   });
   const output = response.output();
   if (!output) {
