@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -20,6 +21,12 @@ async function callGemini(prompt: string): Promise<string> {
     },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
+      // Add a system instruction to enforce JSON output format
+      system_instruction: {
+        parts: {
+          text: "You are a helpful assistant designed to output JSON. The user will provide a prompt, and you must respond with a valid JSON object only, without any markdown formatting, code fences, or explanatory text."
+        }
+      }
     }),
   });
 
@@ -30,7 +37,10 @@ async function callGemini(prompt: string): Promise<string> {
   }
 
   const data = await response.json();
-  return data.candidates[0].content.parts[0].text;
+  // It's possible the response is still wrapped in a code block, so let's clean it just in case.
+  const textResponse = data.candidates[0].content.parts[0].text;
+  const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
+  return jsonMatch ? jsonMatch[0] : textResponse;
 }
 
 /**
@@ -54,7 +64,11 @@ async function callOpenAI(prompt: string): Promise<string> {
     },
     body: JSON.stringify({
       model: 'gpt-4o', // Using the latest efficient model
-      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: "json_object" }, // Enforce JSON output for OpenAI
+      messages: [
+        { role: 'system', content: "You are a helpful assistant designed to output JSON." },
+        { role: 'user', content: prompt }
+      ],
     }),
   });
 
