@@ -54,9 +54,14 @@ Second, generate a 'localSummary' by providing a general overview of the real es
 Format your response as a JSON object with two keys: "nationalSummary" and "localSummary". The values should be markdown strings.
 `;
                     const result = await getAIResponse(prompt);
-                    // Clean the result to remove markdown code fences before parsing
-                    const cleanedResult = result.replace(/```json/g, '').replace(/```/g, '');
-                    const parsedResult = JSON.parse(cleanedResult);
+                    
+                    // Robustly find and extract the JSON object from the response string.
+                    const jsonMatch = result.match(/\{[\s\S]*\}/);
+                    if (!jsonMatch) {
+                        throw new Error("No valid JSON object found in the AI response.");
+                    }
+                    
+                    const parsedResult = JSON.parse(jsonMatch[0]);
                     setNationalNews(await marked(parsedResult.nationalSummary));
                     setStateNews(await marked(parsedResult.localSummary));
                 } catch (error) {
