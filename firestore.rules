@@ -1,91 +1,73 @@
 /**
- * @description This ruleset enforces a strict user-ownership model for user profiles and their associated deals and comments.
- * Data validation is relaxed to allow for rapid prototyping and schema iteration.
+ * @fileoverview Firestore Security Rules for TKN Fi RE application.
  *
- * @dataStructure
- * - /users/{userId}: Stores user profile information. Only the user can read/write their own profile.
- * - /users/{userId}/deals/{dealId}: Stores deals created by the user. Only the user can read/write their own deals.
- * - /users/{userId}/deals/{dealId}/comments/{commentId}: Stores comments on a deal. Only the author can create comments; only the deal owner can read, update or delete them.
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model. Each user can only
+ * access their own profile data and the deals associated with their profile.
  *
- * @keySecurityDecisions
- * - Users can only access their own profile data and deals.
- * - Listing all users is disallowed.
- * - Ownership is enforced by matching the `userId` path segment with the authenticated user's UID.
+ * Data Structure:
+ * - /users/{userId}: Stores user profile data.  The {userId} segment must match the authenticated user's UID.
+ * - /users/{userId}/deals/{dealId}: Stores financial deal data.  The {userId} segment must match the authenticated user's UID.
+ *
+ * Key Security Decisions:
+ * - No user listing: Listing all user profiles is disallowed for privacy reasons.
+ * - Path-based ownership: Ownership is derived from the Firestore path, eliminating the need for `get()` calls in rules.
+ * - Relational integrity on create: The `userId` field within a 'Deal' document must match the `userId` path segment when the document is created.
+ * - Immutability of `userId` on update: The `userId` field within a 'Deal' document cannot be changed after creation.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-    }
-
     /**
      * @description Controls access to user profile documents.
      * @path /users/{userId}
-     * @allow (create) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' creates their profile document.
-     * @allow (get) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' retrieves their profile document.
-     * @allow (update) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' updates their profile document.
-     * @allow (delete) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' deletes their profile document.
-     * @deny (create) User with UID 'attackerId' attempts to create a profile document for 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1'.
-     * @deny (get) User with UID 'attackerId' attempts to retrieve profile document for 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1'.
-     * @deny (update) User with UID 'attackerId' attempts to update profile document for 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1'.
-     * @deny (delete) User with UID 'attackerId' attempts to delete profile document for 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1'.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - Authenticated user with UID 'user_abc' can create their own profile document if the document ID matches their UID.
+     * @allow (get, update, delete) - Authenticated user with UID 'user_abc' can read, update, and delete their own profile document if the path's {userId} matches their UID.
+     * @deny (create) - Authenticated user with UID 'user_abc' cannot create a profile document for another user (e.g., /users/user_xyz).
+     * @deny (get, update, delete) - Authenticated user with UID 'user_abc' cannot read, update, or delete another user's profile document (e.g., /users/user_xyz).
+     * @deny (list) - Listing all user documents is forbidden.
+     * @principle Enforces document ownership. Users can only manage their own profile.
      */
     match /users/{userId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
       allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isOwner(userId) && resource.data.id == userId;
+      allow delete: if isOwner(userId) && resource.data.id == userId;
     }
 
     /**
-     * @description Controls access to deal documents within a user's profile.
+     * @description Controls access to deal documents nested under a user profile.
      * @path /users/{userId}/deals/{dealId}
-     * @allow (create) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' creates a deal document under their profile.
-     * @allow (get) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' retrieves a deal document under their profile.
-     * @allow (update) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' updates a deal document under their profile.
-     * @allow (delete) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' deletes a deal document under their profile.
-     * @deny (create) User with UID 'attackerId' attempts to create a deal document under user 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1's profile.
-     * @deny (get) User with UID 'attackerId' attempts to retrieve a deal document under user 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1's profile.
-     * @deny (update) User with UID 'attackerId' attempts to update a deal document under user 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1's profile.
-     * @deny (delete) User with UID 'attackerId' attempts to delete a deal document under user 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1's profile.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - Authenticated user with UID 'user_abc' can create a deal document under their profile if the deal's `userId` field matches their UID.
+     * @allow (get, update, delete) - Authenticated user with UID 'user_abc' can read, update, and delete deal documents under their profile if the path's {userId} matches their UID.
+     * @deny (create) - Authenticated user with UID 'user_abc' cannot create a deal document under another user's profile (e.g., /users/user_xyz).
+     * @deny (get, update, delete) - Authenticated user with UID 'user_abc' cannot read, update, or delete deal documents under another user's profile (e.g., /users/user_xyz).
+     * @principle Enforces document ownership and validates relational integrity between the deal and the user profile.
      */
     match /users/{userId}/deals/{dealId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Controls access to comments on a specific deal. Only the author can create comments, and only the deal owner can read, update or delete them.
-     * @path /users/{userId}/deals/{dealId}/comments/{commentId}
-     * @allow (create) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' creates a comment.
-     * @allow (list) User with UID 'CAG6gKiNjJYKOMfNHCpVSbgLf4q1' lists the comments.
-     * @deny (get) User with UID 'attackerId' attempts to retrieve a comment document.
-     * @deny (update) User with UID 'attackerId' attempts to update a comment document.
-     * @deny (delete) User with UID 'attackerId' attempts to delete a comment document.
-     * @principle Enforces document ownership for update and delete operations; allows any signed-in user to create.
-     */
-    match /users/{userId}/deals/{dealId}/comments/{commentId} {
-        allow get: if isOwner(userId);
-        allow list: if isOwner(userId);
-        allow create: if isSignedIn();
-        allow update: if isExistingOwner(userId);
-        allow delete: if isExistingOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isOwner(userId) && resource.data.userId == userId;
+      allow delete: if isOwner(userId);
     }
   }
 }

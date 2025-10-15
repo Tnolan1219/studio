@@ -1,12 +1,15 @@
-
 {
   "entities": {
     "UserProfile": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "UserProfile",
       "type": "object",
-      "description": "Represents a user's profile in the TKN Fi RE application.",
+      "description": "Represents a user's profile within the TKN Fi RE application.",
       "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserProfile entity."
+        },
         "name": {
           "type": "string",
           "description": "User's full name."
@@ -16,11 +19,6 @@
           "description": "User's email address.",
           "format": "email"
         },
-        "photoURL": {
-            "type": "string",
-            "format": "uri",
-            "description": "URL of the user's profile picture."
-        },
         "country": {
           "type": "string",
           "description": "User's country of residence."
@@ -29,37 +27,49 @@
           "type": "string",
           "description": "User's state of residence."
         },
-        "experience": {
+        "planStatus": {
           "type": "string",
-          "description": "User's real estate investment experience level."
+          "description": "User's subscription plan status (Free, Pro, Executive)."
+        },
+        "dutyStation": {
+          "type": "string",
+          "description": "User's duty station if applicable."
+        },
+        "rank": {
+          "type": "string",
+          "description": "User's rank if applicable."
+        },
+        "branch": {
+          "type": "string",
+          "description": "User's branch if applicable."
         },
         "financialGoal": {
           "type": "string",
-          "description": "User's primary financial goal."
-        },
-        "isOnboardingComplete": {
-            "type": "boolean",
-            "description": "Flag to indicate if the user has completed the onboarding process."
-        },
-        "plan": {
-          "type": "string",
-          "description": "The user's subscription plan.",
-          "enum": ["Free", "Pro", "Executive"]
+          "description": "User's financial goal."
         }
       },
       "required": [
-        "email"
+        "id",
+        "name",
+        "email",
+        "country",
+        "state",
+        "planStatus"
       ]
     },
     "Deal": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Deal",
       "type": "object",
-      "description": "Represents a saved real estate deal analyzed by a user.",
+      "description": "Represents a financial deal analyzed and saved by a user.",
       "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Deal entity."
+        },
         "userId": {
           "type": "string",
-          "description": "The UID of the user who owns this deal."
+          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N Deal)"
         },
         "dealName": {
           "type": "string",
@@ -67,123 +77,82 @@
         },
         "dealType": {
           "type": "string",
-          "description": "Type of property (Rental Property, House Flip, Commercial Multifamily)."
+          "description": "Type of deal (Rental Property, House Flip, Commercial Multifamily)."
         },
-        "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Timestamp of when the deal was created."
+        "purchasePrice": {
+          "type": "number",
+          "description": "Purchase price of the property."
         },
-        "purchasePrice": { "type": "number" },
-        "closingCosts": { "type": "number" },
-        "rehabCost": { "type": "number" },
-        "arv": { "type": "number" },
-        "downPayment": { "type": "number" },
-        "loanTerm": { "type": "number" },
-        "interestRate": { "type": "number" },
-        "grossMonthlyIncome": { "type": "number" },
-        "propertyTaxes": { "type": "number" },
-        "insurance": { "type": "number" },
-        "repairsAndMaintenance": { "type": "number" },
-        "vacancy": { "type": "number" },
-        "capitalExpenditures": { "type": "number" },
-        "managementFee": { "type": "number" },
-        "otherExpenses": { "type": "number" },
-        "annualIncomeGrowth": { "type": "number" },
-        "annualExpenseGrowth": { "type": "number" },
-        "annualAppreciation": { "type": "number" },
-        "holdingLength": { "type": "number" },
-        "sellingCosts": { "type": "number" },
-        "monthlyCashFlow": { "type": "number" },
-        "cocReturn": { "type": "number" },
-        "noi": { "type": "number" },
-        "capRate": { "type": "number" },
-        "roi": { "type": "number" },
-        "netProfit": { "type": "number" },
-        "marketConditions": { "type": "string" },
-        "status": { "type": "string" },
-        "isPublished": { "type": "boolean" },
-        "investorNotes": { "type": "string" },
-        "isAdvanced": { "type": "boolean" },
-        "unitMix": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "type": {"type": "string"},
-                    "count": {"type": "number"},
-                    "rent": {"type": "number"}
-                }
-            }
+        "monthlyCashFlow": {
+          "type": "number",
+          "description": "Monthly cash flow of the deal."
         },
-        "otherIncomes": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"},
-                    "amount": {"type": "number"}
-                }
-            }
+        "cocReturn": {
+          "type": "number",
+          "description": "Cash on cash return of the deal."
         },
-        "operatingExpenses": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"},
-                    "amount": {"type": "number"}
-                }
-            }
+        "roi": {
+          "type": "number",
+          "description": "Return on investment for the deal."
         }
       },
       "required": [
+        "id",
         "userId",
         "dealName",
         "dealType",
         "purchasePrice",
-        "createdAt"
+        "monthlyCashFlow",
+        "cocReturn",
+        "roi"
       ]
-    },
-    "DealComment": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "DealComment",
-        "type": "object",
-        "description": "A comment on a specific deal.",
-        "properties": {
-            "text": {
-                "type": "string"
-            },
-            "author": {
-                "type": "string"
-            },
-            "createdAt": {
-                "type": "string",
-                "format": "date-time"
-            }
-        },
-        "required": ["text", "author", "createdAt"]
     }
   },
   "auth": {
     "providers": [
       "password",
-      "anonymous",
-      "google.com"
+      "anonymous"
     ]
   },
   "firestore": {
-    "/users/{userId}": {
-      "schema": { "$ref": "#/entities/UserProfile" },
-      "description": "Stores user profile information."
-    },
-    "/users/{userId}/deals/{dealId}": {
-      "schema": { "$ref": "#/entities/Deal" },
-      "description": "Subcollection for storing a user's saved deals."
-    },
-    "/users/{userId}/deals/{dealId}/comments/{commentId}": {
-        "schema": { "$ref": "#/entities/DealComment" },
-        "description": "Subcollection for storing comments on a specific deal."
-    }
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores user profiles. Path-based ownership is enforced. The 'userId' path parameter is used to identify the user.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user (UID)."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/deals/{dealId}",
+        "definition": {
+          "entityName": "Deal",
+          "schema": {
+            "$ref": "#/backend/entities/Deal"
+          },
+          "description": "Stores financial deals analyzed and saved by users. Path-based ownership is enforced. The 'userId' path parameter is used to identify the owner, and the 'dealId' parameter identifies the deal.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user (UID) who owns the deal."
+            },
+            {
+              "name": "dealId",
+              "description": "The unique identifier for the deal."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and QAPs. User profiles and deals are stored under the `/users/{userId}` collection, enabling path-based ownership for simple and secure access rules. The structure avoids `get()` calls in rules by relying on the implicit ownership derived from the path. Each user's data (profile and deals) resides within their own document space, ensuring that access control can be managed without needing to retrieve parent document data.\n\n**Authorization Independence:** Achieved by storing user-related data (deals) under the `/users/{userId}` path. No `get()` calls are needed to verify ownership.\n\n**QAPs Support:** Segregation of user data into distinct paths (`/users/{userId}/deals`) ensures secure list operations (users can only list deals under their own user ID).\n\n**DBAC:** Authorization relies on `request.auth.uid` and the path-based structure. No custom claims are used."
   }
 }
