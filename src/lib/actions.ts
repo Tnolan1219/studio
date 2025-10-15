@@ -1,10 +1,10 @@
 'use server';
 
 import { marked } from 'marked';
+import { getAIResponse } from './ai';
 
 /**
- * Calls our secure backend API route to get an AI assessment for a deal.
- * The frontend never touches API keys.
+ * Gets an AI assessment for a deal by constructing a prompt and calling the backend.
  * @param input An object containing the deal type, financials, and user query.
  * @returns A result object with a message and the HTML assessment.
  */
@@ -28,21 +28,11 @@ export async function getDealAssessment(input: {
       4. **Value-Add & ROI Maximization** strategies.
     `;
     
-    // Call our own backend, not the AI provider directly
-    const response = await fetch(`${process.env.NEXT_PUBLIC_URL}/api/ai`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
-    });
-
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "AI API request failed");
-    }
-
-    const result = await response.json();
+    // Call our reusable AI handler
+    const reply = await getAIResponse(prompt);
+    
     // Convert markdown response to HTML for safe rendering
-    const htmlAssessment = await marked(result.reply);
+    const htmlAssessment = await marked(reply);
 
     return {
       message: "Assessment generated successfully.",
