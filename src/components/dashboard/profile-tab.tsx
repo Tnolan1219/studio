@@ -101,8 +101,7 @@ export default function ProfileTab() {
       await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
       setDocumentNonBlocking(userProfileRef, data, { merge: true });
       toast({
-        title: "Profile Updated",
-        description: "Your information has been saved successfully.",
+        title: "Changes saved successfully",
       });
     } catch (error) {
       toast({
