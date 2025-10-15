@@ -34,7 +34,12 @@ const prompt = ai.definePrompt({
 });
 
 export async function answerRealEstateQuestion(input: AnswerRealEstateQuestionInput): Promise<AnswerRealEstateQuestionOutput> {
-  const { output } = await prompt(input);
+  const response = await ai.generate({
+    prompt: prompt,
+    input: input,
+    model: 'googleai/gemini-2.5-flash',
+  });
+  const output = response.output();
   if (!output) {
     throw new Error('No output from AI');
   }
