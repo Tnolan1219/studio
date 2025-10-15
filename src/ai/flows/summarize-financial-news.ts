@@ -47,12 +47,7 @@ Provide a concise summary based on the headlines and preferences.`,
 export async function summarizeFinancialNews(
   input: SummarizeFinancialNewsInput
 ): Promise<SummarizeFinancialNewsOutput> {
-  const response = await ai.generate({
-    prompt: prompt,
-    input: input,
-    model: 'googleai/gemini-2.5-flash',
-  });
-  const output = response.output();
+  const { output } = await prompt(input);
   if (!output) {
     throw new Error('No output from AI');
   }

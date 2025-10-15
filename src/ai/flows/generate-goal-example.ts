@@ -28,11 +28,7 @@ Make it specific and actionable. For example: "My goal is to acquire three cash-
 
 
 export async function generateFinancialGoalExample(): Promise<GenerateFinancialGoalExampleOutput> {
-    const response = await ai.generate({
-      prompt: prompt,
-      model: 'googleai/gemini-2.5-flash',
-    });
-    const output = response.output();
+    const { output } = await prompt({});
     if (!output) {
         throw new Error('No output from AI');
     }

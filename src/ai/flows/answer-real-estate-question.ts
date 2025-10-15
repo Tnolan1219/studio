@@ -34,12 +34,7 @@ Format your answer using simple markdown, like bullet points or short paragraphs
 });
 
 export async function answerRealEstateQuestion(input: AnswerRealEstateQuestionInput): Promise<AnswerRealEstateQuestionOutput> {
-  const response = await ai.generate({
-    prompt: prompt,
-    input: input,
-    model: 'googleai/gemini-2.5-flash',
-  });
-  const output = response.output();
+  const { output } = await prompt(input);
   if (!output) {
     throw new Error('No output from AI');
   }

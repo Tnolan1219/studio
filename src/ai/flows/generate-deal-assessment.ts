@@ -63,12 +63,7 @@ Provide a detailed, professional-grade assessment.`,
 export async function generateDealAssessment(
   input: GenerateDealAssessmentInput
 ): Promise<GenerateDealAssessmentOutput> {
-   const response = await ai.generate({
-     prompt: prompt,
-     input: input,
-     model: 'googleai/gemini-2.5-flash',
-   });
-   const output = response.output();
+   const { output } = await prompt(input);
    if (!output) {
      throw new Error('No output from AI');
    }
