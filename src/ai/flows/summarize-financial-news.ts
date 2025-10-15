@@ -36,10 +36,12 @@ const prompt = ai.definePrompt({
   output: {schema: SummarizeFinancialNewsOutputSchema},
   prompt: `You are an AI assistant that summarizes financial news based on user investment preferences.
 
-  Investment Preferences: {{{investmentPreferences}}}
-  News Headlines: {{#each newsHeadlines}}- {{{this}}}
-  {{/each}}
-  Summary:`,
+Investment Preferences: {{{investmentPreferences}}}
+News Headlines:
+{{#each newsHeadlines}}- {{{this}}}
+{{/each}}
+
+Provide a concise summary based on the headlines and preferences.`,
 });
 
 export async function summarizeFinancialNews(

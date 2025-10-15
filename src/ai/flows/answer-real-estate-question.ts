@@ -26,11 +26,11 @@ const prompt = ai.definePrompt({
   input: { schema: AnswerRealEstateQuestionInputSchema },
   output: { schema: AnswerRealEstateQuestionOutputSchema },
   prompt: `You are an expert real estate AI assistant.
-  The user has a question: "{{{question}}}"
-  
-  Based on your general knowledge of the real estate industry, provide a clear, concise, and helpful answer.
-  Do not mention that you cannot access live data. Frame your answer based on established principles and common market trends.
-  Format your answer using simple markdown, like bullet points or short paragraphs.`,
+The user has a question: "{{{question}}}"
+
+Based on your general knowledge of the real estate industry, provide a clear, concise, and helpful answer.
+Do not mention that you cannot access live data. Frame your answer based on established principles and common market trends.
+Format your answer using simple markdown, like bullet points or short paragraphs.`,
 });
 
 export async function answerRealEstateQuestion(input: AnswerRealEstateQuestionInput): Promise<AnswerRealEstateQuestionOutput> {

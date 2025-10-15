@@ -20,10 +20,10 @@ const prompt = ai.definePrompt({
     name: 'generateFinancialGoalExamplePrompt',
     output: { schema: GenerateFinancialGoalExampleOutputSchema },
     prompt: `You are an AI assistant for a real estate investment app. 
-    Generate a single, concise, and inspiring example of a financial goal for a user.
-    The goal should be related to real estate investing.
-    
-    Make it specific and actionable. For example: "My goal is to acquire three cash-flowing rental properties within the next five years to generate $1,500/month in passive income, allowing me to achieve financial flexibility."`
+Generate a single, concise, and inspiring example of a financial goal for a user.
+The goal should be related to real estate investing.
+
+Make it specific and actionable. For example: "My goal is to acquire three cash-flowing rental properties within the next five years to generate $1,500/month in passive income, allowing me to achieve financial flexibility."`
 });
 
 
