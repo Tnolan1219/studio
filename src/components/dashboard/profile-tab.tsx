@@ -98,20 +98,27 @@ export default function ProfileTab() {
     
     setIsSaving(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
+      // The non-blocking update will either succeed optimistically or throw a permission
+      // error to the global listener. The .catch() here is for network or other issues.
       setDocumentNonBlocking(userProfileRef, data, { merge: true });
+      
+      // We'll optimistically show the success toast.
       toast({
         title: "Changes saved successfully",
       });
+      
+      form.reset(data, { keepIsDirty: false });
     } catch (error) {
+      console.error("Profile update failed:", error);
       toast({
         title: "Error",
         description: "Could not update your profile.",
         variant: "destructive"
       })
     } finally {
+      // Short delay to give a feeling of completion
+      await new Promise(resolve => setTimeout(resolve, 500));
       setIsSaving(false);
-      form.reset(data, { keepIsDirty: false });
     }
   }
 
