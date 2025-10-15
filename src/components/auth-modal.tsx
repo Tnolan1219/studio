@@ -86,7 +86,6 @@ export function AuthModal({
   const handleSuccessfulLogin = async (user: User) => {
     if (!user || !firestore) return;
 
-    // Guest users are sent straight to the dashboard
     if (user.isAnonymous) {
       router.push('/dashboard');
       onOpenChange(false);
@@ -97,8 +96,6 @@ export function AuthModal({
     const userProfileSnap = await getDoc(userProfileRef);
 
     if (userProfileSnap.exists() && userProfileSnap.data()?.isOnboardingComplete) {
-      // Returning user with completed onboarding
-      // Update their profile with the latest from the auth provider
       await setDoc(userProfileRef, {
         name: user.displayName,
         email: user.email,
@@ -106,13 +103,11 @@ export function AuthModal({
       }, { merge: true });
       router.push('/dashboard');
     } else {
-      // New user or returning user who didn't finish onboarding
-      // Create/update their profile and send to onboarding
       await setDoc(userProfileRef, {
-        name: user.displayName,
+        name: user.displayName || '',
         email: user.email,
-        photoURL: user.photoURL,
-        isOnboardingComplete: false, // Explicitly set/ensure this is false
+        photoURL: user.photoURL || '',
+        isOnboardingComplete: false,
       }, { merge: true });
       router.push('/onboarding');
     }
@@ -131,7 +126,7 @@ export function AuthModal({
   });
 
   const handleAuthError = (error: any) => {
-    let message = "An unexpected error occurred. Please try again.";
+    let message = `An unexpected error occurred: ${error.message} (Code: ${error.code})`;
     switch (error.code) {
       case 'auth/user-not-found':
       case 'auth/wrong-password':
@@ -315,4 +310,5 @@ export function AuthModal({
     
 
     
+
 
