@@ -3,8 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirestore } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { useUser, useFirestore, setDocumentNonBlocking } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -94,7 +94,6 @@ export default function OnboardingPage() {
     if (user) {
         form.reset({
             name: user.displayName || '',
-            // Keep other fields as they are, let user fill them.
         });
     }
   }, [user, isUserLoading, router, form]);
@@ -136,30 +135,25 @@ Make it specific and actionable. For example: "My goal is to acquire three cash-
 
     const userProfileRef = doc(firestore, 'users', user.uid);
     
-    // Combine form data with existing user data and set onboarding to complete
     const profileData = {
         ...data,
         email: user.email,
         photoURL: user.photoURL,
-        isOnboardingComplete: true, // This is the crucial flag
-        plan: 'Free' // Assign default plan
+        isOnboardingComplete: true,
+        plan: 'Free'
     };
     
-    try {
-        await setDoc(userProfileRef, profileData, { merge: true });
-        toast({
-          title: 'Profile Created!',
-          description: 'Welcome to Valentor Financial. You are now being redirected.',
-        });
-        router.push('/dashboard');
-    } catch (error) {
-        toast({
-            title: 'Error Saving Profile',
-            description: 'Could not save your onboarding information. Please try again.',
-            variant: 'destructive'
-        });
-        console.error("Error writing document: ", error);
-    }
+    // Use the non-blocking update function. It will handle the permission error internally
+    // and emit a detailed error for the FirebaseErrorListener to catch.
+    setDocumentNonBlocking(userProfileRef, profileData, { merge: true });
+
+    // Optimistically show success and redirect. If an error occurs, the global
+    // error overlay will appear.
+    toast({
+      title: 'Profile Created!',
+      description: 'Welcome to Valentor Financial. You are now being redirected.',
+    });
+    router.push('/dashboard');
   };
 
   const progress = ((currentStep + 1) / STEPS.length) * 100;
