@@ -28,10 +28,7 @@ const prompt = ai.definePrompt({
 
 
 export async function generateFinancialGoalExample(): Promise<GenerateFinancialGoalExampleOutput> {
-    const response = await prompt.generate({
-      model: 'googleai/gemini-2.5-flash',
-    });
-    const output = response.output();
+    const { output } = await prompt({});
     if (!output) {
         throw new Error('No output from AI');
     }
