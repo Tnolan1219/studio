@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -53,7 +54,9 @@ Second, generate a 'localSummary' by providing a general overview of the real es
 Format your response as a JSON object with two keys: "nationalSummary" and "localSummary". The values should be markdown strings.
 `;
                     const result = await getAIResponse(prompt);
-                    const parsedResult = JSON.parse(result);
+                    // Clean the result to remove markdown code fences before parsing
+                    const cleanedResult = result.replace(/```json/g, '').replace(/```/g, '');
+                    const parsedResult = JSON.parse(cleanedResult);
                     setNationalNews(await marked(parsedResult.nationalSummary));
                     setStateNews(await marked(parsedResult.localSummary));
                 } catch (error) {
