@@ -58,6 +58,14 @@ export default function ProfileTab() {
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     mode: "onChange",
+    defaultValues: {
+        name: '',
+        email: '',
+        photoURL: '',
+        country: '',
+        state: '',
+        financialGoal: '',
+    }
   });
 
   useEffect(() => {
@@ -75,6 +83,9 @@ export default function ProfileTab() {
         name: user.displayName || "",
         email: user.email || "",
         photoURL: user.photoURL || "",
+        country: '',
+        state: '',
+        financialGoal: ''
        });
     }
   }, [profileData, user, form]);
@@ -168,7 +179,7 @@ export default function ProfileTab() {
             </CardContent>
             <CardFooter className="flex justify-between items-center">
                 <div className="text-sm text-muted-foreground">
-                    <p>Plan: <span className="font-semibold text-primary">{user.isAnonymous ? "Guest" : "Pro"}</span></p>
+                    <p>Plan: <span className="font-semibold text-primary">{user.isAnonymous ? "Guest" : (profileData?.plan || "Free")}</span></p>
                 </div>
                 {user.isAnonymous ? (
                   <TooltipProvider>

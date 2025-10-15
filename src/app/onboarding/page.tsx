@@ -126,6 +126,7 @@ export default function OnboardingPage() {
     const profileData = {
         ...data,
         email: user.email,
+        photoURL: user.photoURL,
         isOnboardingComplete: true,
         plan: 'Free' // Assign default plan
     };
