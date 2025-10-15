@@ -1,3 +1,4 @@
+
 'use server';
 
 import { marked } from 'marked';
@@ -16,16 +17,16 @@ export async function getDealAssessment(input: {
   try {
     // Construct a detailed prompt for the backend
     const prompt = `
-      You are a real estate investment expert. Analyze the following deal:
+      You are a real estate investment expert. Analyze the following deal and provide a quick, efficient response using simplified bullet points.
       - Deal Type: ${input.dealType}
       - Financials: ${input.financialData}
       - Market/Query: ${input.marketConditions}
       
       Provide a markdown-formatted assessment covering:
-      1. **Overall Recommendation** (e.g., "Recommended", "Caution") with justification.
-      2. **Financial Analysis** of the key metrics.
-      3. **Creative Financing** suggestions.
-      4. **Value-Add & ROI Maximization** strategies.
+      - **Recommendation:** (e.g., "Recommended", "Caution") with a brief justification.
+      - **Financials:** Key positive or negative metrics.
+      - **Financing:** Creative ideas or notes.
+      - **Value-Add:** Quick ideas to maximize ROI.
     `;
     
     // Call our reusable AI handler

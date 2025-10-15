@@ -24,7 +24,7 @@ async function callGemini(prompt: string): Promise<string> {
       // Add a system instruction to enforce JSON output format
       system_instruction: {
         parts: {
-          text: "You are a helpful assistant designed to output JSON. The user will provide a prompt, and you must respond with a valid JSON object only, without any markdown formatting, code fences, or explanatory text."
+          text: "You are a helpful assistant designed to output JSON. Respond with simplified bullet points for quick, efficient answers. The user will provide a prompt, and you must respond with a valid JSON object only, without any markdown formatting, code fences, or explanatory text."
         }
       }
     }),
@@ -66,7 +66,7 @@ async function callOpenAI(prompt: string): Promise<string> {
       model: 'gpt-4o', // Using the latest efficient model
       response_format: { type: "json_object" }, // Enforce JSON output for OpenAI
       messages: [
-        { role: 'system', content: "You are a helpful assistant designed to output JSON." },
+        { role: 'system', content: "You are a helpful assistant designed to output JSON. Respond with simplified bullet points for quick, efficient answers." },
         { role: 'user', content: prompt }
       ],
     }),
