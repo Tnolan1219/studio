@@ -3,7 +3,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser } from '@/firebase';
+import { useUser, FirebaseClientProvider } from '@/firebase';
 import { Header } from '@/components/header';
 import { Home as HomeIcon, BarChart2, Briefcase, User } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { useDashboardTab } from '@/hooks/use-dashboard-tab';
 import DashboardClient from '@/components/dashboard/dashboard-client';
 
-export default function DashboardPage() {
+function DashboardView() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { activeTab, setActiveTab } = useDashboardTab();
@@ -72,4 +72,12 @@ export default function DashboardPage() {
       </footer>
     </div>
   );
+}
+
+export default function DashboardPage() {
+  return (
+    <FirebaseClientProvider>
+      <DashboardView />
+    </FirebaseClientProvider>
+  )
 }

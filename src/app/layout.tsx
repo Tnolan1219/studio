@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
-import { FirebaseProvider } from '@/firebase/provider';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ParticleBackground } from '@/components/particle-background';
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 export const metadata: Metadata = {
   title: 'Valentor Financial',
@@ -29,12 +29,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <FirebaseProvider>
+            <FirebaseErrorListener />
             <ParticleBackground />
             <div className="relative z-10">
               {children}
             </div>
-          </FirebaseProvider>
           <Toaster />
         </ThemeProvider>
       </body>
