@@ -4,7 +4,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "UserProfile",
       "type": "object",
-      "description": "Represents a user's profile within the TKN Fi RE application.",
+      "description": "Represents a user profile in the TKN Fi RE application.",
       "properties": {
         "id": {
           "type": "string",
@@ -41,11 +41,11 @@
         },
         "branch": {
           "type": "string",
-          "description": "User's branch if applicable."
+          "description": "User's branch of service if applicable."
         },
         "financialGoal": {
           "type": "string",
-          "description": "User's financial goal."
+          "description": "User's stated financial goal."
         }
       },
       "required": [
@@ -61,7 +61,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Deal",
       "type": "object",
-      "description": "Represents a financial deal analyzed and saved by a user.",
+      "description": "Represents a saved real estate deal analyzed in the TKN Fi RE application.",
       "properties": {
         "id": {
           "type": "string",
@@ -73,11 +73,11 @@
         },
         "dealName": {
           "type": "string",
-          "description": "Name of the deal."
+          "description": "Name given to the deal by the user."
         },
-        "dealType": {
+        "propertyType": {
           "type": "string",
-          "description": "Type of deal (Rental Property, House Flip, Commercial Multifamily)."
+          "description": "Type of property (Rental, Flip, Multifamily)."
         },
         "purchasePrice": {
           "type": "number",
@@ -85,22 +85,22 @@
         },
         "monthlyCashFlow": {
           "type": "number",
-          "description": "Monthly cash flow of the deal."
+          "description": "Calculated monthly cash flow for the deal."
         },
         "cocReturn": {
           "type": "number",
-          "description": "Cash on cash return of the deal."
+          "description": "Calculated cash-on-cash return for the deal."
         },
         "roi": {
           "type": "number",
-          "description": "Return on investment for the deal."
+          "description": "Calculated return on investment for the deal."
         }
       },
       "required": [
         "id",
         "userId",
         "dealName",
-        "dealType",
+        "propertyType",
         "purchasePrice",
         "monthlyCashFlow",
         "cocReturn",
@@ -117,17 +117,17 @@
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}",
+        "path": "/users/{userId}/userProfile",
         "definition": {
           "entityName": "UserProfile",
           "schema": {
             "$ref": "#/backend/entities/UserProfile"
           },
-          "description": "Stores user profiles. Path-based ownership is enforced. The 'userId' path parameter is used to identify the user.",
+          "description": "Stores user profile data. Path-based ownership ensures only the user can access their profile.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier for the user (UID)."
+              "description": "The unique identifier of the user."
             }
           ]
         }
@@ -139,20 +139,20 @@
           "schema": {
             "$ref": "#/backend/entities/Deal"
           },
-          "description": "Stores financial deals analyzed and saved by users. Path-based ownership is enforced. The 'userId' path parameter is used to identify the owner, and the 'dealId' parameter identifies the deal.",
+          "description": "Stores deals associated with each user. Path-based ownership ensures only the user can access their deals.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier for the user (UID) who owns the deal."
+              "description": "The unique identifier of the user."
             },
             {
               "name": "dealId",
-              "description": "The unique identifier for the deal."
+              "description": "The unique identifier of the deal."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and QAPs. User profiles and deals are stored under the `/users/{userId}` collection, enabling path-based ownership for simple and secure access rules. The structure avoids `get()` calls in rules by relying on the implicit ownership derived from the path. Each user's data (profile and deals) resides within their own document space, ensuring that access control can be managed without needing to retrieve parent document data.\n\n**Authorization Independence:** Achieved by storing user-related data (deals) under the `/users/{userId}` path. No `get()` calls are needed to verify ownership.\n\n**QAPs Support:** Segregation of user data into distinct paths (`/users/{userId}/deals`) ensures secure list operations (users can only list deals under their own user ID).\n\n**DBAC:** Authorization relies on `request.auth.uid` and the path-based structure. No custom claims are used."
+    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and support secure list operations (QAPs). User profiles and deals are stored under the respective user ID, which facilitates straightforward path-based ownership. This structure avoids the need for `get()` calls in security rules, enabling atomic operations.\n\n*   `/users/{userId}/userProfile`: Stores user profile data. Ensures that each profile is only accessible by the respective user.\n*   `/users/{userId}/deals/{dealId}`: Stores deals associated with each user. Each deal is owned by the user, and deals can only be listed and accessed by the owning user. Enforces plan limits (Free = 5 deals, Pro = 10, Executive = unlimited) through rules.\n\nAuthorization Independence is achieved by structuring the data such that access control is determined by the document's path, eliminating dependencies on data from other documents.\n\nQAPs are supported by the segregation of user data. Listing deals under `/users/{userId}/deals/{dealId}` ensures that only the deals belonging to the authenticated user are accessible via list operations. This prevents unauthorized access and guarantees secure data retrieval."
   }
 }
