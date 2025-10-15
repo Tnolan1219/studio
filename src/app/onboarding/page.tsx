@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirestore, setDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, setDocumentNonBlocking, FirebaseClientProvider } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -64,7 +64,7 @@ const STEPS = [
   },
 ];
 
-export default function OnboardingPage() {
+function OnboardingView() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
@@ -292,4 +292,12 @@ Make it specific and actionable. For example: "My goal is to acquire three cash-
       </Card>
     </div>
   );
+}
+
+export default function OnboardingPage() {
+  return (
+    <FirebaseClientProvider>
+      <OnboardingView />
+    </FirebaseClientProvider>
+  )
 }
