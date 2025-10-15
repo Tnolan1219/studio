@@ -130,7 +130,7 @@ Make it specific and actionable. For example: "My goal is to acquire three cash-
     }
   };
 
-  const onSubmit = async (data: OnboardingFormValues) => {
+  const onSubmit = (data: OnboardingFormValues) => {
     if (!user || !firestore) return;
 
     const userProfileRef = doc(firestore, 'users', user.uid);
