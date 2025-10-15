@@ -1,82 +1,92 @@
 /**
- * @file Firestore Security Rules for TKN Fi RE application.
+ * @fileoverview Firestore Security Rules for TKN Fi RE application.
  *
- * @corePhilosophy This ruleset enforces a strict user-ownership model, ensuring that only the authenticated user can access their own profile data and associated deals.
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model, ensuring that users can only access and modify their own data.
  *
- * @dataStructure User data is organized under the /users/{userId} path. Each user has a /userProfile document and a collection of /deals/{dealId} documents.
+ * Data Structure:
+ * - User profiles are stored under `/users/{userId}/userProfile`.
+ * - Deals are stored under `/users/{userId}/deals/{dealId}`.
  *
- * @keySecurityDecisions
- *   - User listing is disallowed for privacy.
- *   - Strict ownership is enforced on both user profiles and deals.
- *   - Data validation during writes is limited to relational integrity and authorization-critical fields to allow for flexible prototyping.
+ * Key Security Decisions:
+ * - Users can only read and write their own profile data.
+ * - Users can only create, read, update, and delete their own deals.
+ * - The rules do not currently enforce plan limits on the number of deals. This would require additional complexity and is deferred for later implementation.
  *
- * @denormalizationForAuthorization N/A - Path-based ownership eliminates the need for data denormalization.
+ * Denormalization for Authorization:
+ * - The `userId` is included in the path for both user profiles and deals, which simplifies authorization checks and avoids the need for `get()` calls.
  *
- * @structuralSegregation N/A - All user data is private and stored under the /users/{userId} path.
+ * Structural Segregation:
+ * - User-specific data is stored under the `/users/{userId}` path, ensuring that data is isolated and accessible only to the owning user.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile data.
+     * @description Secures user profile documents. Only the owner can read and write their own profile.
      * @path /users/{userId}/userProfile
-     * @allow (create) User with ID 'user_abc' can create their profile.
-     *   request.auth.uid == 'user_abc' && request.resource.data.id == 'user_abc'
-     * @allow (get) User with ID 'user_abc' can read their profile.
-     *   request.auth.uid == 'user_abc'
-     * @allow (update) User with ID 'user_abc' can update their profile.
-     *   request.auth.uid == 'user_abc' && resource.data.id == 'user_abc'
-     * @allow (delete) User with ID 'user_abc' can delete their profile.
-     *   request.auth.uid == 'user_abc' && resource.data.id == 'user_abc'
-     * @deny (create) User with ID 'user_def' cannot create a profile for user 'user_abc'.
-     *   request.auth.uid == 'user_def' && request.resource.data.id == 'user_abc'
-     * @deny (get) User with ID 'user_def' cannot read the profile of user 'user_abc'.
-     *   request.auth.uid == 'user_def'
+     * @allow (get) User with UID 'user123' can read their own profile at /users/user123/userProfile.
+     * @allow (list) User with UID 'user123' can list their own profile at /users/user123/userProfile (though there should only be one).
+     * @allow (create) User with UID 'user123' can create their own profile at /users/user123/userProfile if the document.id matches the userId.
+     * @allow (update) User with UID 'user123' can update their own profile at /users/user123/userProfile.
+     * @allow (delete) User with UID 'user123' can delete their own profile at /users/user123/userProfile.
+     * @deny (get) User with UID 'user456' cannot read user123's profile at /users/user123/userProfile.
+     * @deny (create) User with UID 'user456' cannot create a profile for user123 at /users/user123/userProfile.
      * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/userProfile {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.id == userId;
+      allow update: if isOwner(userId) && resource != null && resource.data.id == userId;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to deals associated with a user.
+     * @description Secures deal documents. Only the owner can create, read, update, and delete their own deals.
      * @path /users/{userId}/deals/{dealId}
-     * @allow (create) User with ID 'user_abc' can create a deal under their profile.
-     *   request.auth.uid == 'user_abc' && request.resource.data.userId == 'user_abc'
-     * @allow (get) User with ID 'user_abc' can read a deal under their profile.
-     *   request.auth.uid == 'user_abc'
-     * @allow (update) User with ID 'user_abc' can update a deal under their profile.
-     *   request.auth.uid == 'user_abc' && resource.data.userId == 'user_abc'
-     * @allow (delete) User with ID 'user_abc' can delete a deal under their profile.
-     *   request.auth.uid == 'user_abc' && resource.data.userId == 'user_abc'
-     * @deny (create) User with ID 'user_def' cannot create a deal for user 'user_abc'.
-     *   request.auth.uid == 'user_def' && request.resource.data.userId == 'user_abc'
-     * @deny (get) User with ID 'user_def' cannot read a deal belonging to user 'user_abc'.
-     *   request.auth.uid == 'user_def'
-     * @principle Enforces document ownership and relational integrity for writes.
+     * @allow (get) User with UID 'user123' can read their own deal at /users/user123/deals/deal456.
+     * @allow (list) User with UID 'user123' can list their own deals at /users/user123/deals.
+     * @allow (create) User with UID 'user123' can create a deal at /users/user123/deals/deal456.
+     * @allow (update) User with UID 'user123' can update their own deal at /users/user123/deals/deal456.
+     * @allow (delete) User with UID 'user123' can delete their own deal at /users/user123/deals/deal456.
+     * @deny (get) User with UID 'user456' cannot read user123's deal at /users/user123/deals/deal456.
+     * @deny (create) User with UID 'user456' cannot create a deal for user123 at /users/user123/deals/deal456.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/deals/{dealId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isSignedIn() && isExistingOwner(userId) && resource.data.userId == userId;
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
 
-    // Helper functions
+    // --- Helper functions ---
+
+    /**
+     * @description Checks if the user is signed in.
+     * @return True if the user is signed in, false otherwise.
+     */
     function isSignedIn() {
       return request.auth != null;
     }
 
+    /**
+     * @description Checks if the user is the owner of the document.
+     * @param userId The user ID to check against.
+     * @return True if the user is the owner, false otherwise.
+     */
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
+    /**
+     * @description Checks if the user is the owner of the document and the document exists.
+     * @param userId The user ID to check against.
+     * @return True if the user is the owner and the document exists, false otherwise.
+     */
     function isExistingOwner(userId) {
       return isOwner(userId) && resource != null;
     }
