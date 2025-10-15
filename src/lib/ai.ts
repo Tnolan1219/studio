@@ -1,4 +1,3 @@
-
 /**
  * Securely gets an AI response by calling our own backend API route.
  * The frontend never touches API keys.
