@@ -1,88 +1,85 @@
 /**
- * @fileoverview Firestore Security Rules for TKN Fi RE application.
+ * @file Firebase Security Rules for TKN Fi RE application.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model, ensuring that users can only access and modify their own data.
+ * This ruleset enforces a strict user-ownership model. Each user has a dedicated data tree rooted at `/users/{userId}`.
+ * Only the authenticated user can read or write their own profile data and deals.
  *
  * Data Structure:
- * - User profiles are stored under `/users/{userId}/userProfile`.
- * - Deals are stored under `/users/{userId}/deals/{dealId}`.
+ * All user-specific data is nested under `/users/{userId}`.
+ * - User profiles are stored at `/users/{userId}/userProfile`.
+ * - Deals are stored at `/users/{userId}/deals/{dealId}`.
  *
  * Key Security Decisions:
- * - Users can only read and write their own profiles.
- * - Users can only read, create, update, and delete their own deals.
- * - Listing of deals is restricted to the owning user.
- * - The ruleset does not currently enforce plan limits on the number of deals.
- *
- * Denormalization for Authorization:
- * - The `userId` is present in both the path and the `Deal` document to simplify ownership checks.
+ * - User listing is implicitly denied. Only the owner can access their own user data.
+ * - Rules are designed for Authorization Independence, avoiding the need for costly `get()` calls.
+ * - Data consistency between the path and the document's internal `userId` field is enforced.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile documents.
+     * @description Controls access to user profile data.
      * @path /users/{userId}/userProfile
-     * @allow (get) Authenticated user can read their own profile.
-     * @allow (create) Authenticated user can create their own profile if the userId matches their auth UID.
-     * @allow (update) Authenticated user can update their own profile if the userId matches their auth UID.
-     * @allow (delete) Authenticated user can delete their own profile if the userId matches their auth UID.
-     * @deny (get) Authenticated user cannot read another user's profile.
-     * @deny (create) Authenticated user cannot create a profile for another user.
-     * @deny (update) Authenticated user cannot update another user's profile.
-     * @deny (delete) Authenticated user cannot delete another user's profile.
+     * @allow (get, create, update, delete) if the user's UID matches the userId in the path.
+     * @deny (get, create, update, delete) if the user's UID does not match the userId in the path.
      * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/userProfile {
-      function isSignedIn() {
-        return request.auth != null;
-      }
+      // Allow reads (get, list) if the user is the owner.
+      allow get: if isOwner(userId);
+      allow list: if false;
 
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
+      // Allow creation if the user is the owner. Also validate that the userId field matches the path.
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
 
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false; // Listing user profiles is not permitted.
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isSignedIn() && isOwner(userId) && resource.data.id == userId; // Enforce immutability of userId
-      allow delete: if isSignedIn() && isOwner(userId) && resource.data.id == userId;
+      // Allow updates if the user is the owner and the userId field is immutable.
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+
+      // Allow deletion if the user is the owner.
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to deal documents.
+     * @description Controls access to deal data for a specific user.
      * @path /users/{userId}/deals/{dealId}
-     * @allow (get) Authenticated user can read their own deal.
-     * @allow (list) Authenticated user can list their own deals.
-     * @allow (create) Authenticated user can create a deal under their user ID if the userId matches their auth UID.
-     * @allow (update) Authenticated user can update their own deal if the userId matches their auth UID.
-     * @allow (delete) Authenticated user can delete their own deal if the userId matches their auth UID.
-     * @deny (get) Authenticated user cannot read another user's deal.
-     * @deny (list) Authenticated user cannot list another user's deals.
-     * @deny (create) Authenticated user cannot create a deal under another user's ID.
-     * @deny (update) Authenticated user cannot update another user's deal.
-     * @deny (delete) Authenticated user cannot delete another user's deal.
+     * @allow (get, create, update, delete) if the user's UID matches the userId in the path.
+     * @deny (get, create, update, delete) if the user's UID does not match the userId in the path.
      * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/deals/{dealId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
+      // Allow reads (get) if the user is the owner.
+      allow get: if isOwner(userId);
 
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-      
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
+      // Allow listing deals if the user is the owner.
+      allow list: if isOwner(userId);
 
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId; // Enforce immutability of userId
+      // Allow creation if the user is the owner and the userId matches.
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+
+      // Allow updates if the user is the owner and the userId field is immutable.
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+
+      // Allow deletion if the user is the owner.
       allow delete: if isExistingOwner(userId);
+    }
+
+    // --- Helper Functions ---
+
+    // Checks if the user is signed in.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Checks if the user is the owner of the resource based on the userId in the path.
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Checks if the user is the owner of an existing resource based on the userId in the path.
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
     }
   }
 }
