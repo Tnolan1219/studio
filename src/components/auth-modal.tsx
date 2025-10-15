@@ -181,20 +181,22 @@ export function AuthModal({
     }
   };
   
-  const handleGoogleSignIn = async () => {
+  const provider = new GoogleAuthProvider();
+  async function signInWithGoogle() {
     if (!auth) return;
     setAuthError(null);
     setIsLoading(true);
-    const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
+      console.log("Signed in:", result.user.displayName);
       await handleSuccessfulLogin(result.user);
     } catch (error) {
-        handleAuthError(error);
+      console.error("Google Sign-In error:", error);
+      handleAuthError(error);
     } finally {
         setIsLoading(false);
     }
-  };
+  }
 
   const handleAnonymousSignIn = async () => {
     setAuthError(null);
@@ -224,7 +226,7 @@ export function AuthModal({
         </DialogHeader>
 
         <div className="grid grid-cols-1 gap-2">
-            <Button variant="outline" onClick={handleGoogleSignIn} disabled={isLoading}>
+            <Button variant="outline" onClick={signInWithGoogle} disabled={isLoading}>
                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2" />}
                 Sign In with Google
             </Button>
@@ -311,3 +313,5 @@ export function AuthModal({
     </Dialog>
   );
 }
+
+    
