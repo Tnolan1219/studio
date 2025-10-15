@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { AuthModal } from '@/components/auth-modal';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
+import GoogleTest from '@/components/googletest';
 
 const Logo = () => (
   <svg
@@ -57,6 +58,9 @@ export default function LandingPage() {
           >
             Enter App
           </button>
+          <div className="mt-4">
+            <GoogleTest />
+          </div>
         </div>
         <AuthModal isOpen={isAuthModalOpen} onOpenChange={setIsAuthModalOpen} />
       </div>
