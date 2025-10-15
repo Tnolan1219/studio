@@ -86,13 +86,16 @@ export default function OnboardingPage() {
   });
 
   useEffect(() => {
+    // If the user is not loading and not present, redirect to the home page.
     if (!isUserLoading && !user) {
       router.push('/');
-    } else if (user) {
+    }
+    // Once the user object is available, populate the form with their details.
+    if (user) {
         form.reset({
             name: user.displayName || '',
-            // keep other fields as they are, let user fill them.
-        })
+            // Keep other fields as they are, let user fill them.
+        });
     }
   }, [user, isUserLoading, router, form]);
 
