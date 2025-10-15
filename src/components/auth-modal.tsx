@@ -38,7 +38,7 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { Terminal } from 'lucide-react';
+import { Terminal, Loader2 } from 'lucide-react';
 
 const signUpSchema = z
   .object({
@@ -75,11 +75,13 @@ export function AuthModal({
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { auth, isUserLoading } = useFirebase();
+  const { auth } = useFirebase();
   const router = useRouter();
   const firestore = useFirestore();
   const { toast } = useToast();
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
 
   const handleSuccessfulLogin = async (user: User) => {
     if (!user || !firestore) return;
@@ -150,28 +152,35 @@ export function AuthModal({
 
   const handleSignUp = async (data: SignUpFormValues) => {
     setAuthError(null);
+    setIsLoading(true);
     if (!auth) return;
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       await handleSuccessfulLogin(userCredential.user);
     } catch (error) {
       handleAuthError(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleSignIn = async (data: SignInFormValues) => {
     setAuthError(null);
+    setIsLoading(true);
     if (!auth) return;
     try {
       const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
       await handleSuccessfulLogin(userCredential.user);
     } catch (error) {
       handleAuthError(error);
+    } finally {
+      setIsLoading(false);
     }
   };
   
   const handleGoogleSignIn = async () => {
     setAuthError(null);
+    setIsLoading(true);
     if (!auth) return;
     const provider = new GoogleAuthProvider();
     try {
@@ -179,17 +188,22 @@ export function AuthModal({
       await handleSuccessfulLogin(userCredential.user);
     } catch (error) {
       handleAuthError(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleAnonymousSignIn = async () => {
     setAuthError(null);
+    setIsLoading(true);
     if (!auth) return;
     try {
         const userCredential = await signInAnonymously(auth);
         await handleSuccessfulLogin(userCredential.user);
     } catch (error) {
         handleAuthError(error);
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -207,11 +221,12 @@ export function AuthModal({
         </DialogHeader>
 
         <div className="grid grid-cols-1 gap-2">
-            <Button variant="outline" onClick={handleGoogleSignIn} disabled={isUserLoading} className="w-full">
-                <GoogleIcon className="mr-2" />
+            <Button variant="outline" onClick={handleGoogleSignIn} disabled={isLoading} className="w-full">
+                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2" />}
                 Sign In with Google
             </Button>
-            <Button variant="secondary" onClick={handleAnonymousSignIn} disabled={isUserLoading}>
+            <Button variant="secondary" onClick={handleAnonymousSignIn} disabled={isLoading}>
+                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Continue as Guest
             </Button>
         </div>
@@ -269,8 +284,8 @@ export function AuthModal({
                     </FormItem>
                   )}
                 />
-                <Button type="submit" className="w-full" disabled={isUserLoading}>
-                  {isUserLoading ? 'Signing In...' : 'Sign In'}
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing In...</> : 'Sign In'}
                 </Button>
               </form>
             </Form>
@@ -281,8 +296,8 @@ export function AuthModal({
               <FormField control={signUpForm.control} name="email" render={({ field }) => ( <FormItem> <FormLabel>Email</FormLabel> <FormControl><Input placeholder="name@example.com" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
               <FormField control={signUpForm.control} name="password" render={({ field }) => ( <FormItem> <FormLabel>Password</FormLabel> <FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
               <FormField control={signUpForm.control} name="confirmPassword" render={({ field }) => ( <FormItem> <FormLabel>Confirm Password</FormLabel> <FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                <Button type="submit" className="w-full" disabled={isUserLoading}>
-                  {isUserLoading ? 'Creating Account...' : 'Create Account'}
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating Account...</> : 'Create Account'}
                 </Button>
               </form>
             </Form>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -30,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building, DollarSign, BarChart2, TrendingUp, Handshake, Bot, TestTube2, Percent, Trash2, Plus, Info, Sparkles, SlidersHorizontal } from 'lucide-react';
+import { Building, DollarSign, BarChart2, TrendingUp, Handshake, Bot, TestTube2, Percent, Trash2, Plus, Info, Sparkles, SlidersHorizontal, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
 import { InputWithIcon } from '../ui/input-with-icon';
@@ -770,7 +771,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                             <CardContent>
                             <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>AI Advisor Prompt</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> e.g., "Analyze the pros and cons of a triple-net lease for this property." </FormDescription> <FormMessage /> </FormItem> )} />
                             {isPending ? (
-                                <div className="space-y-2 mt-4"> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-3/4" /> </div>
+                                <div className="space-y-2 mt-4 flex justify-center"> <Loader2 className="h-6 w-6 animate-spin" /> </div>
                             ) : aiResult?.assessment ? (
                                 <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
                             ) : (
@@ -784,10 +785,10 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                 </Tabs>
                 <CardFooter className="flex justify-end gap-2 mt-6">
                     {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
-                    <Button type="submit" disabled={isPending || isSaving}> {isPending ? 'Analyzing...' : 'Run Analysis'} </Button>
+                     <Button type="submit" disabled={isPending || isSaving}> {isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyzing...</> : 'Run Analysis'} </Button>
 
                     <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}> 
-                        {isSaving ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Save Deal')} 
+                        {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} 
                     </Button>
                 </CardFooter>
             </form>

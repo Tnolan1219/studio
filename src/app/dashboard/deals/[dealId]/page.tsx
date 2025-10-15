@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -15,7 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
-import { BarChart, Building, Home, Repeat, Trash2, Edit, MessageSquare, Send, Eye, EyeOff, ArrowLeft, Sparkles } from 'lucide-react';
+import { BarChart, Building, Home, Repeat, Trash2, Edit, MessageSquare, Send, Eye, EyeOff, ArrowLeft, Sparkles, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ProFormaTable } from '@/components/analysis/pro-forma-table';
 import { useDashboardTab } from '@/hooks/use-dashboard-tab';
@@ -421,7 +422,7 @@ export default function DealDetailPage() {
                         </CardHeader>
                         <CardContent>
                             {isAIPending ? (
-                                <div className="space-y-2 mt-4"> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-full" /> <Skeleton className="h-4 w-3/4" /> </div>
+                                <div className="space-y-2 mt-4 flex justify-center"> <Loader2 className="h-6 w-6 animate-spin" /> </div>
                             ) : aiResult?.assessment ? (
                                 <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
                             ) : (
@@ -431,7 +432,7 @@ export default function DealDetailPage() {
                         </CardContent>
                         <CardFooter>
                             <Button onClick={handleGenerateInsights} disabled={isAIPending} className="w-full">
-                                {isAIPending ? 'Generating...' : 'Generate AI Insights'}
+                                {isAIPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</> : 'Generate AI Insights'}
                             </Button>
                         </CardFooter>
                     </Card>
