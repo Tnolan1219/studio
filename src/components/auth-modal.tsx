@@ -117,7 +117,6 @@ export function AuthModal({
       }
       onOpenChange(false);
     }).catch(serverError => {
-        // This catch block handles errors from getDoc, like a permission error on read
         const permissionError = new FirestorePermissionError({
             path: userProfileRef.path,
             operation: 'get',
@@ -199,7 +198,6 @@ export function AuthModal({
     setIsLoading(true);
     try {
       const result = await signInWithPopup(auth, provider);
-      console.log("Signed in:", result.user.displayName);
       await handleSuccessfulLogin(result.user);
     } catch (error) {
       console.error("Google Sign-In error:", error);
@@ -324,5 +322,3 @@ export function AuthModal({
     </Dialog>
   );
 }
-
-    
