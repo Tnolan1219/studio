@@ -181,9 +181,9 @@ export function AuthModal({
     }
   };
   
-  const provider = new GoogleAuthProvider();
-  async function signInWithGoogle() {
+  const signInWithGoogle = async () => {
     if (!auth) return;
+    const provider = new GoogleAuthProvider();
     setAuthError(null);
     setIsLoading(true);
     try {
