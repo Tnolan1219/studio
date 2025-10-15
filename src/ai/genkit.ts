@@ -1,6 +1,6 @@
 import {genkit} from 'genkit';
 import {googleAI} from '@genkit-ai/google-genai';
-import {dotprompt} from '@genkit-ai/dotprompt';
+import {dotprompt} from 'genkit/dotprompt';
 
 // The plugins automatically look for the GEMINI_API_KEY and OPENAI_API_KEY
 // in your environment variables on the server.
