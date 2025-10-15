@@ -1,80 +1,76 @@
 /**
- * @fileOverview
- * This ruleset enforces a strict user-ownership model for all data stored in Firestore.
- * All data is nested under /users/{userId}, ensuring that users can only access their own data.
+ * @file Firestore Security Rules for TKN Fi RE application.
  *
- * Data Structure:
- * - /users/{userId}/userProfile: Stores the UserProfile document for each user.
- * - /users/{userId}/deals/{dealId}: Stores Deal documents associated with each user.
+ * @core_philosophy This ruleset enforces a strict user-ownership model, ensuring that users can only access and modify data associated with their own user ID.
  *
- * Key Security Decisions:
- * - Users can only create, read, update, and delete their own user profiles and deals.
- * - List operations are restricted to the owner of the data.
- * - The rules do NOT enforce data validation beyond ensuring relational integrity (e.g., userId consistency).
- * - Plan limits (Free = 5 deals, Pro = 10, Executive = unlimited) are not enforced in these security rules,
- *   as it would require additional reads to fetch the plan status, violating Authorization Independence.
- *   This should be handled in backend code.
+ * @data_structure All data is nested under the `/users/{userId}` path, with user profiles stored in `/users/{userId}/userProfile` and deals stored in `/users/{userId}/deals/{dealId}`. This hierarchical structure facilitates path-based authorization.
  *
- * Denormalization for Authorization:
- * - The `userId` is present in both the path and the Deal document, allowing for efficient ownership checks.
+ * @key_security_decisions
+ *   - User listing is implicitly disallowed by the structure.
+ *   - The rules explicitly deny any unauthorized access to user data, including attempts to modify other users' profiles or deals.
+ *   - The rules are designed to be authorization independent, avoiding the need for costly `get()` calls.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Enforces user-ownership for UserProfile documents.
+     * @description Enforces access control for user profiles. Only the authenticated user can read and write their own profile.
      * @path /users/{userId}/userProfile
-     * @allow (create) User with ID 'user123' creates their own profile.
-     * @allow (get) User with ID 'user123' reads their own profile.
-     * @allow (update) User with ID 'user123' updates their own profile.
-     * @allow (delete) User with ID 'user123' deletes their own profile.
-     * @deny (create) User with ID 'user123' attempts to create a profile for 'user456'.
-     * @deny (get) User with ID 'user123' attempts to read the profile of 'user456'.
+     * @allow (get, create, update, delete) - Authenticated user with matching userId.
+     * @deny (get, create, update, delete) - Any other user or unauthenticated user.
      * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/userProfile {
-      // Verifies that the user is signed in.
+      // Allow reads to the user's own profile.
       allow get: if isSignedIn() && isOwner(userId);
       allow list: if false;
+
+      // Allow creation of the user's own profile, validating the userId.
       allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
+
+      // Allow updates to the user's own profile. Enforce immutability of the userId.
       allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+
+      // Allow deletion of the user's own profile.
       allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
-     * @description Enforces user-ownership for Deal documents.
+     * @description Enforces access control for deals. Only the authenticated user can read, create, update, and delete their own deals.
      * @path /users/{userId}/deals/{dealId}
-     * @allow (create) User with ID 'user123' creates a deal under their user ID.
-     * @allow (get) User with ID 'user123' reads a deal under their user ID.
-     * @allow (update) User with ID 'user123' updates a deal under their user ID.
-     * @allow (delete) User with ID 'user123' deletes a deal under their user ID.
-     * @deny (create) User with ID 'user123' attempts to create a deal for 'user456'.
-     * @deny (get) User with ID 'user123' attempts to read a deal belonging to 'user456'.
+     * @allow (get, create, update, delete) - Authenticated user with matching userId.
+     * @deny (get, create, update, delete) - Any other user or unauthenticated user.
      * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/deals/{dealId} {
+      // Allow reads to the user's own deals.
       allow get: if isSignedIn() && isOwner(userId);
       allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId && request.resource.data.id == dealId;
+
+      // Allow creation of a deal for the user, validating the userId.
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
+
+      // Allow updates to the user's own deals. Enforce immutability of the userId.
       allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+
+      // Allow deletion of the user's own deals.
       allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
-    // --- Helper functions ---
-    // Checks if the user is signed in.
+    // Helper function to determine if the user is signed in.
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Checks if the user ID matches the authenticated user's ID.
+    // Helper function to determine if the request is made by the owner of the document.
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    // Checks if the user ID matches the authenticated user's ID and the resource exists.
+    // Helper function to determine if the request is made by the existing owner of the document.
     function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+        return isOwner(userId) && resource != null;
     }
   }
 }
