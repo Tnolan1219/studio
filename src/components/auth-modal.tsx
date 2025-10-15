@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
 import { 
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword, 
@@ -15,7 +15,7 @@ import {
     GoogleAuthProvider,
     type User
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 
 
 import {
@@ -38,6 +38,8 @@ import {
 } from '@/components/ui/form';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Terminal, Loader2 } from 'lucide-react';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { errorEmitter } from '@/firebase/error-emitter';
 
 const signUpSchema = z
   .object({
@@ -91,28 +93,37 @@ export function AuthModal({
     }
 
     const userProfileRef = doc(firestore, 'users', user.uid);
-    const userProfileSnap = await getDoc(userProfileRef);
-
-    if (userProfileSnap.exists() && userProfileSnap.data()?.isOnboardingComplete) {
-      // If user exists and has completed onboarding, merge latest profile info and go to dash
-      await setDoc(userProfileRef, {
-        name: user.displayName,
-        email: user.email,
-        photoURL: user.photoURL,
-      }, { merge: true });
-      router.push('/dashboard');
-    } else {
-      // If user is new or hasn't finished onboarding, ensure profile exists and go to onboarding
-      await setDoc(userProfileRef, {
-        name: user.displayName || '',
-        email: user.email,
-        photoURL: user.photoURL || '',
-        isOnboardingComplete: false,
-      }, { merge: true });
-      router.push('/onboarding');
-    }
     
-    onOpenChange(false);
+    getDoc(userProfileRef).then(userProfileSnap => {
+      if (userProfileSnap.exists() && userProfileSnap.data()?.isOnboardingComplete) {
+        // If user exists and has completed onboarding, merge latest profile info and go to dash
+        const profileData = {
+          name: user.displayName,
+          email: user.email,
+          photoURL: user.photoURL,
+        };
+        setDocumentNonBlocking(userProfileRef, profileData, { merge: true });
+        router.push('/dashboard');
+      } else {
+        // If user is new or hasn't finished onboarding, ensure profile exists and go to onboarding
+        const profileData = {
+          name: user.displayName || '',
+          email: user.email,
+          photoURL: user.photoURL || '',
+          isOnboardingComplete: false,
+        };
+        setDocumentNonBlocking(userProfileRef, profileData, { merge: true });
+        router.push('/onboarding');
+      }
+      onOpenChange(false);
+    }).catch(serverError => {
+        // This catch block handles errors from getDoc, like a permission error on read
+        const permissionError = new FirestorePermissionError({
+            path: userProfileRef.path,
+            operation: 'get',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
   };
   
   const signUpForm = useForm<SignUpFormValues>({
