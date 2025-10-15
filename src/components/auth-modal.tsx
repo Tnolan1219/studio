@@ -94,11 +94,20 @@ export function AuthModal({
     const userProfileSnap = await getDoc(userProfileRef);
 
     if (userProfileSnap.exists() && userProfileSnap.data()?.isOnboardingComplete) {
+        // For returning users, still refresh their profile data from Google
+        await setDoc(userProfileRef, { 
+            name: user.displayName, 
+            email: user.email,
+            photoURL: user.photoURL,
+        }, { merge: true });
         router.push('/dashboard');
     } else {
+        // For new users, create their profile and send them to onboarding
         await setDoc(userProfileRef, { 
-            name: user.displayName || '', 
-            email: user.email 
+            name: user.displayName, 
+            email: user.email,
+            photoURL: user.photoURL,
+            isOnboardingComplete: false, // Explicitly set onboarding as incomplete
         }, { merge: true });
         router.push('/onboarding');
     }
@@ -141,6 +150,7 @@ export function AuthModal({
 
   const handleSignUp = async (data: SignUpFormValues) => {
     setAuthError(null);
+    if (!auth) return;
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       await handleSuccessfulLogin(userCredential.user);
@@ -151,6 +161,7 @@ export function AuthModal({
 
   const handleSignIn = async (data: SignInFormValues) => {
     setAuthError(null);
+    if (!auth) return;
     try {
       const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
       await handleSuccessfulLogin(userCredential.user);
@@ -161,6 +172,7 @@ export function AuthModal({
   
   const handleGoogleSignIn = async () => {
     setAuthError(null);
+    if (!auth) return;
     const provider = new GoogleAuthProvider();
     try {
       const userCredential = await signInWithPopup(auth, provider);
@@ -172,6 +184,7 @@ export function AuthModal({
 
   const handleAnonymousSignIn = async () => {
     setAuthError(null);
+    if (!auth) return;
     try {
         const userCredential = await signInAnonymously(auth);
         await handleSuccessfulLogin(userCredential.user);
@@ -280,4 +293,6 @@ export function AuthModal({
     </Dialog>
   );
 }
+    
+
     
