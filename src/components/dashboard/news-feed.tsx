@@ -11,7 +11,7 @@ import { Input } from '../ui/input';
 import { marked } from 'marked';
 import { doc } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
-import { getAIResponse } from './real-estate-query-box';
+import { getAIResponse } from '@/lib/ai';
 
 
 interface AiResponse {

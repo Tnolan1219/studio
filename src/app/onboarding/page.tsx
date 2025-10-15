@@ -38,7 +38,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Wand2, Loader2 } from 'lucide-react';
-import { getAIResponse } from '@/components/dashboard/real-estate-query-box';
+import { getAIResponse } from '@/lib/ai';
 
 
 const onboardingSchema = z.object({

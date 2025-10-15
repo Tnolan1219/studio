@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Send, Sparkles } from "lucide-react";
 import { marked } from 'marked';
 import { Skeleton } from '../ui/skeleton';
+import { getAIResponse } from '@/lib/ai';
 
 interface AiResponse {
     question: string;
@@ -20,31 +21,6 @@ const SAMPLE_QUESTIONS = [
     "What are the benefits of a 1031 exchange?",
     "How do I calculate cap rate?",
 ];
-
-/**
- * Securely gets an AI response by calling our own backend API route.
- * The frontend never touches API keys.
- * @param prompt The user's question.
- * @returns The AI's response text.
- */
-async function getAIResponse(prompt: string): Promise<string> {
-    const response = await fetch('/api/ai', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt }),
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to get AI response.');
-    }
-
-    const data = await response.json();
-    return data.reply;
-}
-
 
 export function RealEstateQueryBox() {
     const [aiQuery, setAiQuery] = useState('');
