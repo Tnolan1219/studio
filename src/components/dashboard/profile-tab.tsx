@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -59,12 +60,12 @@ export default function ProfileTab() {
     resolver: zodResolver(profileSchema),
     mode: "onChange",
     defaultValues: {
-        name: '',
-        email: '',
-        photoURL: '',
-        country: '',
-        state: '',
-        financialGoal: '',
+        name: profileData?.name || user?.displayName || '',
+        email: profileData?.email || user?.email || '',
+        photoURL: profileData?.photoURL || user?.photoURL || '',
+        country: profileData?.country || '',
+        state: profileData?.state || '',
+        financialGoal: profileData?.financialGoal || ''
     }
   });
 
@@ -78,7 +79,7 @@ export default function ProfileTab() {
         state: profileData.state || '',
         financialGoal: profileData.financialGoal || ''
       });
-    } else if (user) {
+    } else if (user && !isProfileLoading) {
        form.reset({
         name: user.displayName || "",
         email: user.email || "",
@@ -88,7 +89,7 @@ export default function ProfileTab() {
         financialGoal: ''
        });
     }
-  }, [profileData, user, form]);
+  }, [profileData, user, form, isProfileLoading]);
 
   async function onSubmit(data: ProfileFormValues) {
     if (!userProfileRef || !user || user.isAnonymous) return;
@@ -110,8 +111,9 @@ export default function ProfileTab() {
   }
 
   const currentPhotoURL = form.watch('photoURL');
+  const isLoading = isUserLoading || (user && !user.isAnonymous && isProfileLoading);
 
-  if (isUserLoading || (user && !user.isAnonymous && isProfileLoading)) {
+  if (isLoading) {
     return (
         <div className="animate-fade-in">
             <Card className="bg-card/60 backdrop-blur-sm max-w-4xl mx-auto">
@@ -166,40 +168,42 @@ export default function ProfileTab() {
                 </div>
             </div>
         </CardHeader>
-        <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-            <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField name="name" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Full Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                <FormField name="email" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Email</FormLabel> <FormControl><Input type="email" {...field} disabled /></FormControl> <FormMessage /> </FormItem> )} />
-                <FormField name="country" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Country</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                <FormField name="state" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>State</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                </div>
-                <FormField name="financialGoal" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Financial Goal</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription>This helps us tailor your experience and AI insights.</FormDescription> <FormMessage /> </FormItem> )} />
-            </CardContent>
-            <CardFooter className="flex justify-between items-center">
-                <div className="text-sm text-muted-foreground">
-                    <p>Plan: <span className="font-semibold text-primary">{user.isAnonymous ? "Guest" : (profileData?.plan || "Free")}</span></p>
-                </div>
-                {user.isAnonymous ? (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Button type="button" disabled>Save Changes</Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Create an account to save your profile.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : (
-                  <Button type="submit" disabled={form.formState.isSubmitting || !form.formState.isDirty}>
-                    Save Changes
-                  </Button>
-                )}
-            </CardFooter>
-            </form>
-        </Form>
+        {!isLoading && (
+          <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)}>
+              <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField name="name" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Full Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField name="email" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Email</FormLabel> <FormControl><Input type="email" {...field} disabled /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField name="country" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Country</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField name="state" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>State</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                  </div>
+                  <FormField name="financialGoal" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Financial Goal</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription>This helps us tailor your experience and AI insights.</FormDescription> <FormMessage /> </FormItem> )} />
+              </CardContent>
+              <CardFooter className="flex justify-between items-center">
+                  <div className="text-sm text-muted-foreground">
+                      <p>Plan: <span className="font-semibold text-primary">{user.isAnonymous ? "Guest" : (profileData?.plan || "Free")}</span></p>
+                  </div>
+                  {user.isAnonymous ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Button type="button" disabled>Save Changes</Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Create an account to save your profile.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    <Button type="submit" disabled={form.formState.isSubmitting || !form.formState.isDirty}>
+                      Save Changes
+                    </Button>
+                  )}
+              </CardFooter>
+              </form>
+          </Form>
+        )}
         </Card>
     </div>
   );
