@@ -55,7 +55,7 @@ export function RealEstateQueryBox() {
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <Sparkles size={20} className="text-primary"/>
-                    Ask Gemini
+                    Ask an AI Assistant
                 </CardTitle>
                 <CardDescription>
                     Have a real estate question? Ask our AI assistant for a quick answer.

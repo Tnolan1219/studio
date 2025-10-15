@@ -10,6 +10,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import { googleAI } from '@genkit-ai/google-genai';
 
 const AnswerRealEstateQuestionInputSchema = z.object({
   question: z.string().describe('The user\'s question about real estate.'),
@@ -34,7 +35,15 @@ Format your answer using simple markdown, like bullet points or short paragraphs
 });
 
 export async function answerRealEstateQuestion(input: AnswerRealEstateQuestionInput): Promise<AnswerRealEstateQuestionOutput> {
-  const { output } = await prompt(input);
+  const { output } = await ai.generate({
+    model: googleAI('gemini-pro'),
+    prompt: prompt,
+    input: input,
+    output: {
+        schema: AnswerRealEstateQuestionOutputSchema,
+    },
+  });
+
   if (!output) {
     throw new Error('No output from AI');
   }
