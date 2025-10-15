@@ -1,20 +1,18 @@
 /**
- * @fileOverview Firestore Security Rules for TKN Fi RE application.
+ * @file Firestore Security Rules for TKN Fi RE application.
  *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model.  Each user has a dedicated data tree under `/users/{userId}`.
- * Only the authenticated user can read and write their own profile data and associated deals.
+ * @corePhilosophy This ruleset enforces a strict user-ownership model, ensuring that only the authenticated user can access their own profile data and associated deals.
  *
- * Data Structure:
- * User profiles are stored at `/users/{userId}/userProfile`.
- * Deals are stored at `/users/{userId}/deals/{dealId}`.
+ * @dataStructure User data is organized under the /users/{userId} path. Each user has a /userProfile document and a collection of /deals/{dealId} documents.
  *
- * Key Security Decisions:
- * - Users can only access their own data. No cross-user data access is permitted.
- * - Listing of all users or deals is disallowed. List operations are only allowed within a user's own data tree.
+ * @keySecurityDecisions
+ *   - User listing is disallowed for privacy.
+ *   - Strict ownership is enforced on both user profiles and deals.
+ *   - Data validation during writes is limited to relational integrity and authorization-critical fields to allow for flexible prototyping.
  *
- * Denormalization for Authorization:
- * The `userId` is included in each deal document to simplify ownership checks, even though it's also present in the path. This avoids any need for `get()` calls to the parent document.
+ * @denormalizationForAuthorization N/A - Path-based ownership eliminates the need for data denormalization.
+ *
+ * @structuralSegregation N/A - All user data is private and stored under the /users/{userId} path.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -23,57 +21,64 @@ service cloud.firestore {
     /**
      * @description Controls access to user profile data.
      * @path /users/{userId}/userProfile
-     * @allow (create, update, get, list) if the request is made by the owner of the profile.
-     * @deny (create, update, get, list) if the request is made by a different user.
-     * @principle Enforces document ownership for reads and writes.
+     * @allow (create) User with ID 'user_abc' can create their profile.
+     *   request.auth.uid == 'user_abc' && request.resource.data.id == 'user_abc'
+     * @allow (get) User with ID 'user_abc' can read their profile.
+     *   request.auth.uid == 'user_abc'
+     * @allow (update) User with ID 'user_abc' can update their profile.
+     *   request.auth.uid == 'user_abc' && resource.data.id == 'user_abc'
+     * @allow (delete) User with ID 'user_abc' can delete their profile.
+     *   request.auth.uid == 'user_abc' && resource.data.id == 'user_abc'
+     * @deny (create) User with ID 'user_def' cannot create a profile for user 'user_abc'.
+     *   request.auth.uid == 'user_def' && request.resource.data.id == 'user_abc'
+     * @deny (get) User with ID 'user_def' cannot read the profile of user 'user_abc'.
+     *   request.auth.uid == 'user_def'
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/userProfile {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to deal data associated with a user.
+     * @description Controls access to deals associated with a user.
      * @path /users/{userId}/deals/{dealId}
-     * @allow (create, update, get, list) if the request is made by the owner of the deal.
-     * @deny (create, update, get, list) if the request is made by a different user.
-     * @principle Enforces document ownership for reads and writes.
+     * @allow (create) User with ID 'user_abc' can create a deal under their profile.
+     *   request.auth.uid == 'user_abc' && request.resource.data.userId == 'user_abc'
+     * @allow (get) User with ID 'user_abc' can read a deal under their profile.
+     *   request.auth.uid == 'user_abc'
+     * @allow (update) User with ID 'user_abc' can update a deal under their profile.
+     *   request.auth.uid == 'user_abc' && resource.data.userId == 'user_abc'
+     * @allow (delete) User with ID 'user_abc' can delete a deal under their profile.
+     *   request.auth.uid == 'user_abc' && resource.data.userId == 'user_abc'
+     * @deny (create) User with ID 'user_def' cannot create a deal for user 'user_abc'.
+     *   request.auth.uid == 'user_def' && request.resource.data.userId == 'user_abc'
+     * @deny (get) User with ID 'user_def' cannot read a deal belonging to user 'user_abc'.
+     *   request.auth.uid == 'user_def'
+     * @principle Enforces document ownership and relational integrity for writes.
      */
     match /users/{userId}/deals/{dealId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isSignedIn() && isExistingOwner(userId) && resource.data.userId == userId;
+      allow delete: if isSignedIn() && isExistingOwner(userId);
+    }
 
-      function isOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
-      }
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
 
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
 
-      // On a create, ensure that the userId field in the data matches the {userId} from the path.
-      // On an update, ensure that the userId field is immutable.
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow delete: if isExistingOwner(userId);
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
     }
   }
 }
