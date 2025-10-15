@@ -145,6 +145,9 @@ export function AuthModal({
       case 'auth/popup-closed-by-user':
         message = 'Sign-in popup closed before completion.';
         break;
+      case 'auth/permission-denied':
+        message = 'Missing or insufficient permissions.';
+        break;
     }
     setAuthError(message);
     console.error("Firebase Auth Error:", error); // Log the full error object
@@ -308,11 +311,3 @@ export function AuthModal({
     </Dialog>
   );
 }
-    
-
-    
-
-
-
-
-
