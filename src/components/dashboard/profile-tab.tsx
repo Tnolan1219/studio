@@ -33,6 +33,8 @@ import { Skeleton } from "../ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import type { UserProfile } from "@/lib/types";
 import { Loader2 } from "lucide-react";
+import { Separator } from "../ui/separator";
+import Link from "next/link";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters.").optional(),
@@ -176,7 +178,7 @@ export default function ProfileTab() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in space-y-6">
         <Card className="bg-card/60 backdrop-blur-sm max-w-4xl mx-auto">
         <CardHeader>
             <div className="flex items-center gap-4">
@@ -227,6 +229,36 @@ export default function ProfileTab() {
               </form>
           </Form>
         )}
+        </Card>
+        
+        <Card className="bg-card/60 backdrop-blur-sm max-w-4xl mx-auto">
+            <CardHeader>
+                <CardTitle className="text-2xl font-headline">About Valentor Financial</CardTitle>
+                <CardDescription>Our Vision, Goals, and Philosophy</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 text-muted-foreground">
+                <div>
+                    <h3 className="font-semibold text-foreground">Vision</h3>
+                    <p>To empower individuals to achieve financial freedom through intelligent and accessible real estate investment.</p>
+                </div>
+                <div>
+                    <h3 className="font-semibold text-foreground">Goals</h3>
+                    <p>To provide best-in-class analysis tools, foster a community of informed investors, and demystify the process of building wealth through property.</p>
+                </div>
+                <div>
+                    <h3 className="font-semibold text-foreground">Philosophy</h3>
+                    <p>We believe that with the right data and guidance, anyone can become a successful real estate investor. Our platform is built on transparency, education, and user empowerment.</p>
+                </div>
+                <Separator />
+                <div className="space-y-2">
+                    <p>
+                        Serving in the Military? Check out our military personal finance website: <Link href="https://tnolan1219.github.io/TKN-Financial-V.3/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold">TKN Financial</Link>.
+                    </p>
+                     <p>
+                        Visit our Etsy store for more financial tools and resources: <Link href="https://www.etsy.com/shop/TKNfinance?ref=shop-header-name" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold">TKNFinance on Etsy</Link>.
+                    </p>
+                </div>
+            </CardContent>
         </Card>
     </div>
   );
