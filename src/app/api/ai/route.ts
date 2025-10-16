@@ -21,10 +21,10 @@ async function callGemini(prompt: string): Promise<string> {
     },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      // Add a system instruction to enforce JSON output format
+      // Add a system instruction to enforce the desired output format
       system_instruction: {
         parts: {
-          text: "You are a helpful assistant designed to output JSON. Respond with simplified bullet points for quick, efficient answers. The user will provide a prompt, and you must respond with a valid JSON object only, without any markdown formatting, code fences, or explanatory text. Ensure your responses are professional and easy to read."
+          text: "You are a helpful assistant. Respond with simplified bullet points for quick, efficient answers. Ensure your responses are professional, easy to read, and do not include any JSON or markdown formatting."
         }
       }
     }),
@@ -37,10 +37,7 @@ async function callGemini(prompt: string): Promise<string> {
   }
 
   const data = await response.json();
-  // It's possible the response is still wrapped in a code block, so let's clean it just in case.
-  const textResponse = data.candidates[0].content.parts[0].text;
-  const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
-  return jsonMatch ? jsonMatch[0] : textResponse;
+  return data.candidates[0].content.parts[0].text;
 }
 
 /**
@@ -64,9 +61,8 @@ async function callOpenAI(prompt: string): Promise<string> {
     },
     body: JSON.stringify({
       model: 'gpt-4o', // Using the latest efficient model
-      response_format: { type: "json_object" }, // Enforce JSON output for OpenAI
       messages: [
-        { role: 'system', content: "You are a helpful assistant designed to output JSON. Respond with simplified bullet points for quick, efficient answers that are professional and easy to read." },
+        { role: 'system', content: "You are a helpful assistant. Respond with simplified bullet points for quick, efficient answers that are professional and easy to read. Do not include any JSON formatting." },
         { role: 'user', content: prompt }
       ],
     }),
