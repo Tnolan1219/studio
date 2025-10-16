@@ -43,27 +43,18 @@ export function NewsFeed() {
         if (user) { 
             startBriefingTransition(async () => {
                 try {
-                    const prompt = `You are a real estate market research AI. Your task is to generate a two-part briefing for a user based on their preferences, using your general knowledge. Do not use real-time data.
-    
-User Preferences: ${userState}
-
-First, generate a 'nationalSummary' by summarizing key, generally accepted national real estate market trends in the US. This should be based on your existing knowledge of market principles (e.g., supply and demand, general interest rate impacts).
-
-Second, generate a 'localSummary' by providing a general overview of the real estate market for the user's location based on their preferences. Discuss typical market characteristics for that area (e.g., "Historically a high-demand area," "Known for its stable rental market," etc.). Do not invent specific numbers like median prices or mortgage rates.
-
-Format your response as a JSON object with two keys: "nationalSummary" and "localSummary". The values should be markdown strings.
-`;
-                    const result = await getAIResponse(prompt);
+                    const nationalPrompt = `You are a real estate market research AI. Generate a summary of key, generally accepted national real estate market trends in the US as simple bullet points. Use your existing knowledge of market principles (e.g., supply and demand, general interest rate impacts). Do not invent specific numbers or use real-time data.`;
                     
-                    // Robustly find and extract the JSON object from the response string.
-                    const jsonMatch = result.match(/\{[\s\S]*\}/);
-                    if (!jsonMatch) {
-                        throw new Error("No valid JSON object found in the AI response.");
-                    }
+                    const localPrompt = `You are a real estate market research AI. Provide a general overview of the real estate market for ${userState} as simple bullet points. Discuss typical market characteristics for that area (e.g., "Historically a high-demand area," "Known for its stable rental market," etc.) based on your general knowledge. Do not invent specific numbers or use real-time data.`;
+
+                    const [nationalResult, localResult] = await Promise.all([
+                        getAIResponse(nationalPrompt),
+                        getAIResponse(localPrompt)
+                    ]);
                     
-                    const parsedResult = JSON.parse(jsonMatch[0]);
-                    setNationalNews(await marked(parsedResult.nationalSummary));
-                    setStateNews(await marked(parsedResult.localSummary));
+                    setNationalNews(await marked(nationalResult));
+                    setStateNews(await marked(localResult));
+
                 } catch (error) {
                     console.error("Failed to fetch AI news briefing:", error);
                     const errorMessage = "<p>Could not load briefing. The AI service may be temporarily unavailable.</p>";

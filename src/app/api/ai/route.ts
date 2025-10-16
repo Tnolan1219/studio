@@ -24,7 +24,7 @@ async function callGemini(prompt: string): Promise<string> {
       // Add a system instruction to enforce the desired output format
       system_instruction: {
         parts: {
-          text: "You are a helpful assistant. Respond with simplified bullet points for quick, efficient answers. Ensure your responses are professional, easy to read, and do not include any JSON or markdown formatting unless specifically asked to in the prompt."
+          text: "You are a helpful assistant. Respond with simplified bullet points for quick, efficient answers. Ensure your responses are professional, easy to read, and do not include any JSON or markdown formatting."
         }
       }
     }),
@@ -37,25 +37,8 @@ async function callGemini(prompt: string): Promise<string> {
   }
 
   const data = await response.json();
-  const textResponse = data.candidates[0].content.parts[0].text;
-  
-  // If the original prompt asked for JSON, try to extract it.
-  // Otherwise, return the plain text response.
-  if (prompt.toLowerCase().includes('json')) {
-    const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-        try {
-            // Validate if it's actual JSON before returning
-            JSON.parse(jsonMatch[0]);
-            return jsonMatch[0];
-        } catch (e) {
-            // Not valid JSON, fall back to returning the text.
-            return textResponse;
-        }
-    }
-  }
-
-  return textResponse;
+  // Directly return the text, as we are enforcing a simple format.
+  return data.candidates[0].content.parts[0].text;
 }
 
 /**
@@ -80,7 +63,7 @@ async function callOpenAI(prompt: string): Promise<string> {
     body: JSON.stringify({
       model: 'gpt-4o', // Using the latest efficient model
       messages: [
-        { role: 'system', content: "You are a helpful assistant. Respond with simplified bullet points for quick, efficient answers that are professional and easy to read. Do not include any JSON formatting unless specifically asked to in the prompt." },
+        { role: 'system', content: "You are a helpful assistant. Respond with simplified bullet points for quick, efficient answers that are professional and easy to read. Do not include any JSON formatting." },
         { role: 'user', content: prompt }
       ],
     }),
@@ -93,24 +76,8 @@ async function callOpenAI(prompt: string): Promise<string> {
   }
 
   const data = await response.json();
-  const textResponse = data.choices[0].message.content;
-  
-   // If the original prompt asked for JSON, try to extract it.
-  if (prompt.toLowerCase().includes('json')) {
-    const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
-     if (jsonMatch) {
-        try {
-            // Validate if it's actual JSON before returning
-            JSON.parse(jsonMatch[0]);
-            return jsonMatch[0];
-        } catch (e) {
-            // Not valid JSON, fall back to returning the text.
-            return textResponse;
-        }
-    }
-  }
-  
-  return textResponse;
+  // Directly return the text.
+  return data.choices[0].message.content;
 }
 
 /**
