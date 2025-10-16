@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Briefcase, LogOut, User, Settings, LogIn } from 'lucide-react';
+import { Briefcase, LogOut, User, Settings, LogIn, Crown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
@@ -17,6 +17,7 @@ import { ThemeToggle } from './theme-toggle';
 import { useDashboardTab } from '@/hooks/use-dashboard-tab';
 import { doc } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
+import { Badge } from './ui/badge';
 
 const ValentorLogo = () => (
   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -105,6 +106,7 @@ function UserNav() {
   }
   
   const photoURL = profileData?.photoURL || user.photoURL;
+  const plan = user.isAnonymous ? "Guest" : (profileData?.plan || "Free");
 
   return (
     <DropdownMenu>
@@ -125,6 +127,16 @@ function UserNav() {
             </p>
           </div>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem disabled>
+            <div className="flex justify-between items-center w-full">
+                <div className="flex items-center">
+                    <Crown className="mr-2 h-4 w-4 text-primary" />
+                    <span>Plan</span>
+                </div>
+                <Badge variant={plan === 'Pro' || plan === 'Executive' || plan === 'Elite' ? 'default' : 'secondary'} className="capitalize">{plan}</Badge>
+            </div>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem onClick={() => setActiveTab('profile')}>

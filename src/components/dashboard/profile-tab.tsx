@@ -21,6 +21,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,7 +39,7 @@ import { useEffect, useState } from "react";
 import { Skeleton } from "../ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import type { UserProfile } from "@/lib/types";
-import { Loader2 } from "lucide-react";
+import { Loader2, Crown } from "lucide-react";
 import { Separator } from "../ui/separator";
 import Link from "next/link";
 
@@ -43,9 +50,11 @@ const profileSchema = z.object({
   country: z.string().optional(),
   state: z.string().optional(),
   financialGoal: z.string().min(10, "Financial goal must be at least 10 characters.").optional(),
+  plan: z.enum(['Free', 'Pro', 'Executive', 'Elite']).optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
+const PLAN_OPTIONS: ('Free' | 'Pro' | 'Executive' | 'Elite')[] = ['Free', 'Pro', 'Executive', 'Elite'];
 
 export default function ProfileTab() {
   const { toast } = useToast();
@@ -69,7 +78,8 @@ export default function ProfileTab() {
       photoURL: '',
       country: '',
       state: '',
-      financialGoal: ''
+      financialGoal: '',
+      plan: 'Free'
     }
   });
 
@@ -81,7 +91,8 @@ export default function ProfileTab() {
         photoURL: profileData.photoURL || user?.photoURL || '',
         country: profileData.country || '',
         state: profileData.state || '',
-        financialGoal: profileData.financialGoal || ''
+        financialGoal: profileData.financialGoal || '',
+        plan: profileData.plan || 'Free'
       });
     } else if (user && !isProfileLoading) {
        form.reset({
@@ -90,10 +101,21 @@ export default function ProfileTab() {
         photoURL: user.photoURL || "",
         country: '',
         state: '',
-        financialGoal: ''
+        financialGoal: '',
+        plan: 'Free'
        });
     }
   }, [profileData, user, form, isProfileLoading]);
+  
+  const handlePlanChange = (plan: 'Free' | 'Pro' | 'Executive' | 'Elite') => {
+    if (!userProfileRef || user?.isAnonymous) return;
+    setDocumentNonBlocking(userProfileRef, { plan }, { merge: true });
+    form.setValue('plan', plan, { shouldDirty: true });
+    toast({
+      title: "Plan Updated",
+      description: `Your plan has been set to ${plan}.`
+    });
+  }
 
   async function onSubmit(data: ProfileFormValues) {
     if (!userProfileRef || !user || user.isAnonymous) return;
@@ -192,21 +214,46 @@ export default function ProfileTab() {
                 </div>
             </div>
         </CardHeader>
-        {!isLoading && profileData && (
+        {!isLoading && (profileData || user.isAnonymous) && (
           <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)}>
               <CardContent className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField name="name" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Full Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField name="name" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Full Name</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
                   <FormField name="email" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Email</FormLabel> <FormControl><Input type="email" {...field} disabled /></FormControl> <FormMessage /> </FormItem> )} />
-                  <FormField name="country" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Country</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                  <FormField name="state" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>State</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField name="country" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Country</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField name="state" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>State</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
                   </div>
-                  <FormField name="financialGoal" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Financial Goal</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription>This helps us tailor your experience and AI insights.</FormDescription> <FormMessage /> </FormItem> )} />
+                  <FormField name="financialGoal" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Financial Goal</FormLabel> <FormControl><Textarea {...field} disabled={user.isAnonymous} /></FormControl> <FormDescription>This helps us tailor your experience and AI insights.</FormDescription> <FormMessage /> </FormItem> )} />
               </CardContent>
               <CardFooter className="flex justify-between items-center">
                   <div className="text-sm text-muted-foreground">
-                      <p>Plan: <span className="font-semibold text-primary">{user.isAnonymous ? "Guest" : (profileData?.plan || "Free")}</span></p>
+                      {user.isAnonymous ? (
+                          <p>Plan: <span className="font-semibold text-primary">Guest</span></p>
+                      ) : (
+                        <FormField
+                            control={form.control}
+                            name="plan"
+                            render={({ field }) => (
+                                <FormItem className="flex items-center gap-2 space-y-0">
+                                <Crown className="w-4 h-4 text-primary" />
+                                <FormLabel className="whitespace-nowrap pt-1">Current Plan:</FormLabel>
+                                <Select onValueChange={(value: 'Free' | 'Pro' | 'Executive' | 'Elite') => handlePlanChange(value)} value={field.value} disabled={user.isAnonymous}>
+                                    <FormControl>
+                                    <SelectTrigger className="w-[150px]">
+                                        <SelectValue placeholder="Select Plan" />
+                                    </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {PLAN_OPTIONS.map(plan => (
+                                            <SelectItem key={plan} value={plan}>{plan}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                </FormItem>
+                            )}
+                        />
+                      )}
                   </div>
                   {user.isAnonymous ? (
                     <TooltipProvider>

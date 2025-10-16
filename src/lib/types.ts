@@ -10,7 +10,7 @@ export type UserProfile = {
     country?: string;
     state?: string;
     financialGoal?: string;
-    plan?: 'Free' | 'Pro' | 'Executive';
+    plan?: 'Free' | 'Pro' | 'Executive' | 'Elite';
 };
 
 export type DealStatus = 'In Works' | 'Negotiating' | 'Bought' | 'Owned & Operating' | 'Sold';
