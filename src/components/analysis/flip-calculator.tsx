@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useTransition, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -71,8 +71,16 @@ interface FlipCalculatorProps {
 }
 
 export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }: FlipCalculatorProps) {
-  const [isPending, startTransition] = useTransition();
+  const [isAIPending, startAITransition] = useTransition();
   const [aiResult, setAiResult] = useState<{message: string, assessment: string | null} | null>(null);
+  
+  const [analysisResult, setAnalysisResult] = useState<{
+      netProfit: number;
+      roi: number;
+      totalInvestment: number;
+      chartData: any[];
+  } | null>(null);
+
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -88,7 +96,7 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
+    defaultValues: isEditMode && deal ? deal : {
       dealName: 'Maple Street Flip',
       purchasePrice: 180000,
       arv: 280000,
@@ -109,11 +117,53 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
   useEffect(() => {
     if (isEditMode && deal) {
       form.reset(deal);
+      handleAnalysis(deal);
     }
-  }, [deal, isEditMode, form]);
+  }, [deal, isEditMode, form.reset]);
 
-  const handleAnalyzeWrapper = (data: FormData) => {
-    startTransition(async () => {
+
+  const handleAnalysis = (data: FormData) => {
+    const { purchasePrice, rehabCost, closingCosts, holdingLength, interestRate, downPayment, propertyTaxes, insurance, otherExpenses, sellingCosts, arv, loanTerm } = data;
+
+    const loanAmount = purchasePrice - downPayment;
+    const acquisitionCosts = (closingCosts/100) * purchasePrice;
+
+    const holdingCosts = (
+        (propertyTaxes/100 * purchasePrice / 12) +
+        (insurance/100 * purchasePrice / 12) +
+        (otherExpenses / holdingLength)
+    ) * holdingLength;
+
+    const financingCosts = loanTerm > 0 ? (loanAmount * (interestRate/100) * (holdingLength/12)) : 0;
+    
+    const totalCashNeeded = downPayment + rehabCost + acquisitionCosts; // Simplified total investment for CoC ROI
+    const totalProjectCosts = purchasePrice + rehabCost + acquisitionCosts + holdingCosts + financingCosts;
+    const finalSellingCosts = (sellingCosts/100) * arv;
+
+    const netProfit = arv - totalProjectCosts - finalSellingCosts;
+    const roi = totalCashNeeded > 0 ? (netProfit / totalCashNeeded) * 100 : 0;
+
+    const chartData = [
+      { name: 'Purchase', value: purchasePrice, fill: 'hsl(var(--chart-1))' },
+      { name: 'Rehab', value: rehabCost, fill: 'hsl(var(--chart-2))' },
+      { name: 'Holding', value: holdingCosts, fill: 'hsl(var(--chart-3))' },
+      { name: 'Financing', value: financingCosts, fill: 'hsl(var(--chart-4))' },
+      { name: 'Selling', value: finalSellingCosts, fill: 'hsl(var(--chart-5))' },
+      { name: 'Profit', value: netProfit > 0 ? netProfit : 0, fill: 'hsl(var(--primary))' },
+    ];
+    
+    setAnalysisResult({
+        netProfit,
+        roi,
+        totalInvestment: totalCashNeeded,
+        chartData,
+    });
+  };
+
+  const handleRunAnalysisAndAI = (data: FormData) => {
+    handleAnalysis(data);
+
+    startAITransition(async () => {
         const result = await getDealAssessment({
           dealType: 'House Flip',
           financialData: `
@@ -127,42 +177,11 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
     });
   };
 
-  const watchedValues = form.watch();
-
-  const { netProfit, roi, chartData, totalInvestment } = useMemo(() => {
-    const { purchasePrice, rehabCost, closingCosts, holdingLength, interestRate, downPayment, propertyTaxes, insurance, otherExpenses, sellingCosts, arv, loanTerm } = watchedValues;
-
-    const loanAmount = purchasePrice - downPayment;
-    const acquisitionCosts = (closingCosts/100) * purchasePrice;
-
-    const holdingCosts = (
-        (propertyTaxes/100 * purchasePrice / 12) +
-        (insurance/100 * purchasePrice / 12) +
-        (otherExpenses / holdingLength)
-    ) * holdingLength;
-
-    const financingCosts = loanTerm > 0 ? (loanAmount * (interestRate/100) * (holdingLength/12)) : 0;
-    
-    const totalCashNeeded = downPayment + rehabCost + acquisitionCosts + holdingCosts + financingCosts;
-    const finalSellingCosts = (sellingCosts/100) * arv;
-    
-    const totalCosts = purchasePrice + rehabCost + acquisitionCosts + holdingCosts + financingCosts + finalSellingCosts;
-    const netProfit = arv - totalCosts;
-    const roi = totalCashNeeded > 0 ? (netProfit / totalCashNeeded) * 100 : 0;
-
-    const chartData = [
-      { name: 'Purchase', value: purchasePrice, fill: 'hsl(var(--chart-1))' },
-      { name: 'Rehab', value: rehabCost, fill: 'hsl(var(--chart-2))' },
-      { name: 'Holding', value: holdingCosts, fill: 'hsl(var(--chart-3))' },
-      { name: 'Financing', value: financingCosts, fill: 'hsl(var(--chart-4))' },
-      { name: 'Selling', value: finalSellingCosts, fill: 'hsl(var(--chart-5))' },
-      { name: 'Profit', value: netProfit > 0 ? netProfit : 0, fill: 'hsl(var(--primary))' },
-    ];
-
-    return { totalInvestment: totalCashNeeded, netProfit, roi, chartData };
-  }, [watchedValues]);
-
   const handleSaveDeal = async () => {
+    if (!analysisResult) {
+      toast({ title: 'Analysis Required', description: 'Please run the analysis before saving.', variant: 'destructive' });
+      return;
+    }
     if (!user) {
       toast({ title: 'Authentication Required', description: 'Please sign in to save deals.', variant: 'destructive' });
       return;
@@ -193,15 +212,31 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
 
     setIsSaving(true);
     const formValues = form.getValues();
-    const dealData = {
+    const dealData: Deal = {
       ...formValues,
       dealType: 'House Flip' as const,
-      netProfit: parseFloat(netProfit.toFixed(2)),
-      roi: parseFloat(roi.toFixed(2)),
+      netProfit: parseFloat(analysisResult.netProfit.toFixed(2)),
+      roi: parseFloat(analysisResult.roi.toFixed(2)),
       userId: user.uid,
       createdAt: isEditMode && deal ? deal.createdAt : serverTimestamp(),
       status: isEditMode && deal ? deal.status : 'In Works',
       isPublished: isEditMode && deal ? deal.isPublished : false,
+      id: isEditMode && deal ? deal.id : '',
+      monthlyCashFlow: 0,
+      cocReturn: 0,
+      noi: 0,
+      capRate: 0,
+      grossMonthlyIncome: 0,
+      propertyTaxes: formValues.propertyTaxes || 0,
+      insurance: formValues.insurance || 0,
+      repairsAndMaintenance: 0,
+      vacancy: 0,
+      capitalExpenditures: 0,
+      managementFee: 0,
+      otherExpenses: formValues.otherExpenses || 0,
+      annualIncomeGrowth: 0,
+      annualExpenseGrowth: 0,
+      annualAppreciation: 0,
     };
     
     if (isEditMode && deal) {
@@ -214,6 +249,7 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
         addDocumentNonBlocking(dealsCol, dealData);
         toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
         form.reset();
+        setAnalysisResult(null);
     }
     setIsSaving(false);
   };
@@ -225,7 +261,7 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
         <CardDescription>{isEditMode ? 'Update the details for your house flip.' : 'Calculate the potential profit and ROI for your next house flip project.'}</CardDescription>
       </CardHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleAnalyzeWrapper)}>
+        <form onSubmit={form.handleSubmit(handleRunAnalysisAndAI)}>
           <CardContent className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-4">
@@ -263,40 +299,42 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6 mt-6">
-              <Card>
-                <CardHeader><CardTitle>Key Metrics</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-2 gap-4">
-                  <div> <p className="text-sm text-muted-foreground">Net Profit</p> <p className="text-2xl font-bold">${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
-                  <div> <p className="text-sm text-muted-foreground">ROI on Cash</p> <p className="text-2xl font-bold">{roi.toFixed(2)}%</p> </div>
-                  <div> <p className="text-sm text-muted-foreground">Total Cash Invested</p> <p className="font-bold">${totalInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
-                  <div> <p className="text-sm text-muted-foreground">ARV</p> <p className="font-bold">${watchedValues.arv.toLocaleString()}</p> </div>
-                </CardContent>
-              </Card>
+            {analysisResult && (
+                <div className="grid md:grid-cols-2 gap-6 mt-6">
+                <Card>
+                    <CardHeader><CardTitle>Key Metrics</CardTitle></CardHeader>
+                    <CardContent className="grid grid-cols-2 gap-4">
+                    <div> <p className="text-sm text-muted-foreground">Net Profit</p> <p className="text-2xl font-bold">${analysisResult.netProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
+                    <div> <p className="text-sm text-muted-foreground">ROI on Cash</p> <p className="text-2xl font-bold">{analysisResult.roi.toFixed(2)}%</p> </div>
+                    <div> <p className="text-sm text-muted-foreground">Total Cash Invested</p> <p className="font-bold">${analysisResult.totalInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
+                    <div> <p className="text-sm text-muted-foreground">ARV</p> <p className="font-bold">${form.getValues('arv').toLocaleString()}</p> </div>
+                    </CardContent>
+                </Card>
 
-              <Card>
-                <CardHeader> <CardTitle className="flex items-center gap-2"> <BarChart2 size={20} /> Cost vs. Profit Breakdown </CardTitle> </CardHeader>
-                <CardContent className="h-[250px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }} >
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={value => `$${value / 1000}k`} />
-                      <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} width={80} />
-                      <Tooltip 
-                        cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
-                        contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }} />
-                      <Bar dataKey="value" radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </div>
+                <Card>
+                    <CardHeader> <CardTitle className="flex items-center gap-2"> <BarChart2 size={20} /> Cost vs. Profit Breakdown </CardTitle> </CardHeader>
+                    <CardContent className="h-[250px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={analysisResult.chartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }} >
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={value => `$${value / 1000}k`} />
+                        <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} width={80} />
+                        <Tooltip 
+                            cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
+                            contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }} />
+                        <Bar dataKey="value" radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+                </div>
+            )}
             <div className="mt-6">
                <Card>
                 <CardHeader> <CardTitle className="flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
                 <CardContent>
                   <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>AI Advisor Prompt</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> e.g., "What are the risks of flipping in this market?" or "Suggest value-add renovations for this property." </FormDescription> <FormMessage /> </FormItem> )} />
-                  {isPending ? (
+                  {isAIPending ? (
                     <div className="space-y-2 mt-4 flex justify-center"> <Loader2 className="h-6 w-6 animate-spin" /> </div>
                   ) : aiResult?.assessment ? (
                     <div className="text-sm text-muted-foreground mt-4 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
@@ -310,11 +348,13 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
             {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
-            <Button type="submit" disabled={isPending || isSaving}> {isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyzing...</> : 'Run Analysis'} </Button>
-            <Button variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
+            <Button type="submit" disabled={isAIPending || isSaving}> {isAIPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyzing...</> : 'Run Analysis'} </Button>
+            <Button variant="secondary" onClick={handleSaveDeal} disabled={isAIPending || isSaving}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
           </CardFooter>
         </form>
       </Form>
     </Card>
   );
 }
+
+    

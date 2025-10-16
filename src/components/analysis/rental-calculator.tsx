@@ -144,8 +144,19 @@ interface RentalCalculatorProps {
 }
 
 export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0 }: RentalCalculatorProps) {
-  const [isPending, startTransition] = useTransition();
+  const [isAIPending, startAITransition] = useTransition();
   const [aiResult, setAiResult] = useState<{message: string, assessment: string | null} | null>(null);
+  
+  // State for calculated results
+  const [analysisResult, setAnalysisResult] = useState<{
+      monthlyCashFlow: number;
+      cocReturn: number;
+      capRate: number;
+      noi: number;
+      chartData: any[];
+      proFormaData: ProFormaEntry[];
+  } | null>(null);
+
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -162,7 +173,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
+    defaultValues: isEditMode && deal ? deal : {
       dealName: 'My Next Rental',
       purchasePrice: 250000,
       closingCosts: 3,
@@ -190,11 +201,46 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
   useEffect(() => {
     if (isEditMode && deal) {
       form.reset(deal);
+      // Run initial analysis for the existing deal
+      handleAnalysis(deal);
     }
-  }, [deal, isEditMode, form]);
+  }, [deal, isEditMode, form.reset]);
 
-  const handleAnalyzeWrapper = (data: FormData) => {
-    startTransition(async () => {
+  const handleAnalysis = (data: FormData) => {
+    const { purchasePrice, rehabCost, closingCosts, downPayment, grossMonthlyIncome } = data;
+    const proForma = calculateProForma(data);
+    const year1 = proForma[0] || {};
+    
+    const totalInvestment = downPayment + (closingCosts/100 * purchasePrice) + rehabCost;
+    const noi = year1.noi || 0;
+    const monthlyCashFlow = (year1.cashFlowBeforeTax || 0) / 12;
+    const cocReturn = totalInvestment > 0 ? ((year1.cashFlowBeforeTax || 0) / totalInvestment) * 100 : 0;
+    const arv = purchasePrice + rehabCost;
+    const capRate = arv > 0 ? (noi / arv) * 100 : 0;
+
+    const chartData = [
+        { name: 'Income', value: grossMonthlyIncome, fill: 'hsl(var(--primary))' },
+        { name: 'Expenses', value: (year1.operatingExpenses || 0) / 12, fill: 'hsl(var(--destructive))' },
+        { name: 'Mortgage', value: (year1.debtService || 0) / 12, fill: 'hsl(var(--accent))' },
+        { name: 'Cash Flow', value: monthlyCashFlow > 0 ? monthlyCashFlow : 0, fill: 'hsl(var(--chart-2))' },
+    ];
+
+    setAnalysisResult({
+        monthlyCashFlow,
+        cocReturn,
+        capRate,
+        noi,
+        chartData,
+        proFormaData: proForma,
+    });
+  };
+
+  const handleRunAnalysisAndAI = (data: FormData) => {
+    // Step 1: Run local calculations
+    handleAnalysis(data);
+
+    // Step 2: Run AI assessment
+    startAITransition(async () => {
         const proForma = calculateProForma(data);
         const year1 = proForma[0] || {};
         const monthlyExpenses = (year1.operatingExpenses || 0) / 12;
@@ -212,31 +258,15 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
     });
   };
 
-  const watchedValues = form.watch();
-
-  const { monthlyCashFlow, cocReturn, capRate, noi, chartData, proFormaData } = useMemo(() => {
-    const { purchasePrice, rehabCost, closingCosts, downPayment } = watchedValues;
-    const proForma = calculateProForma(watchedValues);
-    const year1 = proForma[0] || {};
-    
-    const totalInvestment = downPayment + (closingCosts/100 * purchasePrice) + rehabCost;
-    const noi = year1.noi || 0;
-    const monthlyCashFlow = (year1.cashFlowBeforeTax || 0) / 12;
-    const cocReturn = totalInvestment > 0 ? ((year1.cashFlowBeforeTax || 0) / totalInvestment) * 100 : 0;
-    const arv = purchasePrice + rehabCost;
-    const capRate = arv > 0 ? (noi / arv) * 100 : 0;
-
-    const chartData = [
-        { name: 'Income', value: watchedValues.grossMonthlyIncome, fill: 'hsl(var(--primary))' },
-        { name: 'Expenses', value: (year1.operatingExpenses || 0) / 12, fill: 'hsl(var(--destructive))' },
-        { name: 'Mortgage', value: (year1.debtService || 0) / 12, fill: 'hsl(var(--accent))' },
-        { name: 'Cash Flow', value: monthlyCashFlow > 0 ? monthlyCashFlow : 0, fill: 'hsl(var(--chart-2))' },
-    ];
-
-    return { monthlyCashFlow, cocReturn, capRate, noi, chartData, proFormaData: proForma };
-  }, [watchedValues]);
-
   const handleSaveDeal = async () => {
+    if (!analysisResult) {
+        toast({
+            title: 'Analysis Required',
+            description: 'Please run the analysis before saving the deal.',
+            variant: 'destructive',
+        });
+        return;
+    }
     if (!user) {
       toast({ title: 'Authentication Required', description: 'Please sign in to save deals.', variant: 'destructive' });
       return;
@@ -268,17 +298,20 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
     setIsSaving(true);
     const formValues = form.getValues();
     
-    const dealData = {
+    const dealData: Deal = {
       ...formValues,
       dealType: 'Rental Property' as const,
-      monthlyCashFlow: parseFloat(monthlyCashFlow.toFixed(2)),
-      cocReturn: parseFloat(cocReturn.toFixed(2)),
-      noi: parseFloat(noi.toFixed(2)),
-      capRate: parseFloat(capRate.toFixed(2)),
+      monthlyCashFlow: parseFloat(analysisResult.monthlyCashFlow.toFixed(2)),
+      cocReturn: parseFloat(analysisResult.cocReturn.toFixed(2)),
+      noi: parseFloat(analysisResult.noi.toFixed(2)),
+      capRate: parseFloat(analysisResult.capRate.toFixed(2)),
       userId: user.uid,
       createdAt: isEditMode && deal ? deal.createdAt : serverTimestamp(),
       status: isEditMode && deal ? deal.status : 'In Works',
       isPublished: isEditMode && deal ? deal.isPublished : false,
+      id: isEditMode && deal ? deal.id : '', // id will be generated by firestore for new deals
+      roi: 0, // Not used for rentals
+      netProfit: 0, // Not used for rentals
     };
     
     if (isEditMode && deal) {
@@ -291,6 +324,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
       addDocumentNonBlocking(dealsCol, dealData);
       toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
       form.reset();
+      setAnalysisResult(null);
     }
 
     setIsSaving(false);
@@ -305,7 +339,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
         </CardDescription>
       </CardHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleAnalyzeWrapper)}>
+        <form onSubmit={form.handleSubmit(handleRunAnalysisAndAI)}>
           <CardContent className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-4">
@@ -355,47 +389,51 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6 mt-6">
-                <Card>
-                    <CardHeader><CardTitle>Key Metrics</CardTitle></CardHeader>
-                    <CardContent className="grid grid-cols-2 gap-4">
-                      <div> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className="text-2xl font-bold">${monthlyCashFlow.toFixed(2)}</p> </div>
-                      <div> <p className="text-sm text-muted-foreground">CoC Return</p> <p className="text-2xl font-bold">{cocReturn.toFixed(2)}%</p> </div>
-                      <div> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="font-bold">${noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
-                      <div> <p className="text-sm text-muted-foreground">Cap Rate</p> <p className="font-bold">{capRate.toFixed(2)}%</p> </div>
-                    </CardContent>
-                </Card>
+            {analysisResult && (
+                <>
+                    <div className="grid md:grid-cols-2 gap-6 mt-6">
+                        <Card>
+                            <CardHeader><CardTitle>Key Metrics</CardTitle></CardHeader>
+                            <CardContent className="grid grid-cols-2 gap-4">
+                            <div> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className="text-2xl font-bold">${analysisResult.monthlyCashFlow.toFixed(2)}</p> </div>
+                            <div> <p className="text-sm text-muted-foreground">CoC Return</p> <p className="text-2xl font-bold">{analysisResult.cocReturn.toFixed(2)}%</p> </div>
+                            <div> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="font-bold">${analysisResult.noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
+                            <div> <p className="text-sm text-muted-foreground">Cap Rate</p> <p className="font-bold">{analysisResult.capRate.toFixed(2)}%</p> </div>
+                            </CardContent>
+                        </Card>
 
-                <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2"> <BarChart2 size={20} /> Monthly Breakdown </CardTitle>
-                    </CardHeader>
-                    <CardContent className="h-[200px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                          <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={value => `$${value}`} />
-                          <Tooltip 
-                            cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
-                            contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }} />
-                          <Bar dataKey="value" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-            </div>
-            
-            <div className="mt-6">
-                <ProFormaTable data={proFormaData} />
-            </div>
+                        <Card>
+                            <CardHeader>
+                            <CardTitle className="flex items-center gap-2"> <BarChart2 size={20} /> Monthly Breakdown </CardTitle>
+                            </CardHeader>
+                            <CardContent className="h-[200px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={analysisResult.chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={value => `$${value}`} />
+                                <Tooltip 
+                                    cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
+                                    contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }} />
+                                <Bar dataKey="value" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                            </CardContent>
+                        </Card>
+                    </div>
+                    
+                    <div className="mt-6">
+                        <ProFormaTable data={analysisResult.proFormaData} />
+                    </div>
+                </>
+            )}
 
             <div className="mt-6">
                  <Card>
                     <CardHeader> <CardTitle className="flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
                     <CardContent>
                       <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>AI Advisor Prompt</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> e.g., "Analyze market conditions for zip code 90210," or "Suggest financing options for a first-time investor." </FormDescription> <FormMessage /> </FormItem> )} />
-                      {isPending ? (
+                      {isAIPending ? (
                         <div className="space-y-2 mt-4 flex justify-center"> <Loader2 className="h-6 w-6 animate-spin" /> </div>
                       ) : aiResult?.assessment ? (
                         <div className="text-sm text-muted-foreground mt-4 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
@@ -409,11 +447,13 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
             {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
-            <Button type="submit" disabled={isPending || isSaving}> {isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyzing...</> : 'Run Analysis'} </Button>
-            <Button variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
+            <Button type="submit" disabled={isAIPending || isSaving}> {isAIPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyzing...</> : 'Run Analysis'} </Button>
+            <Button variant="secondary" onClick={handleSaveDeal} disabled={isAIPending || isSaving}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
           </CardFooter>
         </form>
       </Form>
     </Card>
   );
 }
+
+    

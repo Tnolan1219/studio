@@ -42,7 +42,7 @@ import { collection, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
 import { ProFormaTable } from './pro-forma-table';
-import type { ProFormaEntry, Deal, UserProfile } from '@/lib/types';
+import type { ProFormaEntry, Deal, UserProfile, LineItem, UnitMixItem } from '@/lib/types';
 import { Switch } from '@/components/ui/switch';
 import AdvancedCommercialCalculator from './advanced-commercial-calculator';
 import { Label } from '@/components/ui/label';
@@ -174,7 +174,17 @@ interface CommercialCalculatorProps {
 
 export default function CommercialCalculator({ deal, onSave, onCancel, dealCount = 0 }: CommercialCalculatorProps) {
   const [aiResult, setAiResult] = useState<{message: string, assessment: string | null} | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isAIPending, startAITransition] = useTransition();
+
+  const [analysisResult, setAnalysisResult] = useState<{
+      monthlyCashFlow: number;
+      cocReturn: number;
+      capRate: number;
+      noi: number;
+      chartData: any[];
+      proFormaData: ProFormaEntry[];
+  } | null>(null);
+
 
   const { user } = useUser();
   const firestore = useFirestore();
@@ -191,7 +201,6 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
   const { data: profileData } = useDoc<UserProfile>(userProfileRef);
 
   useEffect(() => {
-    // When editing, determine which mode to start in.
     if (isEditMode) {
       setIsAdvancedMode(!!deal.isAdvanced);
     }
@@ -230,16 +239,35 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
   useEffect(() => {
     if (isEditMode && deal) {
       form.reset(deal);
+      handleAnalysis(deal);
     }
-  }, [deal, isEditMode, form]);
+  }, [deal, isEditMode, form.reset]);
 
-  const { fields: unitMixFields, append: appendUnit, remove: removeUnit } = useFieldArray({
-    control: form.control,
-    name: 'unitMix',
-  });
+  const handleAnalysis = (data: FormData) => {
+    const { purchasePrice, downPayment } = data;
+    const proForma = calculateProForma(data);
+    const year1 = proForma[0] || {};
+    
+    const totalInvestment = downPayment; // simplified for this model
+    const noi = year1.noi || 0;
+    const monthlyCashFlow = (year1.cashFlowBeforeTax || 0) / 12;
+    const cocReturn = totalInvestment > 0 ? ((monthlyCashFlow * 12) / totalInvestment) * 100 : 0;
+    const capRate = purchasePrice > 0 ? (noi / purchasePrice) * 100 : 0;
 
-  const handleAnalyzeWrapper = (data: FormData) => {
-    startTransition(async () => {
+    const cashFlowChartData = proForma.slice(0, 10).map(entry => ({
+      year: `Year ${entry.year}`,
+      cashFlow: parseFloat(entry.cashFlowBeforeTax.toFixed(2))
+    }));
+    
+    setAnalysisResult({
+        monthlyCashFlow, cocReturn, capRate, noi, chartData: cashFlowChartData, proFormaData: proForma
+    });
+  };
+
+  const handleRunAnalysisAndAI = (data: FormData) => {
+    handleAnalysis(data);
+
+    startAITransition(async () => {
         const annualIncome = data.unitMix.reduce((acc, unit) => acc + (unit.count * unit.rent * 12), 0) + data.otherIncomes.reduce((acc, item) => acc + (item.amount * 12), 0);
         const annualExpenses = data.operatingExpenses.reduce((acc, item) => acc + (item.amount * 12), 0);
         const noi = annualIncome * (1- (data.vacancyRate/100)) - annualExpenses;
@@ -258,28 +286,11 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
     });
   };
 
-  const watchedValues = form.watch();
-
-  const { monthlyCashFlow, cocReturn, capRate, noi, chartData, proFormaData } = useMemo(() => {
-    const { purchasePrice, downPayment } = watchedValues;
-    const proForma = calculateProForma(watchedValues);
-    const year1 = proForma[0] || {};
-    
-    const totalInvestment = downPayment; // simplified for this model
-    const noi = year1.noi || 0;
-    const monthlyCashFlow = (year1.cashFlowBeforeTax || 0) / 12;
-    const cocReturn = totalInvestment > 0 ? ((monthlyCashFlow * 12) / totalInvestment) * 100 : 0;
-    const capRate = purchasePrice > 0 ? (noi / purchasePrice) * 100 : 0;
-
-    const cashFlowChartData = proForma.slice(0, 10).map(entry => ({
-      year: `Year ${entry.year}`,
-      cashFlow: parseFloat(entry.cashFlowBeforeTax.toFixed(2))
-    }));
-
-    return { monthlyCashFlow, cocReturn, capRate, noi, chartData: cashFlowChartData, proFormaData: proForma };
-  }, [watchedValues]);
-
   const handleSaveDeal = async () => {
+    if (!analysisResult) {
+        toast({ title: 'Analysis Required', description: 'Please run the analysis first.', variant: 'destructive' });
+        return;
+    }
     if (!user) {
       toast({ title: 'Authentication Required', description: 'Please sign in to save deals.', variant: 'destructive' });
       return;
@@ -310,18 +321,35 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
 
     setIsSaving(true);
     const formValues = form.getValues();
-    const dealData = {
+    const dealData: Deal = {
       ...formValues,
+      id: isEditMode && deal ? deal.id : '',
       dealType: 'Commercial Multifamily' as const,
-      monthlyCashFlow: parseFloat(monthlyCashFlow.toFixed(2)),
-      cocReturn: parseFloat(cocReturn.toFixed(2)),
-      noi: parseFloat(noi.toFixed(2)),
-      capRate: parseFloat(capRate.toFixed(2)),
+      monthlyCashFlow: parseFloat(analysisResult.monthlyCashFlow.toFixed(2)),
+      cocReturn: parseFloat(analysisResult.cocReturn.toFixed(2)),
+      noi: parseFloat(analysisResult.noi.toFixed(2)),
+      capRate: parseFloat(analysisResult.capRate.toFixed(2)),
       userId: user.uid,
       createdAt: isEditMode && deal ? deal.createdAt : serverTimestamp(),
       status: isEditMode && deal ? deal.status : 'In Works',
       isPublished: isEditMode && deal ? deal.isPublished : false,
       isAdvanced: false, // Simple calculator always saves as non-advanced
+      // Defaulting unused fields
+      arv: 0,
+      rehabCost: 0,
+      repairsAndMaintenance: 0,
+      capitalExpenditures: 0,
+      managementFee: 0,
+      annualAppreciation: formValues.annualAppreciation || 0,
+      annualExpenseGrowth: formValues.annualExpenseGrowth || 0,
+      annualIncomeGrowth: formValues.annualIncomeGrowth || 0,
+      grossMonthlyIncome: 0,
+      holdingLength: 0,
+      insurance: 0,
+      netProfit: 0,
+      propertyTaxes: 0,
+      roi: 0,
+      sellingCosts: formValues.sellingCosts || 0,
     };
 
     if (isEditMode && deal) {
@@ -334,6 +362,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
       addDocumentNonBlocking(dealsCol, dealData);
       toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
       form.reset();
+      setAnalysisResult(null);
     }
     setIsSaving(false);
   };
@@ -362,7 +391,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
         <AdvancedCommercialCalculator deal={deal} onSave={onSave} onCancel={onCancel} dealCount={dealCount} />
       ) : (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleAnalyzeWrapper)}>
+            <form onSubmit={form.handleSubmit(handleRunAnalysisAndAI)}>
             <CardContent className="space-y-6">
                 <div className="grid lg:grid-cols-2 gap-6">
                     <div className="space-y-6">
@@ -379,15 +408,15 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                                 <div>
                                     <FormLabel>Unit Mix</FormLabel>
                                     <FormDescription className="text-xs">Define the number of units and average rent for each type.</FormDescription>
-                                    {unitMixFields.map((field, index) => (
-                                        <div key={field.id} className="grid grid-cols-[1fr,1fr,1fr,auto] gap-2 items-end mt-2">
+                                    {form.getValues('unitMix').map((field, index) => (
+                                        <div key={index} className="grid grid-cols-[1fr,1fr,1fr,auto] gap-2 items-end mt-2">
                                         <FormField control={form.control} name={`unitMix.${index}.type`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Type</FormLabel><FormControl><Input placeholder="e.g., 2BR" {...field} /></FormControl> </FormItem> )} />
                                         <FormField control={form.control} name={`unitMix.${index}.count`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs"># Units</FormLabel><FormControl><Input type="number" {...field} /></FormControl> </FormItem> )} />
                                         <FormField control={form.control} name={`unitMix.${index}.rent`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Avg. Rent</FormLabel><FormControl><InputWithIcon icon={<DollarSign size={14}/>} type="number" {...field} /></FormControl> </FormItem> )} />
-                                        <Button type="button" variant="ghost" size="icon" onClick={() => removeUnit(index)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => form.setValue('unitMix', form.getValues('unitMix').filter((_, i) => i !== index))}><Trash2 className="h-4 w-4 text-destructive"/></Button>
                                         </div>
                                     ))}
-                                    <Button type="button" size="sm" variant="outline" onClick={() => appendUnit({type: '', count: 0, rent: 0})} className="mt-2 flex items-center gap-1"><Plus size={16}/> Add Unit Type</Button>
+                                    <Button type="button" size="sm" variant="outline" onClick={() => form.setValue('unitMix', [...form.getValues('unitMix'), {type: '', count: 0, rent: 0}])} className="mt-2 flex items-center gap-1"><Plus size={16}/> Add Unit Type</Button>
                                 </div>
                                 <LineItemInput control={form.control} name="otherIncomes" formLabel="Other Income" fieldLabel="Income Source" placeholder="e.g., Laundry, Parking" icon={<DollarSign size={14}/>} />
                             </CardContent>
@@ -420,46 +449,50 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                         </Card>
                     </div>
                 </div>
-
-                <Card>
-                    <CardHeader><CardTitle>Key Metrics (Year 1)</CardTitle></CardHeader>
-                    <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div><p className="text-sm text-muted-foreground">Cap Rate</p><p className="text-2xl font-bold">{capRate.toFixed(2)}%</p></div>
-                        <div><p className="text-sm text-muted-foreground">CoC Return</p><p className="text-2xl font-bold">{cocReturn.toFixed(2)}%</p></div>
-                        <div><p className="text-sm text-muted-foreground">NOI (Annual)</p><p className="font-bold text-lg">${noi.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p></div>
-                        <div><p className="text-sm text-muted-foreground">Monthly Cash Flow</p><p className="font-bold text-lg">${monthlyCashFlow.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p></div>
-                    </CardContent>
-                </Card>
                 
-                <Card>
-                    <CardHeader> <CardTitle className="flex items-center gap-2"> <BarChart2 size={20} /> 10-Year Cash Flow Projection </CardTitle> </CardHeader>
-                    <CardContent className="h-[250px] -ml-4 pr-4">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                            <XAxis dataKey="year" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
-                            <Tooltip
-                                cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
-                                contentStyle={{ 
-                                    backgroundColor: 'hsl(var(--background))', 
-                                    border: '1px solid hsl(var(--border))',
-                                    color: 'hsl(var(--foreground))'
-                                }}
-                            />
-                            <Bar dataKey="cashFlow" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                    </CardContent>
-                </Card>
+                {analysisResult && (
+                    <>
+                    <Card>
+                        <CardHeader><CardTitle>Key Metrics (Year 1)</CardTitle></CardHeader>
+                        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div><p className="text-sm text-muted-foreground">Cap Rate</p><p className="text-2xl font-bold">{analysisResult.capRate.toFixed(2)}%</p></div>
+                            <div><p className="text-sm text-muted-foreground">CoC Return</p><p className="text-2xl font-bold">{analysisResult.cocReturn.toFixed(2)}%</p></div>
+                            <div><p className="text-sm text-muted-foreground">NOI (Annual)</p><p className="font-bold text-lg">${analysisResult.noi.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p></div>
+                            <div><p className="text-sm text-muted-foreground">Monthly Cash Flow</p><p className="font-bold text-lg">${analysisResult.monthlyCashFlow.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p></div>
+                        </CardContent>
+                    </Card>
+                    
+                    <Card>
+                        <CardHeader> <CardTitle className="flex items-center gap-2"> <BarChart2 size={20} /> 10-Year Cash Flow Projection </CardTitle> </CardHeader>
+                        <CardContent className="h-[250px] -ml-4 pr-4">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={analysisResult.chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                <XAxis dataKey="year" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
+                                <Tooltip
+                                    cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
+                                    contentStyle={{ 
+                                        backgroundColor: 'hsl(var(--background))', 
+                                        border: '1px solid hsl(var(--border))',
+                                        color: 'hsl(var(--foreground))'
+                                    }}
+                                />
+                                <Bar dataKey="cashFlow" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
 
-                <ProFormaTable data={proFormaData} />
+                    <ProFormaTable data={analysisResult.proFormaData} />
+                    </>
+                )}
                 
                 <Card>
                     <CardHeader> <CardTitle className="flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
                     <CardContent>
                     <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>AI Advisor Prompt</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> e.g., "Analyze the pros and cons of a triple-net lease for this property." </FormDescription> <FormMessage /> </FormItem> )} />
-                    {isPending ? (
+                    {isAIPending ? (
                         <div className="space-y-2 mt-4 flex justify-center"> <Loader2 className="h-6 w-6 animate-spin" /> </div>
                     ) : aiResult?.assessment ? (
                         <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
@@ -473,8 +506,8 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
                 {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
-                <Button type="submit" disabled={isPending || isSaving}> {isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyzing...</> : 'Run Analysis'} </Button>
-                <Button variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
+                <Button type="submit" disabled={isAIPending || isSaving}> {isAIPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyzing...</> : 'Run Analysis'} </Button>
+                <Button variant="secondary" onClick={handleSaveDeal} disabled={isAIPending || isSaving}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
             </CardFooter>
             </form>
         </Form>
@@ -482,3 +515,5 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
     </Card>
   );
 }
+
+    

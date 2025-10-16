@@ -113,3 +113,5 @@ export type ProFormaEntry = {
     loanBalance: number;
     equity: number;
 }
+
+    
