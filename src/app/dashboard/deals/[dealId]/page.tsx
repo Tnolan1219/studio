@@ -3,7 +3,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
-import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, FirebaseClientProvider } from '@/firebase';
 import { doc, collection, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { setDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import type { Deal, DealComment, DealStatus } from '@/lib/types';
@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { BarChart, Building, Home, Repeat, Trash2, Edit, MessageSquare, Send, Eye, EyeOff, ArrowLeft, Sparkles, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ProFormaTable } from '@/components/analysis/pro-forma-table';
@@ -108,7 +108,7 @@ const calculateProForma = (deal: Deal): ProFormaEntry[] => {
 };
 
 
-export default function DealDetailPage() {
+function DealDetailView() {
     const { dealId } = useParams();
     const { user } = useUser();
     const firestore = useFirestore();
@@ -442,4 +442,11 @@ export default function DealDetailPage() {
     );
 }
 
-    
+export default function DealDetailPage() {
+    return (
+        <FirebaseClientProvider>
+            <DealDetailView />
+        </FirebaseClientProvider>
+    )
+}
+
