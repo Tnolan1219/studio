@@ -441,3 +441,5 @@ export default function DealDetailPage() {
         </div>
     );
 }
+
+    

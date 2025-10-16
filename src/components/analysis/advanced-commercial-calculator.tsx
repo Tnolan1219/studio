@@ -236,7 +236,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
     { value: 'detailed_analysis', label: 'AI Analysis', icon: Sparkles },
   ];
 
-  const [isPending, startTransition] = useTransition();
+  const [isAIPending, startAITransition] = useTransition();
   const [aiResult, setAiResult] = useState<{message: string, assessment: string | null} | null>(null);
   const { user } = useUser();
   const firestore = useFirestore();
@@ -300,8 +300,9 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
     name: 'unitMix',
   });
 
-  const handleAnalyzeWrapper = (data: FormData) => {
-    startTransition(async () => {
+  const handleGenerateInsights = () => {
+    const data = form.getValues();
+    startAITransition(async () => {
         const proForma = calculateProForma(data);
         const year1 = proForma[0] || {};
         
@@ -554,7 +555,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
             This multi-tab interface supports detailed, year-by-year cash flow analysis, value-add projects, complex financing, and more.
         </p>
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleAnalyzeWrapper)}>
+            <form>
                 <Tabs defaultValue="overview" className="w-full">
                     <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-8 h-auto">
                         {tabs.map(tab => (
@@ -770,7 +771,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                             <CardHeader> <CardTitle className="flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
                             <CardContent>
                             <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>AI Advisor Prompt</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> e.g., "Analyze the pros and cons of a triple-net lease for this property." </FormDescription> <FormMessage /> </FormItem> )} />
-                            {isPending ? (
+                            {isAIPending ? (
                                 <div className="space-y-2 mt-4 flex justify-center"> <Loader2 className="h-6 w-6 animate-spin" /> </div>
                             ) : aiResult?.assessment ? (
                                 <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
@@ -779,15 +780,18 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                             )}
                             {aiResult?.message && !aiResult.assessment && ( <p className="text-sm text-destructive mt-4">{aiResult.message}</p> )}
                             </CardContent>
+                             <CardFooter>
+                                <Button onClick={handleGenerateInsights} disabled={isAIPending} className="w-full">
+                                    {isAIPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</> : 'Generate AI Insights'}
+                                </Button>
+                            </CardFooter>
                         </Card>
                     </TabsContent>
 
                 </Tabs>
                 <CardFooter className="flex justify-end gap-2 mt-6">
                     {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
-                     <Button type="submit" disabled={isPending || isSaving}> {isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyzing...</> : 'Run Analysis'} </Button>
-
-                    <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isPending || isSaving}> 
+                    <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isAIPending || isSaving}> 
                         {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} 
                     </Button>
                 </CardFooter>
@@ -796,3 +800,5 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
     </CardContent>
   );
 }
+
+    

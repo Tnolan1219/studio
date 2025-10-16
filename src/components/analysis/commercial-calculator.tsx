@@ -264,21 +264,24 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
     });
   };
 
-  const handleRunAnalysisAndAI = (data: FormData) => {
-    handleAnalysis(data);
-
+  const handleGenerateInsights = () => {
+    if (!analysisResult) {
+        toast({
+            title: 'Run Analysis First',
+            description: 'Please run the local analysis before generating AI insights.',
+            variant: 'destructive'
+        });
+        return;
+    }
+    const data = form.getValues();
     startAITransition(async () => {
-        const annualIncome = data.unitMix.reduce((acc, unit) => acc + (unit.count * unit.rent * 12), 0) + data.otherIncomes.reduce((acc, item) => acc + (item.amount * 12), 0);
-        const annualExpenses = data.operatingExpenses.reduce((acc, item) => acc + (item.amount * 12), 0);
-        const noi = annualIncome * (1- (data.vacancyRate/100)) - annualExpenses;
-
         const result = await getDealAssessment({
           dealType: 'Commercial Multifamily',
           financialData: `
             Purchase Price: ${data.purchasePrice},
-            Gross Potential Rent (Annual): ${annualIncome.toFixed(2)},
-            Vacancy: ${data.vacancyRate}%, Total Operating Expenses (Annual): ${annualExpenses.toFixed(2)},
-            Calculated Year 1 NOI: ${noi.toFixed(2)}
+            Year 1 NOI: ${analysisResult.noi.toFixed(2)},
+            Year 1 Cap Rate: ${analysisResult.capRate.toFixed(2)}%,
+            Year 1 CoC Return: ${analysisResult.cocReturn.toFixed(2)}%
         `,
           marketConditions: data.marketConditions,
         });
@@ -391,7 +394,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
         <AdvancedCommercialCalculator deal={deal} onSave={onSave} onCancel={onCancel} dealCount={dealCount} />
       ) : (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleRunAnalysisAndAI)}>
+            <form onSubmit={form.handleSubmit(handleAnalysis)}>
             <CardContent className="space-y-6">
                 <div className="grid lg:grid-cols-2 gap-6">
                     <div className="space-y-6">
@@ -501,12 +504,17 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                     )}
                     {aiResult?.message && !aiResult.assessment && ( <p className="text-sm text-destructive mt-4">{aiResult.message}</p> )}
                     </CardContent>
+                    <CardFooter className="flex justify-end">
+                        <Button type="button" onClick={handleGenerateInsights} disabled={isAIPending}>
+                            {isAIPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</> : 'Generate AI Insights'}
+                        </Button>
+                    </CardFooter>
                 </Card>
 
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
                 {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
-                <Button type="submit" disabled={isAIPending || isSaving}> {isAIPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyzing...</> : 'Run Analysis'} </Button>
+                <Button type="submit">Run Analysis</Button>
                 <Button variant="secondary" onClick={handleSaveDeal} disabled={isAIPending || isSaving}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
             </CardFooter>
             </form>

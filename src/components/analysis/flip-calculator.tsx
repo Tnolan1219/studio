@@ -160,16 +160,25 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
     });
   };
 
-  const handleRunAnalysisAndAI = (data: FormData) => {
-    handleAnalysis(data);
-
+  const handleGenerateInsights = () => {
+    if (!analysisResult) {
+      toast({
+        title: 'Run Analysis First',
+        description: 'Please run the local analysis before generating AI insights.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const data = form.getValues();
     startAITransition(async () => {
         const result = await getDealAssessment({
           dealType: 'House Flip',
           financialData: `
             Purchase Price: ${data.purchasePrice}, After Repair Value (ARV): ${data.arv},
             Rehab Cost: ${data.rehabCost}, Holding Length: ${data.holdingLength} months,
-            Selling Costs: ${data.sellingCosts}%
+            Total Investment: ${analysisResult.totalInvestment.toFixed(2)},
+            Calculated Net Profit: ${analysisResult.netProfit.toFixed(2)},
+            Calculated ROI: ${analysisResult.roi.toFixed(2)}%
         `,
           marketConditions: data.marketConditions,
         });
@@ -261,7 +270,7 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
         <CardDescription>{isEditMode ? 'Update the details for your house flip.' : 'Calculate the potential profit and ROI for your next house flip project.'}</CardDescription>
       </CardHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleRunAnalysisAndAI)}>
+        <form onSubmit={form.handleSubmit(handleAnalysis)}>
           <CardContent className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-4">
@@ -321,7 +330,12 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
                         <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} width={80} />
                         <Tooltip 
                             cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
-                            contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }} />
+                            contentStyle={{ 
+                                backgroundColor: 'hsl(var(--background))', 
+                                border: '1px solid hsl(var(--border))',
+                                color: 'hsl(var(--foreground))'
+                            }}
+                        />
                         <Bar dataKey="value" radius={[0, 4, 4, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
@@ -339,16 +353,21 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
                   ) : aiResult?.assessment ? (
                     <div className="text-sm text-muted-foreground mt-4 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
                   ) : (
-                    <p className="text-sm text-muted-foreground mt-4"> Click "Run Analysis" to get an AI-powered assessment. </p>
+                    <p className="text-sm text-muted-foreground mt-4"> Click "Generate AI Insights" after running an analysis. </p>
                   )}
                   {aiResult?.message && !aiResult.assessment && ( <p className="text-sm text-destructive mt-4">{aiResult.message}</p> )}
                 </CardContent>
+                <CardFooter className="flex justify-end">
+                    <Button type="button" onClick={handleGenerateInsights} disabled={isAIPending}>
+                        {isAIPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</> : 'Generate AI Insights'}
+                    </Button>
+                </CardFooter>
               </Card>
             </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
             {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
-            <Button type="submit" disabled={isAIPending || isSaving}> {isAIPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyzing...</> : 'Run Analysis'} </Button>
+            <Button type="submit">Run Analysis</Button>
             <Button variant="secondary" onClick={handleSaveDeal} disabled={isAIPending || isSaving}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
           </CardFooter>
         </form>
