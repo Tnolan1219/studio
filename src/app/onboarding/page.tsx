@@ -136,6 +136,7 @@ Make it specific and actionable. For example: "My goal is to acquire three cash-
     const userProfileRef = doc(firestore, 'users', user.uid);
     
     const profileData = {
+        id: user.uid, // Add this line
         ...data,
         email: user.email,
         photoURL: user.photoURL,

@@ -100,7 +100,7 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 type SensitivityVariable = 'vacancyRate' | 'purchasePrice' | 'annualIncomeGrowth' | 'exitCapRate' | 'interestRate' | 'downPayment';
-type SensitivityMetric = 'irr' | 'cocReturn' | 'equityMultiple' | 'monthlyCashFlow' | 'capRate' | 'noi';
+type SensitivityMetric = 'irr' | 'equityMultiple' | 'cocReturn' | 'monthlyCashFlow' | 'capRate' | 'noi';
 
 
 // Simplified IRR calculation using Newton-Raphson method
@@ -482,8 +482,11 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
 
     setIsSaving(true);
     const formValues = form.getValues();
+    const dealId = isEditMode && deal ? deal.id : doc(collection(firestore, `users/${user.uid}/deals`)).id;
+
     const dealData = {
       ...formValues,
+      id: dealId,
       dealType: 'Commercial Multifamily' as const,
       monthlyCashFlow: parseFloat(monthlyCashFlow.toFixed(2)),
       cocReturn: parseFloat(cocReturn.toFixed(2)),
@@ -498,16 +501,14 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
       isAdvanced: true,
     };
     
+    const dealRef = doc(firestore, `users/${user.uid}/deals`, dealId);
+    
     if (isEditMode) {
-        const dealRef = doc(firestore, `users/${user.uid}/deals`, deal.id);
         setDocumentNonBlocking(dealRef, dealData, { merge: true });
         toast({ title: 'Changes Saved', description: `${dealData.dealName} has been updated.` });
         if (onSave) onSave();
     } else {
-        const dealsCol = collection(firestore, `users/${user.uid}/deals`);
-        addDocumentNonBlocking(dealsCol, dealData).catch(error => {
-            toast({ title: 'Error Saving Deal', description: error.message, variant: 'destructive' });
-        });
+        setDocumentNonBlocking(dealRef, dealData, { merge: true });
         toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
         form.reset();
     }
@@ -800,5 +801,3 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
     </CardContent>
   );
 }
-
-    

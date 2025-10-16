@@ -221,8 +221,11 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
 
     setIsSaving(true);
     const formValues = form.getValues();
+    const dealId = isEditMode && deal ? deal.id : doc(collection(firestore, `users/${user.uid}/deals`)).id;
+
     const dealData: Deal = {
       ...formValues,
+      id: dealId,
       dealType: 'House Flip' as const,
       netProfit: parseFloat(analysisResult.netProfit.toFixed(2)),
       roi: parseFloat(analysisResult.roi.toFixed(2)),
@@ -230,7 +233,6 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
       createdAt: isEditMode && deal ? deal.createdAt : serverTimestamp(),
       status: isEditMode && deal ? deal.status : 'In Works',
       isPublished: isEditMode && deal ? deal.isPublished : false,
-      id: isEditMode && deal ? deal.id : '',
       monthlyCashFlow: 0,
       cocReturn: 0,
       noi: 0,
@@ -248,14 +250,14 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
       annualAppreciation: 0,
     };
     
+    const dealRef = doc(firestore, `users/${user.uid}/deals`, dealId);
+
     if (isEditMode && deal) {
-        const dealRef = doc(firestore, `users/${user.uid}/deals`, deal.id);
         setDocumentNonBlocking(dealRef, dealData, { merge: true });
         toast({ title: 'Changes Saved', description: `${dealData.dealName} has been updated.` });
         if (onSave) onSave();
     } else {
-        const dealsCol = collection(firestore, `users/${user.uid}/deals`);
-        addDocumentNonBlocking(dealsCol, dealData);
+        setDocumentNonBlocking(dealRef, dealData, { merge: true });
         toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
         form.reset();
         setAnalysisResult(null);
@@ -375,5 +377,3 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
     </Card>
   );
 }
-
-    

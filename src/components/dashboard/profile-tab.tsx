@@ -98,11 +98,13 @@ export default function ProfileTab() {
     
     setIsSaving(true);
     try {
-      // The non-blocking update will either succeed optimistically or throw a permission
-      // error to the global listener. The .catch() here is for network or other issues.
-      setDocumentNonBlocking(userProfileRef, data, { merge: true });
+      const dataToSave = {
+        id: user.uid, // Add this line
+        ...data
+      };
+
+      setDocumentNonBlocking(userProfileRef, dataToSave, { merge: true });
       
-      // We'll optimistically show the success toast.
       toast({
         title: "Changes saved successfully",
       });
@@ -116,7 +118,6 @@ export default function ProfileTab() {
         variant: "destructive"
       })
     } finally {
-      // Short delay to give a feeling of completion
       await new Promise(resolve => setTimeout(resolve, 500));
       setIsSaving(false);
     }
