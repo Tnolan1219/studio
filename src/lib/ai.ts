@@ -5,7 +5,11 @@
  * @returns The AI's response text.
  */
 export async function getAIResponse(prompt: string): Promise<string> {
-    const response = await fetch('/api/ai', {
+    const host = process.env.NEXT_PUBLIC_VERCEL_URL 
+        ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` 
+        : 'http://localhost:3000';
+
+    const response = await fetch(`${host}/api/ai`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
