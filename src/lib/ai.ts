@@ -5,11 +5,9 @@
  * @returns The AI's response text.
  */
 export async function getAIResponse(prompt: string): Promise<string> {
-    const host = process.env.NEXT_PUBLIC_VERCEL_URL 
-        ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` 
-        : 'http://localhost:3000';
-
-    const response = await fetch(`${host}/api/ai`, {
+    // Use a relative URL. Next.js will handle resolving this correctly
+    // on both the server and the client, locally and on Vercel.
+    const response = await fetch('/api/ai', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
