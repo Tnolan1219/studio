@@ -42,6 +42,7 @@ import type { UserProfile } from "@/lib/types";
 import { Loader2, Crown } from "lucide-react";
 import { Separator } from "../ui/separator";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters.").optional(),
@@ -157,7 +158,15 @@ export default function ProfileTab() {
   }
 
   const currentPhotoURL = form.watch('photoURL');
+  const currentPlan = form.watch('plan') || 'Free';
   const isLoading = isUserLoading || (user && !user.isAnonymous && isProfileLoading);
+
+  const planStyles = {
+    'Free': '',
+    'Pro': 'plan-pro shadow-primary/40',
+    'Executive': 'plan-executive shadow-secondary/40',
+    'Elite': 'plan-elite',
+  };
 
   if (isLoading) {
     return (
@@ -201,10 +210,10 @@ export default function ProfileTab() {
 
   return (
     <div className="animate-fade-in space-y-6">
-        <Card className="bg-card/60 backdrop-blur-sm max-w-4xl mx-auto">
+        <Card className={cn("bg-card/60 backdrop-blur-sm max-w-4xl mx-auto transition-all duration-500", planStyles[currentPlan])}>
         <CardHeader>
             <div className="flex items-center gap-4">
-                <Avatar className="h-24 w-24 border-2 border-primary/50">
+                <Avatar className={cn("h-24 w-24 border-2 border-primary/50 relative", planStyles[currentPlan])}>
                     <AvatarImage src={currentPhotoURL || ""} alt={form.getValues('name') || ""} data-ai-hint="person" />
                     <AvatarFallback className="text-3xl">{getInitials()}</AvatarFallback>
                 </Avatar>

@@ -18,6 +18,7 @@ import { useDashboardTab } from '@/hooks/use-dashboard-tab';
 import { doc } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
 import { Badge } from './ui/badge';
+import { cn } from '@/lib/utils';
 
 const ValentorLogo = () => (
   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -113,12 +114,21 @@ function UserNav() {
   
   const photoURL = profileData?.photoURL || user.photoURL;
   const plan = user.isAnonymous ? "Guest" : (profileData?.plan || "Free");
+  const planStyles = {
+    'Guest': '',
+    'Free': '',
+    'Pro': 'plan-pro shadow-primary/40',
+    'Executive': 'plan-executive shadow-secondary/40',
+    'Elite': 'plan-elite',
+  };
+  const currentPlanStyle = planStyles[plan as keyof typeof planStyles] || '';
+
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-9 w-9">
+          <Avatar className={cn("h-9 w-9", currentPlanStyle)}>
             {photoURL && <AvatarImage src={photoURL} alt={profileData?.name || 'User'} data-ai-hint="person" />}
             <AvatarFallback>{getInitials()}</AvatarFallback>
           </Avatar>

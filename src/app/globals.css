@@ -143,4 +143,34 @@
     .tab-button[aria-selected="true"] .liquid-fill {
       transform: translateY(0);
     }
+
+    /* Plan Styles */
+    .plan-pro {
+      animation: pulse-pro 3s infinite;
+    }
+    .plan-executive {
+      animation: pulse-executive 2.5s infinite;
+    }
+    .plan-elite {
+      position: relative;
+      overflow: hidden;
+    }
+    .plan-elite::before {
+      content: '';
+      position: absolute;
+      top: -50%; left: -50%;
+      width: 200%; height: 200%;
+      background: conic-gradient(
+        from 0deg,
+        hsl(var(--primary)),
+        hsl(var(--chart-2)),
+        hsl(var(--chart-4)),
+        hsl(var(--primary))
+      );
+      animation: rotate-glow 4s linear infinite;
+    }
+    .plan-elite > * {
+      position: relative;
+      z-index: 1;
+    }
 }
