@@ -19,6 +19,7 @@ export default function LandingPage() {
             width={128}
             height={128}
             className="mx-auto mb-6"
+            priority
           />
           <h1 className="text-5xl font-bold font-headline text-foreground">
             Valentor Financial
