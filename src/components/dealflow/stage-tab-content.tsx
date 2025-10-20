@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import type { Deal, DealFlowData, DealStage } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../ui/card';
 import { Textarea } from '../ui/textarea';
 import { Button } from '../ui/button';
 import { Loader2, Sparkles } from 'lucide-react';
