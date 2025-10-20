@@ -1,4 +1,6 @@
+
 import Link from 'next/link';
+import Image from 'next/image';
 import { Briefcase, LogOut, User, Settings, LogIn, Crown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
@@ -20,27 +22,6 @@ import type { UserProfile } from '@/lib/types';
 import { Badge } from './ui/badge';
 import { cn } from '@/lib/utils';
 
-const ValentorLogo = () => (
-  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-          <linearGradient id="cyanGradientHeader" x1="0%" y1="100%" x2="100%" y2="0%">
-              <stop offset="0%" style={{stopColor: 'hsl(var(--primary))'}} />
-              <stop offset="100%" style={{stopColor: 'hsl(190, 100%, 70%)'}} />
-          </linearGradient>
-          <filter id="cyanGlowHeader" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur" />
-              <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-              </feMerge>
-          </filter>
-      </defs>
-      <g style={{ filter: 'url(#cyanGlowHeader)' }}>
-          <path d="M 12,3 L 21,19 L 3,19 Z" fill="url(#cyanGradientHeader)" />
-      </g>
-  </svg>
-)
-
 export function Header() {
   const { setActiveTab } = useDashboardTab();
 
@@ -50,10 +31,10 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-12 max-w-screen-2xl items-center">
+      <div className="container flex h-14 max-w-screen-2xl items-center">
         <div className="mr-4 hidden md:flex">
           <Link href="/dashboard" onClick={handleHomeClick} className="mr-6 flex items-center space-x-2">
-            <ValentorLogo />
+            <Image src="/logoduck.png" alt="Valentor Logo" width={32} height={32} />
             <span className="hidden font-bold font-headline sm:inline-block">
               Valentor Financial
             </span>
@@ -144,7 +125,7 @@ function UserNav() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>
+        <DropdownMenuItem onClick={() => setActiveTab('profile')}>
             <div className="flex justify-between items-center w-full">
                 <div className="flex items-center">
                     <Crown className="mr-2 h-4 w-4 text-primary" />
