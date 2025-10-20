@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -16,7 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { BarChart, Building, Home, Repeat, Trash2, Edit, MessageSquare, Send, Eye, EyeOff, ArrowLeft, Sparkles, Loader2 } from 'lucide-react';
+import { BarChart, Building, Home, Repeat, Trash2, Edit, MessageSquare, Send, Eye, EyeOff, ArrowLeft, Sparkles, Loader2, Workflow } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ProFormaTable } from '@/components/analysis/pro-forma-table';
 import { useDashboardTab } from '@/hooks/use-dashboard-tab';
@@ -25,6 +24,7 @@ import FlipCalculator from '@/components/analysis/flip-calculator';
 import CommercialCalculator from '@/components/analysis/commercial-calculator';
 import type { ProFormaEntry } from '@/lib/types';
 import { getDealAssessment } from '@/lib/actions';
+import DealFlowView from '@/components/dealflow/dealflow-view';
 
 
 const DEAL_STATUSES: DealStatus[] = ['In Works', 'Negotiating', 'Bought', 'Owned & Operating', 'Sold'];
@@ -119,6 +119,7 @@ function DealDetailView() {
     const [investorNotes, setInvestorNotes] = useState('');
     const [isEditingNotes, setIsEditingNotes] = useState(false);
     const [isEditingDeal, setIsEditingDeal] = useState(false);
+    const [isDealFlowOpen, setIsDealFlowOpen] = useState(false);
     const [isAIPending, startAITransition] = useTransition();
     const [aiResult, setAiResult] = useState<{message: string, assessment: string | null} | null>(null);
 
@@ -231,7 +232,8 @@ function DealDetailView() {
             const result = await getDealAssessment({
               dealType: deal.dealType,
               financialData,
-              marketConditions: deal.marketConditions
+              marketConditions: deal.marketConditions,
+              stage: 'initial-analysis'
             });
             setAiResult(result);
         });
@@ -260,6 +262,10 @@ function DealDetailView() {
         )
     }
     
+    if (isDealFlowOpen) {
+        return <DealFlowView deal={deal} onBack={() => setIsDealFlowOpen(false)} dealRef={dealRef} />;
+    }
+
     if (isEditingDeal) {
         switch(deal.dealType) {
             case 'Rental Property':
@@ -297,6 +303,10 @@ function DealDetailView() {
                             </CardDescription>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
+                            <Button onClick={() => setIsDealFlowOpen(true)}>
+                                <Workflow className="mr-2 h-4 w-4" />
+                                Open DealFlow
+                            </Button>
                              <Select value={deal.status} onValueChange={handleStatusChange}>
                                 <SelectTrigger className="w-[180px]">
                                     <SelectValue placeholder="Set Status" />
@@ -449,4 +459,3 @@ export default function DealDetailPage() {
         </FirebaseClientProvider>
     )
 }
-

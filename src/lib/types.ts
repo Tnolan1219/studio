@@ -1,4 +1,3 @@
-
 'use client';
 import { Timestamp } from "firebase/firestore";
 
@@ -14,6 +13,7 @@ export type UserProfile = {
 };
 
 export type DealStatus = 'In Works' | 'Negotiating' | 'Bought' | 'Owned & Operating' | 'Sold';
+export type DealStage = 'Analysis' | 'Financing' | 'Negotiations' | 'Inspections' | 'Closing' | 'Rehab' | 'Marketing' | 'Renting' | 'Management' | 'Selling';
 
 export type DealComment = {
     id: string;
@@ -32,6 +32,31 @@ export type LineItem = {
     name: string;
     amount: number;
 }
+
+export type RehabTask = {
+    id: string;
+    name: string;
+    cost: number;
+    startDate: string; // ISO string
+    endDate: string; // ISO string
+    status: 'Not Started' | 'In Progress' | 'Completed';
+}
+
+export type DealFlowData = {
+    currentStage: DealStage;
+    notes?: Record<DealStage, string>;
+    aiRecommendations?: Record<DealStage, string>;
+    negotiationDetails?: {
+        offerPrice: number;
+        contingencies: string;
+    };
+    rehabDetails?: {
+        budget: number;
+        tasks: RehabTask[];
+    };
+    // Add other stage-specific data structures here
+}
+
 
 export type Deal = {
     id: string;
@@ -86,6 +111,7 @@ export type Deal = {
     isPublished: boolean;
     investorNotes?: string;
     isAdvanced?: boolean;
+    dealFlow?: DealFlowData;
 };
 
 export type Testimonial = {
@@ -114,4 +140,3 @@ export type ProFormaEntry = {
     equity: number;
 }
 
-    
