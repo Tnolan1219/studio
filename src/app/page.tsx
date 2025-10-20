@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -20,6 +19,7 @@ export default function LandingPage() {
             height={128}
             className="mx-auto mb-6"
             priority
+            unoptimized
           />
           <h1 className="text-5xl font-bold font-headline text-foreground">
             Valentor Financial

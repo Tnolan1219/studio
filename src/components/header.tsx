@@ -34,7 +34,7 @@ export function Header() {
       <div className="container flex h-14 max-w-screen-2xl items-center">
         <div className="mr-4 hidden md:flex">
           <Link href="/dashboard" onClick={handleHomeClick} className="mr-6 flex items-center space-x-2">
-            <Image src="/logoduck.png" alt="Valentor Logo" width={32} height={32} priority />
+            <Image src="/logoduck.png" alt="Valentor Logo" width={32} height={32} priority unoptimized />
             <span className="hidden font-bold font-headline sm:inline-block">
               Valentor Financial
             </span>
