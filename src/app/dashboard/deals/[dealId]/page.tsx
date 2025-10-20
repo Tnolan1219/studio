@@ -114,6 +114,7 @@ function DealDetailView() {
     const firestore = useFirestore();
     const router = useRouter();
     const { setActiveTab } = useDashboardTab();
+    const { toast } = useToast();
 
     const [newComment, setNewComment] = useState('');
     const [investorNotes, setInvestorNotes] = useState('');
