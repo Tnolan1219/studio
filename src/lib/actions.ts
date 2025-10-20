@@ -1,3 +1,4 @@
+
 'use server';
 
 import { marked } from 'marked';
@@ -7,12 +8,10 @@ import type { DealStage } from './types';
 async function getAIResponse(prompt: string): Promise<string> {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
   if (!GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY is not set.');
+    throw new Error('GEMINI_API_KEY is not set in environment variables.');
   }
 
   const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-
-  let reply: string;
 
   try {
     const response = await fetch(API_URL, {
@@ -33,47 +32,21 @@ async function getAIResponse(prompt: string): Promise<string> {
     if (!response.ok) {
         const errorBody = await response.text();
         console.error('Gemini API request failed:', response.status, errorBody);
-        throw new Error(`Gemini API request failed with status ${response.status}`);
+        throw new Error(`Gemini API request failed with status ${response.status}. Body: ${errorBody}`);
     }
 
     const data = await response.json();
-    reply = data.candidates[0].content.parts[0].text;
+    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts[0]) {
+        console.error('Invalid response structure from Gemini API:', data);
+        throw new Error('Received an invalid response structure from the AI service.');
+    }
+    return data.candidates[0].content.parts[0].text;
 
-  } catch (geminiError) {
-      console.warn('Gemini API failed, falling back to OpenAI...', geminiError);
-      
-      const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-      if (!OPENAI_API_KEY) {
-        throw new Error('OPENAI_API_KEY is not set for fallback.');
-      }
-      const OAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-
-      const response = await fetch(OAI_API_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-            model: 'gpt-4o',
-            messages: [
-            { role: 'system', content: "You are a helpful real estate investment assistant. Respond with simplified bullet points in markdown for quick, efficient answers. Ensure your responses are professional and easy to read." },
-            { role: 'user', content: prompt }
-            ],
-        }),
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        console.error('OpenAI API request failed:', response.status, errorBody);
-        throw new Error(`OpenAI API request failed with status ${response.status}`);
-      }
-      
-      const data = await response.json();
-      reply = data.choices[0].message.content;
+  } catch (error) {
+      console.error('Error fetching from Gemini API:', error);
+      // Re-throw the error to be handled by the caller
+      throw new Error('Failed to get a response from the AI service.');
   }
-  
-  return reply;
 }
 
 
