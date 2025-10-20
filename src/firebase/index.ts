@@ -2,44 +2,41 @@
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore'
+import { getFirestore } from 'firebase/firestore';
+import { firebaseConfig, isFirebaseConfigValid } from './config';
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
+/**
+ * Initializes Firebase. It's safe to call this multiple times.
+ * If Firebase is already initialized, it will return the existing instance.
+ */
 export function initializeFirebase() {
-  // This is the correct pattern for client-side env vars in Next.js
-  const firebaseConfig = {
-      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  };
-    
-  if (getApps().length === 0) {
-    // Check if all required keys are present before initializing
-    if (
-        firebaseConfig.apiKey &&
-        firebaseConfig.authDomain &&
-        firebaseConfig.projectId
-    ) {
-        initializeApp(firebaseConfig);
-    } else {
-        console.error("Firebase config is missing required fields. App could not be initialized.");
-        // Return a dummy object to prevent further crashes down the line
-        return {
-            firebaseApp: null,
-            auth: null,
-            firestore: null,
-        }
-    }
+  // Check if all required keys are present before initializing.
+  // This check uses the imported, build-time resolved config.
+  if (!isFirebaseConfigValid()) {
+    console.error("Firebase config is missing required fields. App could not be initialized.");
+    // Return a dummy object to prevent further crashes down the line.
+    return {
+      firebaseApp: null,
+      auth: null,
+      firestore: null,
+    };
   }
 
-  // If already initialized, return the SDKs with the already initialized App
+  // If no apps are initialized, initialize the main app.
+  if (getApps().length === 0) {
+    initializeApp(firebaseConfig);
+  }
+
+  // Get the initialized app and return the SDKs.
   const app = getApp();
   return getSdks(app);
 }
 
+/**
+ * A helper function to get the SDK instances from a FirebaseApp instance.
+ * @param firebaseApp The initialized Firebase app.
+ * @returns An object containing the Auth and Firestore instances.
+ */
 export function getSdks(firebaseApp: FirebaseApp) {
   return {
     firebaseApp,
