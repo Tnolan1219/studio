@@ -9,10 +9,9 @@ import { Newspaper, Send, Sparkles } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { marked } from 'marked';
 import { doc } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
-import { getAIResponse } from '@/lib/ai';
+import { getDealAssessment } from '@/lib/actions';
 
 
 interface AiResponse {
@@ -48,12 +47,12 @@ export function NewsFeed() {
                     const localPrompt = `You are a real estate market research AI. Provide a general overview of the real estate market for ${userState} as simple bullet points. Discuss typical market characteristics for that area (e.g., "Historically a high-demand area," "Known for its stable rental market," etc.) based on your general knowledge. Do not invent specific numbers or use real-time data.`;
 
                     const [nationalResult, localResult] = await Promise.all([
-                        getAIResponse(nationalPrompt),
-                        getAIResponse(localPrompt)
+                        getDealAssessment({ dealType: 'general', financialData: '', marketConditions: nationalPrompt, stage: 'general-query' }),
+                        getDealAssessment({ dealType: 'general', financialData: '', marketConditions: localPrompt, stage: 'general-query' })
                     ]);
                     
-                    setNationalNews(await marked(nationalResult));
-                    setStateNews(await marked(localResult));
+                    setNationalNews(nationalResult.assessment || '');
+                    setStateNews(localResult.assessment || '');
 
                 } catch (error) {
                     console.error("Failed to fetch AI news briefing:", error);
@@ -71,9 +70,18 @@ export function NewsFeed() {
         setAiResponse({ question: aiQuery, answer: '', isLoading: true });
 
         try {
-            const result = await getAIResponse(aiQuery);
-            const htmlAnswer = await marked(result);
-            setAiResponse({ question: aiQuery, answer: htmlAnswer, isLoading: false });
+            const result = await getDealAssessment({
+                dealType: 'general',
+                financialData: '',
+                marketConditions: aiQuery,
+                stage: 'general-query'
+            });
+
+            if (result.assessment) {
+                 setAiResponse({ question: aiQuery, answer: result.assessment, isLoading: false });
+            } else {
+                throw new Error(result.message);
+            }
         } catch (error: any) {
             console.error("Failed to answer AI question:", error);
             setAiResponse({ question: aiQuery, answer: `<p class="text-destructive">Sorry, I couldn't answer that. ${error.message}</p>`, isLoading: false });

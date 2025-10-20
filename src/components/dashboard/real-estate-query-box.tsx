@@ -5,9 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Send, Sparkles } from "lucide-react";
-import { marked } from 'marked';
 import { Skeleton } from '../ui/skeleton';
-import { getAIResponse } from '@/lib/ai';
+import { getDealAssessment } from '@/lib/actions';
 
 interface AiResponse {
     question: string;
@@ -32,9 +31,18 @@ export function RealEstateQueryBox() {
         setAiResponse({ question, answer: '', isLoading: true });
 
         try {
-            const result = await getAIResponse(question);
-            const htmlAnswer = await marked(result);
-            setAiResponse({ question, answer: htmlAnswer, isLoading: false });
+            const result = await getDealAssessment({
+                dealType: 'general',
+                financialData: '',
+                marketConditions: question,
+                stage: 'general-query'
+            });
+
+            if (result.assessment) {
+                setAiResponse({ question, answer: result.assessment, isLoading: false });
+            } else {
+                throw new Error(result.message);
+            }
         } catch (error: any) {
             console.error("Failed to answer AI question:", error);
             setAiResponse({ question, answer: `<p class="text-destructive">Sorry, I couldn't answer that. ${error.message}</p>`, isLoading: false });

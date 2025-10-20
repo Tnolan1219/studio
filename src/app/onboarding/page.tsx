@@ -38,7 +38,8 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Wand2, Loader2 } from 'lucide-react';
-import { getAIResponse } from '@/lib/ai';
+import { getDealAssessment } from '@/lib/actions';
+import { marked } from 'marked';
 
 
 const onboardingSchema = z.object({
@@ -117,13 +118,28 @@ function OnboardingView() {
 Generate a single, concise, and inspiring example of a financial goal for a user.
 The goal should be related to real estate investing.
 Make it specific and actionable. For example: "My goal is to acquire three cash-flowing rental properties within the next five years to generate $1,500/month in passive income, allowing me to achieve financial flexibility."`;
-      const result = await getAIResponse(prompt);
-      setGoalExample(result);
-    } catch (e) {
+      
+      const result = await getDealAssessment({
+          dealType: 'general',
+          financialData: '',
+          marketConditions: prompt,
+          stage: 'general-query'
+      });
+
+      if (result.assessment) {
+        // The result is HTML, we need to strip tags for the example text
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = result.assessment;
+        setGoalExample(tempDiv.textContent || tempDiv.innerText || '');
+      } else {
+        throw new Error(result.message);
+      }
+
+    } catch (e: any) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Could not generate an example. Please try again.',
+        description: e.message || 'Could not generate an example. Please try again.',
       });
     } finally {
       setIsExampleLoading(false);
