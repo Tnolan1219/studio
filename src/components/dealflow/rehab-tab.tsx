@@ -10,6 +10,8 @@ import { Plus, Trash2, Loader2, Sparkles } from 'lucide-react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { getDealAssessment } from '@/lib/actions';
 import { Progress } from '../ui/progress';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 interface RehabTabProps {
     deal: Deal;
@@ -18,7 +20,6 @@ interface RehabTabProps {
     updateDeal: (data: Partial<Deal>) => void;
 }
 
-// Simple Gantt Chart Component
 const GanttChart = ({ tasks }: { tasks: RehabTask[] }) => {
     if (tasks.length === 0) return <p className="text-sm text-muted-foreground">No tasks to display.</p>;
 
@@ -29,44 +30,55 @@ const GanttChart = ({ tasks }: { tasks: RehabTask[] }) => {
     const minDate = new Date(Math.min(...allDates.map(d => d.getTime())));
     const maxDate = new Date(Math.max(...allDates.map(d => d.getTime())));
     
-    // Add a buffer day
     maxDate.setDate(maxDate.getDate() + 1);
 
     const totalDays = Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24));
 
     if (totalDays <= 0 || !isFinite(totalDays)) {
-        return <p className="text-sm text-muted-foreground">Invalid dates for Gantt chart.</p>;
+        return <p className="text-sm text-muted-foreground">Invalid date range for Gantt chart.</p>;
     }
     
     return (
         <div className="space-y-2 text-xs">
-            {tasks.map(task => {
-                if (!task.startDate || !task.endDate) return null;
+            <TooltipProvider>
+                {tasks.map(task => {
+                    if (!task.startDate || !task.endDate) return null;
 
-                const start = new Date(task.startDate);
-                const end = new Date(task.endDate);
-                const left = Math.max(0, ((start.getTime() - minDate.getTime()) / (totalDays * 1000 * 60 * 60 * 24)) * 100);
-                const width = Math.max(0, ((end.getTime() - start.getTime() + (1000*60*60*24)) / (totalDays * 1000 * 60 * 60 * 24)) * 100);
+                    const start = new Date(task.startDate);
+                    const end = new Date(task.endDate);
+                    if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return null;
+                    
+                    const left = Math.max(0, ((start.getTime() - minDate.getTime()) / (totalDays * 1000 * 60 * 60 * 24)) * 100);
+                    const width = Math.max(0, ((end.getTime() - start.getTime() + (1000*60*60*24)) / (totalDays * 1000 * 60 * 60 * 24)) * 100);
 
-                const statusColor = {
-                    'Not Started': 'bg-muted',
-                    'In Progress': 'bg-blue-500/50',
-                    'Completed': 'bg-green-500/50',
-                }[task.status];
-                
-                return (
-                    <div key={task.id} className="flex items-center">
-                        <div className="w-1/4 pr-2 truncate">{task.name}</div>
-                        <div className="w-3/4 bg-muted/50 rounded-sm h-6">
-                            <div
-                                className={`h-6 rounded-sm ${statusColor}`}
-                                style={{ marginLeft: `${left}%`, width: `${width}%` }}
-                                title={`${task.name}: ${task.startDate} to ${task.endDate}`}
-                            />
+                    const statusColor = {
+                        'Not Started': 'bg-muted/80',
+                        'In Progress': 'bg-blue-500/80',
+                        'Completed': 'bg-green-500/80',
+                    }[task.status];
+                    
+                    return (
+                        <div key={task.id} className="flex items-center">
+                            <div className="w-1/4 pr-2 truncate">{task.name}</div>
+                            <div className="w-3/4 bg-muted/30 rounded-sm h-6">
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div
+                                            className={`h-6 rounded-sm transition-all duration-300 hover:opacity-80 ${statusColor}`}
+                                            style={{ marginLeft: `${left}%`, width: `${width}%` }}
+                                        />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p className="font-semibold">{task.name}</p>
+                                        <p>{task.startDate} to {task.endDate}</p>
+                                        <p>Status: {task.status}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
                         </div>
-                    </div>
-                );
-            })}
+                    );
+                })}
+            </TooltipProvider>
         </div>
     );
 };
@@ -85,7 +97,6 @@ export function RehabTab({ deal, dealFlowData, updateDealFlow, updateDeal }: Reh
 
     const totalCost = watchedTasks.reduce((acc, task) => acc + Number(task.cost || 0), 0);
     
-    // Effect to update the root deal object's rehabCost when totalCost changes
     useEffect(() => {
         if (totalCost !== deal.rehabCost) {
             updateDeal({ rehabCost: totalCost });
@@ -122,7 +133,9 @@ export function RehabTab({ deal, dealFlowData, updateDealFlow, updateDeal }: Reh
             }
         });
     };
-
+    
+    const completedTasks = watchedTasks.filter(t => t.status === 'Completed').length;
+    const progressPercentage = watchedTasks.length > 0 ? (completedTasks / watchedTasks.length) * 100 : 0;
     const aiRecommendation = dealFlowData.aiRecommendations?.Rehab;
 
     return (
@@ -134,12 +147,32 @@ export function RehabTab({ deal, dealFlowData, updateDealFlow, updateDeal }: Reh
                     </CardHeader>
                     <CardContent>
                          <form onSubmit={handleSubmit(onSave)} className="space-y-4">
+                            <div className="hidden md:grid md:grid-cols-[2fr,1fr,1fr,1fr,1fr,auto] gap-2 items-center text-xs text-muted-foreground px-1">
+                                <Label>Task Name</Label>
+                                <Label>Cost</Label>
+                                <Label>Start Date</Label>
+                                <Label>End Date</Label>
+                                <Label>Status</Label>
+                            </div>
                             {fields.map((field, index) => (
-                                <div key={field.id} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,1fr,auto] gap-2 items-center border-b pb-2">
+                                <div key={field.id} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,1fr,1fr,auto] gap-2 items-center border-b pb-2">
                                     <Input placeholder="Task Name" {...register(`tasks.${index}.name`)} />
                                     <Input type="number" placeholder="Cost" {...register(`tasks.${index}.cost`)} />
                                     <Input type="date" {...register(`tasks.${index}.startDate`)} />
                                     <Input type="date" {...register(`tasks.${index}.endDate`)} />
+                                    <Select
+                                        defaultValue={field.status}
+                                        onValueChange={(value) => setValue(`tasks.${index}.status`, value as RehabTask['status'])}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Status" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Not Started">Not Started</SelectItem>
+                                            <SelectItem value="In Progress">In Progress</SelectItem>
+                                            <SelectItem value="Completed">Completed</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                     <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                                 </div>
                             ))}
@@ -160,6 +193,11 @@ export function RehabTab({ deal, dealFlowData, updateDealFlow, updateDeal }: Reh
                  <Card>
                     <CardHeader>
                         <CardTitle>Gantt Chart</CardTitle>
+                        <div className="flex items-center gap-4 pt-2">
+                            <Label className="text-sm">Project Progress</Label>
+                            <Progress value={progressPercentage} className="w-full max-w-sm" />
+                            <span className="text-sm font-medium">{progressPercentage.toFixed(0)}%</span>
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <GanttChart tasks={watchedTasks} />
@@ -182,7 +220,7 @@ export function RehabTab({ deal, dealFlowData, updateDealFlow, updateDeal }: Reh
                         ) : aiRecommendation ? (
                             <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiRecommendation }} />
                         ) : (
-                            <p className="text-sm text-muted-foreground">Click below to get AI-powered rehab recommendations.</p>
+                            <p className="text-sm text-muted-foreground">Click below to get AI-powered rehab recommendations based on your budget and tasks.</p>
                         )}
                     </CardContent>
                     <CardFooter>
