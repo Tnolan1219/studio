@@ -42,10 +42,17 @@ export type RehabTask = {
     status: 'Not Started' | 'In Progress' | 'Completed';
 }
 
+export type DealDocument = {
+    name: string;
+    url: string; // For local blobs or remote storage
+    uploadedAt: string; // ISO string
+}
+
 export type DealFlowData = {
     currentStage: DealStage;
     notes?: Record<DealStage, string>;
     aiRecommendations?: Record<DealStage, string>;
+    documents?: Record<DealStage, DealDocument[]>;
     negotiationDetails?: {
         offerPrice: number;
         contingencies: string;
@@ -139,4 +146,3 @@ export type ProFormaEntry = {
     loanBalance: number;
     equity: number;
 }
-

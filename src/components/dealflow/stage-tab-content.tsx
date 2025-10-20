@@ -7,7 +7,7 @@ import { Textarea } from '../ui/textarea';
 import { Button } from '../ui/button';
 import { Loader2, Sparkles } from 'lucide-react';
 import { getDealAssessment } from '@/lib/actions';
-import { setDocumentNonBlocking } from '@/firebase';
+import { Input } from '../ui/input';
 
 interface StageTabContentProps {
     stage: DealStage;
@@ -49,19 +49,49 @@ export function StageTabContent({ stage, deal, dealFlowData, updateDealFlow }: S
             }
         });
     };
+    
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files) return;
+        
+        const existingDocs = dealFlowData.documents?.[stage] || [];
+        const newDocs = Array.from(files).map(file => ({
+            name: file.name,
+            url: URL.createObjectURL(file), // Note: This URL is temporary and local
+            uploadedAt: new Date().toISOString()
+        }));
+
+        updateDealFlow({
+            documents: {
+                ...dealFlowData.documents,
+                [stage]: [...existingDocs, ...newDocs]
+            }
+        })
+    };
+
 
     const aiRecommendation = dealFlowData.aiRecommendations?.[stage];
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
-                <Card>
+                 <Card>
                     <CardHeader>
-                        <CardTitle>{stage} Details & Inputs</CardTitle>
+                        <CardTitle>Documents for {stage}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-muted-foreground text-sm">Inputs for this stage will appear here.</p>
-                        {/* Future inputs will go here, e.g., for negotiations */}
+                        <Input type="file" multiple onChange={handleFileChange} />
+                        <ul className="mt-4 space-y-2 text-sm">
+                            {dealFlowData.documents?.[stage]?.map((doc, index) => (
+                                <li key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
+                                    <a href={doc.url} target="_blank" rel="noopener noreferrer" className="truncate hover:underline">{doc.name}</a>
+                                    <span className="text-xs text-muted-foreground flex-shrink-0 ml-4">{new Date(doc.uploadedAt).toLocaleDateString()}</span>
+                                </li>
+                            ))}
+                        </ul>
+                         {(!dealFlowData.documents?.[stage] || dealFlowData.documents?.[stage]?.length === 0) && (
+                            <p className="text-muted-foreground text-xs mt-2">Upload relevant documents like offers, inspection reports, or lease agreements.</p>
+                        )}
                     </CardContent>
                 </Card>
                 <Card>
