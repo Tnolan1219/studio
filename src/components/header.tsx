@@ -33,7 +33,7 @@ export function Header() {
       <div className="container flex h-14 max-w-screen-2xl items-center">
         <div className="mr-4 hidden md:flex">
           <Link href="/dashboard" onClick={handleHomeClick} className="mr-6 flex items-center space-x-2">
-            <Logo className="h-8 w-8" priority />
+            <Logo className="h-8 w-8" />
             <span className="hidden font-bold font-headline sm:inline-block">
               Valentor Financial
             </span>

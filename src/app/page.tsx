@@ -13,7 +13,7 @@ export default function LandingPage() {
     <FirebaseClientProvider>
       <div className="relative flex h-screen w-full flex-col items-center justify-center overflow-hidden">
         <div className="z-10 text-center animate-fade-in">
-          <Image src="/logoduck.png" alt="Valentor Financial Logo" width={128} height={128} className="mx-auto mb-4" />
+          <Image src="/logoduck.png" alt="Valentor Financial Logo" width={128} height={128} className="mx-auto mb-4" unoptimized />
             
           <h1 className="text-5xl font-bold font-headline text-foreground">
             Valentor Financial

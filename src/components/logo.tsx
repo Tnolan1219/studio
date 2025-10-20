@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils"
 
-export function Logo({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+export function Logo({ className, priority, ...props }: React.SVGProps<SVGSVGElement> & { priority?: boolean }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
