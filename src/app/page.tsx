@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { AuthModal } from '@/components/auth-modal';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
+import { Logo } from '@/components/logo';
 
 export default function LandingPage() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -12,14 +13,9 @@ export default function LandingPage() {
     <FirebaseClientProvider>
       <div className="relative flex h-screen w-full flex-col items-center justify-center overflow-hidden">
         <div className="z-10 text-center animate-fade-in">
-          <Image
-            src="/logoduck.png"
-            alt="Valentor Financial Logo"
-            width={128}
-            height={128}
-            className="mx-auto mb-6"
+          <Logo
+            className="mx-auto mb-6 h-32 w-32"
             priority
-            unoptimized
           />
           <h1 className="text-5xl font-bold font-headline text-foreground">
             Valentor Financial
