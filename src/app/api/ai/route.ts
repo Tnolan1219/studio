@@ -80,7 +80,7 @@ export const assessDeal = ai.defineFlow(
 
     const llmResponse = await ai.generate({
       prompt: prompt,
-      model: 'googleai/gemini-pro',
+      model: 'gemini-pro',
       config: {
         temperature: 0.5,
       },
