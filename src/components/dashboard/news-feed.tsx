@@ -51,8 +51,8 @@ export function NewsFeed() {
                         getDealAssessment({ dealType: 'general', financialData: '', marketConditions: localPrompt, stage: 'general-query' })
                     ]);
                     
-                    setNationalNews(nationalResult.assessment || '');
-                    setStateNews(localResult.assessment || '');
+                    setNationalNews(nationalResult.assessment || nationalResult.message);
+                    setStateNews(localResult.assessment || localResult.message);
 
                 } catch (error) {
                     console.error("Failed to fetch AI news briefing:", error);
@@ -84,7 +84,7 @@ export function NewsFeed() {
             }
         } catch (error: any) {
             console.error("Failed to answer AI question:", error);
-            setAiResponse({ question: aiQuery, answer: `<p class="text-destructive">Sorry, I couldn't answer that. ${error.message}</p>`, isLoading: false });
+            setAiResponse({ question: aiQuery, answer: `<p class="text-destructive">${error.message}</p>`, isLoading: false });
         }
         setAiQuery('');
     };

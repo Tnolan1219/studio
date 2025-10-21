@@ -17,6 +17,12 @@ export async function getDealAssessment(input: {
 }): Promise<{ message: string, assessment: string | null }> {
   try {
     const reply = await assessDeal(input);
+    
+    // Check if the reply is valid before processing
+    if (!reply || typeof reply !== 'string') {
+        throw new Error("Received an invalid response from the AI service.");
+    }
+    
     const htmlAssessment = await marked(reply);
 
     return {
@@ -25,10 +31,11 @@ export async function getDealAssessment(input: {
     };
   } catch (error: any) {
     console.error("Error in getDealAssessment:", error);
+    // Ensure a consistent error message format
+    const errorMessage = error.message || "An unknown error occurred while generating the assessment.";
     return {
-      message: error.message || "Failed to generate assessment.",
+      message: `Sorry, I couldn't complete the request. ${errorMessage}`,
       assessment: null,
     };
   }
 }
-

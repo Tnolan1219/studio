@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useEffect } from 'react';
@@ -12,6 +13,7 @@ import { getDealAssessment } from '@/lib/actions';
 import { Progress } from '../ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { useToast } from '@/hooks/use-toast';
 
 interface RehabTabProps {
     deal: Deal;
@@ -86,6 +88,7 @@ const GanttChart = ({ tasks }: { tasks: RehabTask[] }) => {
 
 export function RehabTab({ deal, dealFlowData, updateDealFlow, updateDeal }: RehabTabProps) {
     const [isAIPending, startAITransition] = useTransition();
+    const { toast } = useToast();
     const { register, control, handleSubmit, watch, setValue } = useForm({
         defaultValues: {
             tasks: dealFlowData.rehabDetails?.tasks || [],
@@ -111,6 +114,7 @@ export function RehabTab({ deal, dealFlowData, updateDealFlow, updateDeal }: Reh
                 budget: totalCost,
             },
         });
+        toast({ title: 'Rehab Plan Saved' });
     };
     
      const handleGenerateInsights = () => {
@@ -129,6 +133,12 @@ export function RehabTab({ deal, dealFlowData, updateDealFlow, updateDeal }: Reh
                         ...dealFlowData.aiRecommendations,
                         Rehab: result.assessment,
                     },
+                });
+            } else {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Error Generating Insights',
+                    description: result.message,
                 });
             }
         });

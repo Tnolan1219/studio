@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition } from 'react';
@@ -8,6 +9,7 @@ import { Button } from '../ui/button';
 import { Loader2, Sparkles } from 'lucide-react';
 import { getDealAssessment } from '@/lib/actions';
 import { Input } from '../ui/input';
+import { useToast } from '@/hooks/use-toast';
 
 interface StageTabContentProps {
     stage: DealStage;
@@ -19,6 +21,7 @@ interface StageTabContentProps {
 export function StageTabContent({ stage, deal, dealFlowData, updateDealFlow }: StageTabContentProps) {
     const [isAIPending, startAITransition] = useTransition();
     const [notes, setNotes] = useState(dealFlowData.notes?.[stage] || '');
+    const { toast } = useToast();
 
     const handleGenerateInsights = () => {
         startAITransition(async () => {
@@ -37,6 +40,12 @@ export function StageTabContent({ stage, deal, dealFlowData, updateDealFlow }: S
                         [stage]: result.assessment,
                     },
                 });
+            } else {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Error Generating Insights',
+                    description: result.message,
+                });
             }
         });
     };
@@ -48,6 +57,7 @@ export function StageTabContent({ stage, deal, dealFlowData, updateDealFlow }: S
                 [stage]: notes,
             }
         });
+        toast({ title: 'Notes Saved', description: `Your notes for the ${stage} stage have been saved.`});
     };
     
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

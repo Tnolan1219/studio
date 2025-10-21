@@ -138,7 +138,7 @@ Make it specific and actionable. For example: "My goal is to acquire three cash-
     } catch (e: any) {
       toast({
         variant: 'destructive',
-        title: 'Error',
+        title: 'Error Generating Example',
         description: e.message || 'Could not generate an example. Please try again.',
       });
     } finally {

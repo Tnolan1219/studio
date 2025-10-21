@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -45,7 +46,7 @@ export function RealEstateQueryBox() {
             }
         } catch (error: any) {
             console.error("Failed to answer AI question:", error);
-            setAiResponse({ question, answer: `<p class="text-destructive">Sorry, I couldn't answer that. ${error.message}</p>`, isLoading: false });
+            setAiResponse({ question, answer: `<p class="text-destructive">${error.message}</p>`, isLoading: false });
         }
         setAiQuery('');
     };
