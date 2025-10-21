@@ -6,10 +6,13 @@ import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'zod';
 import type { DealStage } from '@/lib/types';
 
+// Correctly initialize Genkit with the API key and explicitly set the API version.
+// This is the critical change to resolve the "model not found" errors.
 const ai = genkit({
   plugins: [
     googleAI({
       apiKey: process.env.GEMINI_API_KEY,
+      apiVersion: 'v1beta', // Explicitly setting the API version
     }),
   ],
   logLevel: 'debug',
@@ -79,8 +82,9 @@ export const assessDeal = ai.defineFlow(
     const prompt = getPromptForStage(stage, input.dealType, input.financialData, input.marketConditions);
 
     const llmResponse = await ai.generate({
-      prompt: prompt,
+      // Using the 'gemini-pro' model which is stable and supported on v1beta.
       model: 'gemini-pro',
+      prompt: prompt,
       config: {
         temperature: 0.5,
       },
