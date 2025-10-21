@@ -1,12 +1,11 @@
-
 'use server';
 
-import { genkit, ai, configureGenkit } from 'genkit';
+import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'zod';
 import type { DealStage } from '@/lib/types';
 
-configureGenkit({
+const ai = genkit({
   plugins: [
     googleAI({
       apiKey: process.env.GEMINI_API_KEY,
@@ -86,6 +85,6 @@ export const assessDeal = ai.defineFlow(
       },
     });
 
-    return llmResponse.text();
+    return llmResponse.text;
   }
 );
