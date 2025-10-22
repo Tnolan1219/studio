@@ -1,16 +1,15 @@
 'use server';
 
-import { genkit, AIMiddleware } from 'genkit';
-import { googleAI } from '@genkit-ai/google-genai';
+import { genkit } from 'genkit';
+import { openAI } from 'genkitx-openai';
 import { z } from 'zod';
 import type { DealStage } from '@/lib/types';
 
-// Initialize Genkit with the Google GenAI plugin
+// Initialize Genkit with the OpenAI plugin
+// It will automatically use the OPENAI_API_KEY from your .env file
 const ai = genkit({
   plugins: [
-    googleAI({
-      apiVersion: 'v1beta',
-    }),
+    openAI(),
   ],
 });
 
@@ -56,6 +55,7 @@ User's Query/Market Info: ${marketConditions}
       return `${baseIntro} Provide recommendations for the Marketing stage (for selling or renting). Include:
 - **Target Audience:** Who is the ideal buyer/renter?
 - **Listing Platforms:** Suggest 2-3 platforms to list on.
+- 'rehab'
 - **Marketing Highlight:** What is the number one feature to highlight in the listing?`;
     default:
       return `You are a real estate investment expert. Analyze the following deal and provide a quick, efficient response using simplified bullet points.
@@ -89,7 +89,7 @@ export const assessDeal = ai.defineFlow(
     );
 
     const llmResponse = await ai.generate({
-      model: 'gemini-pro',
+      model: 'gpt-3.5-turbo',
       prompt: prompt,
       config: {
         temperature: 0.5,
