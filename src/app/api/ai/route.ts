@@ -1,22 +1,19 @@
-
 'use server';
 
 import { genkit } from 'genkit';
-import { openAI } from 'genkitx-openai';
+import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'zod';
 import type { DealStage } from '@/lib/types';
 
-// Initialize Genkit with the OpenAI plugin at the top level.
-// This ensures the plugin is registered once when the module loads.
-// It will automatically use the OPENAI_API_KEY from your .env file.
+// Initialize Genkit with the Google AI plugin at the top level.
+// This ensures it's configured once and available globally for this flow.
 const ai = genkit({
   plugins: [
-    openAI({
-      apiKey: process.env.OPENAI_API_KEY,
+    googleAI({
+      apiVersion: 'v1beta', // Important for model compatibility
     }),
   ],
 });
-
 
 const DealAssessmentInputSchema = z.object({
   dealType: z.string(),
@@ -92,7 +89,7 @@ export const assessDeal = ai.defineFlow(
     );
 
     const llmResponse = await ai.generate({
-      model: 'gpt-3.5-turbo',
+      model: 'gemini-pro',
       prompt: prompt,
       config: {
         temperature: 0.5,
