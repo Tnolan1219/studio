@@ -1,3 +1,4 @@
+
 'use server';
 
 import { genkit } from 'genkit';
@@ -5,11 +6,14 @@ import { openAI } from 'genkitx-openai';
 import { z } from 'zod';
 import type { DealStage } from '@/lib/types';
 
-// Initialize Genkit with the OpenAI plugin
-// It will automatically use the OPENAI_API_KEY from your .env file
+// Initialize Genkit with the OpenAI plugin at the top level.
+// This ensures the plugin is registered once when the module loads.
+// It will automatically use the OPENAI_API_KEY from your .env file.
 const ai = genkit({
   plugins: [
-    openAI(),
+    openAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    }),
   ],
 });
 
@@ -55,7 +59,6 @@ User's Query/Market Info: ${marketConditions}
       return `${baseIntro} Provide recommendations for the Marketing stage (for selling or renting). Include:
 - **Target Audience:** Who is the ideal buyer/renter?
 - **Listing Platforms:** Suggest 2-3 platforms to list on.
-- 'rehab'
 - **Marketing Highlight:** What is the number one feature to highlight in the listing?`;
     default:
       return `You are a real estate investment expert. Analyze the following deal and provide a quick, efficient response using simplified bullet points.
