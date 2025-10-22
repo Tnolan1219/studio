@@ -81,7 +81,7 @@ export const assessDeal = ai.defineFlow(
     const prompt = getPromptForStage(stage, input.dealType, input.financialData, input.marketConditions);
 
     const llmResponse = await ai.generate({
-      model: 'gemini-pro', // Use the stable 'gemini-pro' model
+      model: 'gemini-1.5-pro-latest',
       prompt: prompt,
       config: {
         temperature: 0.5,
