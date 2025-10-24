@@ -39,7 +39,7 @@
     "embla-carousel-react": "^8.6.0",
     "firebase": "^11.9.1",
     "genkit": "^1.0.0",
-    "genkitx-openai": "latest",
+    "@genkit-ai/google-genai": "latest",
     "lucide-react": "^0.475.0",
     "marked": "^13.0.2",
     "next": "15.3.3",
