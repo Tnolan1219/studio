@@ -9,7 +9,7 @@ import type { DealStage } from '@/lib/types';
 // This ensures it's configured once and available globally for this flow.
 const ai = genkit({
   plugins: [
-    googleAI(), // Automatically uses GEMINI_API_KEY from environment variables
+    googleAI(), // Initialize without parameters to use available credentials
   ],
 });
 
