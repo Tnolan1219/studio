@@ -168,7 +168,7 @@ Make it specific and actionable. For example: "My goal is to acquire three cash-
     // error overlay will appear.
     toast({
       title: 'Profile Created!',
-      description: 'Welcome to Valentor Financial. You are now being redirected.',
+      description: 'Welcome to Valentor RE. You are now being redirected.',
     });
     router.push('/dashboard');
   };

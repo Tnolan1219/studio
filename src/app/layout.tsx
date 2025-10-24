@@ -6,8 +6,8 @@ import { ParticleBackground } from '@/components/particle-background';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 export const metadata: Metadata = {
-  title: 'Valentor Financial',
-  description: 'Valentor Financial Real Estate Investment Analyzer',
+  title: 'Valentor RE',
+  description: 'Valentor RE Real Estate Investment Analyzer',
 };
 
 export default function RootLayout({

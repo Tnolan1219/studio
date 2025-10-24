@@ -227,7 +227,7 @@ export function AuthModal({
       <DialogContent className="sm:max-w-[425px] bg-card/80 backdrop-blur-sm">
         <DialogHeader>
           <DialogTitle className="text-2xl font-headline text-center">
-            Welcome to Valentor Financial
+            Welcome to Valentor RE
           </DialogTitle>
           <DialogDescription className="text-center">
             Sign in or create an account to continue.
