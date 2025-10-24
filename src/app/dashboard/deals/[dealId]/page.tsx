@@ -54,7 +54,7 @@ const calculateProForma = (deal: Deal): ProFormaEntry[] => {
     const proForma: ProFormaEntry[] = [];
     if (!deal) return proForma;
 
-    const loanAmount = deal.purchasePrice + deal.rehabCost + (deal.purchasePrice * (deal.closingCosts / 100)) - deal.downPayment;
+    const loanAmount = deal.purchasePrice - deal.downPayment;
     const monthlyInterestRate = deal.interestRate / 100 / 12;
     const numberOfPayments = deal.loanTerm * 12;
     const debtService = numberOfPayments > 0 && monthlyInterestRate > 0 ?
@@ -68,14 +68,21 @@ const calculateProForma = (deal: Deal): ProFormaEntry[] => {
     let currentLoanBalance = loanAmount;
     
     for (let year = 1; year <= 10; year++) {
-        const expenseRate = (deal.propertyTaxes + deal.insurance + deal.repairsAndMaintenance + deal.vacancy + deal.capitalExpenditures + deal.managementFee + deal.otherExpenses) / 100;
-        const currentOpEx = currentGrossRent * expenseRate;
+        const taxesAmount = currentGrossRent * (deal.propertyTaxes/100);
+        const insuranceAmount = currentGrossRent * (deal.insurance/100);
+        const maintenanceAmount = currentGrossRent * (deal.repairsAndMaintenance/100);
+        const capexAmount = currentGrossRent * (deal.capitalExpenditures/100);
+        const managementAmount = currentGrossRent * (deal.managementFee/100);
+        const otherAmount = currentGrossRent * (deal.otherExpenses/100);
+
+        const currentOpEx = taxesAmount + insuranceAmount + maintenanceAmount + capexAmount + managementAmount + otherAmount;
+
         const vacancyLoss = currentGrossRent * (deal.vacancy / 100);
         const effectiveGrossIncome = currentGrossRent - vacancyLoss;
-        const noi = effectiveGrossIncome - (currentOpEx - vacancyLoss);
+        const noi = effectiveGrossIncome - currentOpEx;
 
         let yearEndLoanBalance = currentLoanBalance;
-        if (monthlyInterestRate > 0) {
+        if (monthlyInterestRate > 0 && yearEndLoanBalance > 0) {
             for (let i = 0; i < 12; i++) {
                 const interestPayment = yearEndLoanBalance * monthlyInterestRate;
                 const principalPayment = (debtService / 12) - interestPayment;
@@ -149,14 +156,13 @@ function DealDetailView() {
                     { label: 'CoC Return', value: `${deal.cocReturn?.toFixed(2)}%`},
                 ];
             case 'House Flip':
-                 const acquisitionCosts = deal.purchasePrice * (deal.closingCosts / 100);
-                 const holdingCosts = (
+                const acquisitionCosts = (deal.closingCosts/100) * deal.purchasePrice;
+                const holdingCosts = (
                     (deal.propertyTaxes/100 * deal.purchasePrice / 12) +
-                    (deal.insurance/100 * deal.purchasePrice / 12) +
-                    (deal.otherExpenses / deal.holdingLength)
-                ) * deal.holdingLength;
+                    (deal.insurance/100 * deal.purchasePrice / 12)
+                ) * deal.holdingLength + deal.otherExpenses;
                 const financingCosts = (deal.purchasePrice - deal.downPayment) * (deal.interestRate/100) * (deal.holdingLength/12);
-                const totalInvestment = deal.downPayment + deal.rehabCost + acquisitionCosts;
+                const totalInvestment = deal.downPayment + deal.rehabCost + acquisitionCosts + holdingCosts + financingCosts;
                 return [
                     { label: 'Net Profit', value: `$${deal.netProfit?.toFixed(2)}`},
                     { label: 'ROI', value: `${deal.roi?.toFixed(2)}%`},

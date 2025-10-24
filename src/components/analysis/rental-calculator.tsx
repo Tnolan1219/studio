@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -75,14 +74,14 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
     const proForma: ProFormaEntry[] = [];
     const {
         purchasePrice, rehabCost, closingCosts, downPayment, interestRate, loanTerm,
-        grossMonthlyIncome, vacancy, annualIncomeGrowth, annualExpenseGrowth,
+        grossMonthlyIncome, vacancy, annualIncomeGrowth,
         propertyTaxes, insurance, repairsAndMaintenance,
         capitalExpenditures, managementFee, otherExpenses, annualAppreciation
     } = values;
 
     if (!purchasePrice || !loanTerm) return [];
 
-    const loanAmount = purchasePrice + rehabCost + (purchasePrice * (closingCosts / 100)) - downPayment;
+    const loanAmount = purchasePrice - downPayment;
     const monthlyInterestRate = interestRate / 100 / 12;
     const numberOfPayments = loanTerm * 12;
     const debtService = numberOfPayments > 0 && monthlyInterestRate > 0 ?
@@ -96,15 +95,23 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
     let currentLoanBalance = loanAmount;
     
     for (let year = 1; year <= 10; year++) {
-        const expenseRate = (propertyTaxes + insurance + repairsAndMaintenance + vacancy + capitalExpenditures + managementFee + otherExpenses) / 100;
-        const currentOpEx = currentGrossRent * expenseRate;
         
         const vacancyLoss = currentGrossRent * (vacancy / 100);
         const effectiveGrossIncome = currentGrossRent - vacancyLoss;
-        const noi = effectiveGrossIncome - (currentOpEx - vacancyLoss); // Subtract out vacancy since it's already in OpEx bundle
+        
+        const taxesAmount = currentGrossRent * (propertyTaxes/100);
+        const insuranceAmount = currentGrossRent * (insurance/100);
+        const maintenanceAmount = currentGrossRent * (repairsAndMaintenance/100);
+        const capexAmount = currentGrossRent * (capitalExpenditures/100);
+        const managementAmount = currentGrossRent * (managementFee/100);
+        const otherAmount = currentGrossRent * (otherExpenses/100);
+
+        const currentOpEx = taxesAmount + insuranceAmount + maintenanceAmount + capexAmount + managementAmount + otherAmount;
+        
+        const noi = effectiveGrossIncome - currentOpEx;
 
         let yearEndLoanBalance = currentLoanBalance;
-        if(monthlyInterestRate > 0) {
+        if(monthlyInterestRate > 0 && yearEndLoanBalance > 0) {
             for (let i = 0; i < 12; i++) {
                 const interestPayment = yearEndLoanBalance * monthlyInterestRate;
                 const principalPayment = (debtService / 12) - interestPayment;
@@ -119,7 +126,7 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
             grossPotentialRent: currentGrossRent,
             vacancyLoss,
             effectiveGrossIncome,
-            operatingExpenses: (currentOpEx - vacancyLoss),
+            operatingExpenses: currentOpEx,
             noi,
             debtService,
             cashFlowBeforeTax: noi - debtService,
@@ -207,7 +214,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
   }, [deal, isEditMode, form.reset]);
 
   const handleAnalysis = (data: FormData) => {
-    const { purchasePrice, rehabCost, closingCosts, downPayment, grossMonthlyIncome } = data;
+    const { purchasePrice, rehabCost, closingCosts, downPayment } = data;
     const proForma = calculateProForma(data);
     const year1 = proForma[0] || {};
     
@@ -219,7 +226,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
     const capRate = arv > 0 ? (noi / arv) * 100 : 0;
 
     const chartData = [
-        { name: 'Income', value: grossMonthlyIncome, fill: 'hsl(var(--primary))' },
+        { name: 'Income', value: data.grossMonthlyIncome, fill: 'hsl(var(--primary))' },
         { name: 'Expenses', value: (year1.operatingExpenses || 0) / 12, fill: 'hsl(var(--destructive))' },
         { name: 'Mortgage', value: (year1.debtService || 0) / 12, fill: 'hsl(var(--accent))' },
         { name: 'Cash Flow', value: monthlyCashFlow > 0 ? monthlyCashFlow : 0, fill: 'hsl(var(--chart-2))' },

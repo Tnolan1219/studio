@@ -17,29 +17,40 @@ export function AnalysisTab({ deal, updateDeal }: AnalysisTabProps) {
     const { monthlyCashFlow, noi, capRate, cocReturn, roi, netProfit } = useMemo(() => {
         // This logic should mirror the main calculators to ensure consistency
         if (deal.dealType === 'House Flip') {
+             const loanAmount = deal.purchasePrice - deal.downPayment;
              const acquisitionCosts = deal.purchasePrice * (deal.closingCosts / 100);
              const holdingCosts = (
                 (deal.propertyTaxes/100 * deal.purchasePrice / 12) +
-                (deal.insurance/100 * deal.purchasePrice / 12) +
-                (deal.otherExpenses / deal.holdingLength)
-            ) * deal.holdingLength;
-            const financingCosts = (deal.purchasePrice - deal.downPayment) * (deal.interestRate/100) * (deal.holdingLength/12);
-            const totalInvestment = deal.downPayment + deal.rehabCost + acquisitionCosts;
+                (deal.insurance/100 * deal.purchasePrice / 12)
+            ) * deal.holdingLength + deal.otherExpenses;
+            
+            const financingCosts = (loanAmount * (deal.interestRate/100) * (deal.holdingLength/12));
+            const totalInvestment = deal.downPayment + deal.rehabCost + acquisitionCosts + holdingCosts + financingCosts;
             const totalProjectCosts = deal.purchasePrice + deal.rehabCost + acquisitionCosts + holdingCosts + financingCosts;
             const finalSellingCosts = (deal.sellingCosts / 100) * deal.arv;
             
             const netProfit = deal.arv - totalProjectCosts - finalSellingCosts;
             const roi = totalInvestment > 0 ? (netProfit / totalInvestment) * 100 : 0;
             return { netProfit, roi, monthlyCashFlow: 0, noi: 0, capRate: 0, cocReturn: 0 };
+
         } else { // Rental or Commercial
             const gmi = deal.grossMonthlyIncome;
-            const expenseRate = (deal.propertyTaxes + deal.insurance + deal.repairsAndMaintenance + deal.vacancy + deal.capitalExpenditures + deal.managementFee + deal.otherExpenses) / 100;
-            const totalOpEx = (gmi * 12) * expenseRate;
-            const vacancyLoss = (gmi * 12) * (deal.vacancy / 100);
-            const effectiveGrossIncome = (gmi * 12) - vacancyLoss;
-            const noi = effectiveGrossIncome - (totalOpEx - vacancyLoss);
+            const annualGrossIncome = gmi * 12;
 
-            const loanAmount = deal.purchasePrice + deal.rehabCost + (deal.purchasePrice * (deal.closingCosts / 100)) - deal.downPayment;
+            const vacancyLoss = annualGrossIncome * (deal.vacancy / 100);
+            const effectiveGrossIncome = annualGrossIncome - vacancyLoss;
+
+            const taxesAmount = annualGrossIncome * (deal.propertyTaxes/100);
+            const insuranceAmount = annualGrossIncome * (deal.insurance/100);
+            const maintenanceAmount = annualGrossIncome * (deal.repairsAndMaintenance/100);
+            const capexAmount = annualGrossIncome * (deal.capitalExpenditures/100);
+            const managementAmount = annualGrossIncome * (deal.managementFee/100);
+            const otherAmount = annualGrossIncome * (deal.otherExpenses/100);
+            const totalOpEx = taxesAmount + insuranceAmount + maintenanceAmount + capexAmount + managementAmount + otherAmount;
+            
+            const noi = effectiveGrossIncome - totalOpEx;
+
+            const loanAmount = deal.purchasePrice - deal.downPayment;
             const monthlyInterestRate = deal.interestRate / 100 / 12;
             const numberOfPayments = deal.loanTerm * 12;
             const debtService = numberOfPayments > 0 && monthlyInterestRate > 0 ?

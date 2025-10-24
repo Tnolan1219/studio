@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -130,18 +129,17 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
 
     const holdingCosts = (
         (propertyTaxes/100 * purchasePrice / 12) +
-        (insurance/100 * purchasePrice / 12) +
-        (otherExpenses / holdingLength)
-    ) * holdingLength;
+        (insurance/100 * purchasePrice / 12)
+    ) * holdingLength + otherExpenses;
 
     const financingCosts = loanTerm > 0 ? (loanAmount * (interestRate/100) * (holdingLength/12)) : 0;
     
-    const totalCashNeeded = downPayment + rehabCost + acquisitionCosts; // Simplified total investment for CoC ROI
+    const totalCashInvested = downPayment + rehabCost + acquisitionCosts + holdingCosts + financingCosts;
     const totalProjectCosts = purchasePrice + rehabCost + acquisitionCosts + holdingCosts + financingCosts;
     const finalSellingCosts = (sellingCosts/100) * arv;
 
     const netProfit = arv - totalProjectCosts - finalSellingCosts;
-    const roi = totalCashNeeded > 0 ? (netProfit / totalCashNeeded) * 100 : 0;
+    const roi = totalCashInvested > 0 ? (netProfit / totalCashInvested) * 100 : 0;
 
     const chartData = [
       { name: 'Purchase', value: purchasePrice, fill: 'hsl(var(--chart-1))' },
@@ -155,7 +153,7 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
     setAnalysisResult({
         netProfit,
         roi,
-        totalInvestment: totalCashNeeded,
+        totalInvestment: totalCashInvested,
         chartData,
     });
   };
@@ -281,7 +279,7 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
                       <CardContent className="grid grid-cols-2 gap-4">
                           <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                          <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Acquisition Costs (%)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Rehab Costs</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="arv" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>After Repair Value (ARV)</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                       </CardContent>
@@ -303,7 +301,7 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
                         <FormField name="holdingLength" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Holding (Months)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                         <FormField name="propertyTaxes" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Prop. Taxes (%/yr)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                         <FormField name="insurance" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Insurance (%/yr)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                        <FormField name="otherExpenses" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Other Costs</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                        <FormField name="otherExpenses" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Other Total Costs</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormDescription className="text-xs">e.g. utilities, HOA</FormDescription> <FormMessage /> </FormItem> )} />
                         <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Selling Costs (% of ARV)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                     </CardContent>
                 </Card>

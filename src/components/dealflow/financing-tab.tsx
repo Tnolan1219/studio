@@ -17,7 +17,7 @@ export function FinancingTab({ deal, updateDeal }: FinancingTabProps) {
         updateDeal({ [name]: parseFloat(value) || 0 });
     };
     
-    const loanAmount = deal.purchasePrice + deal.rehabCost + (deal.purchasePrice * (deal.closingCosts / 100)) - deal.downPayment;
+    const loanAmount = deal.purchasePrice - deal.downPayment;
 
     return (
         <Card>
