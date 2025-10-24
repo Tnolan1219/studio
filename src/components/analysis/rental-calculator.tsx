@@ -99,12 +99,12 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
         const vacancyLoss = currentGrossRent * (vacancy / 100);
         const effectiveGrossIncome = currentGrossRent - vacancyLoss;
         
-        const taxesAmount = currentGrossRent * (propertyTaxes/100);
-        const insuranceAmount = currentGrossRent * (insurance/100);
-        const maintenanceAmount = currentGrossRent * (repairsAndMaintenance/100);
-        const capexAmount = currentGrossRent * (capitalExpenditures/100);
-        const managementAmount = currentGrossRent * (managementFee/100);
-        const otherAmount = currentGrossRent * (otherExpenses/100);
+        const taxesAmount = annualGrossIncome * (propertyTaxes/100);
+        const insuranceAmount = annualGrossIncome * (insurance/100);
+        const maintenanceAmount = annualGrossIncome * (repairsAndMaintenance/100);
+        const capexAmount = annualGrossIncome * (capitalExpenditures/100);
+        const managementAmount = annualGrossIncome * (managementFee/100);
+        const otherAmount = annualGrossIncome * (otherExpenses/100);
 
         const currentOpEx = taxesAmount + insuranceAmount + maintenanceAmount + capexAmount + managementAmount + otherAmount;
         
@@ -214,12 +214,23 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
   }, [deal, isEditMode, form.reset]);
 
   const handleAnalysis = (data: FormData) => {
-    const { purchasePrice, rehabCost, closingCosts, downPayment } = data;
+    const { purchasePrice, rehabCost, closingCosts, downPayment, annualIncomeGrowth, propertyTaxes, insurance, repairsAndMaintenance, capitalExpenditures, managementFee, otherExpenses, vacancy } = data;
     const proForma = calculateProForma(data);
     const year1 = proForma[0] || {};
     
     const totalInvestment = downPayment + (closingCosts/100 * purchasePrice) + rehabCost;
-    const noi = year1.noi || 0;
+    
+    const annualGrossIncome = data.grossMonthlyIncome * 12;
+    const taxesAmount = annualGrossIncome * (propertyTaxes / 100);
+    const insuranceAmount = annualGrossIncome * (insurance / 100);
+    const maintenanceAmount = annualGrossIncome * (repairsAndMaintenance / 100);
+    const capexAmount = annualGrossIncome * (capitalExpenditures / 100);
+    const managementAmount = annualGrossIncome * (managementFee / 100);
+    const otherAmount = annualGrossIncome * (otherExpenses / 100);
+    const vacancyLoss = annualGrossIncome * (vacancy / 100);
+    const totalOpEx = taxesAmount + insuranceAmount + maintenanceAmount + capexAmount + managementAmount + otherAmount;
+
+    const noi = annualGrossIncome - vacancyLoss - totalOpEx;
     const monthlyCashFlow = (year1.cashFlowBeforeTax || 0) / 12;
     const cocReturn = totalInvestment > 0 ? ((year1.cashFlowBeforeTax || 0) / totalInvestment) * 100 : 0;
     const arv = purchasePrice + rehabCost;
@@ -227,7 +238,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
 
     const chartData = [
         { name: 'Income', value: data.grossMonthlyIncome, fill: 'hsl(var(--primary))' },
-        { name: 'Expenses', value: (year1.operatingExpenses || 0) / 12, fill: 'hsl(var(--destructive))' },
+        { name: 'Expenses', value: totalOpEx / 12, fill: 'hsl(var(--destructive))' },
         { name: 'Mortgage', value: (year1.debtService || 0) / 12, fill: 'hsl(var(--accent))' },
         { name: 'Cash Flow', value: monthlyCashFlow > 0 ? monthlyCashFlow : 0, fill: 'hsl(var(--chart-2))' },
     ];

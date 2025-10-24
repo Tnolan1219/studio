@@ -140,7 +140,7 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
 
     if (!purchasePrice || !downPayment || !loanTerm) return [];
 
-    const loanAmount = purchasePrice + rehabCost + closingCosts - downPayment;
+    const loanAmount = purchasePrice - downPayment;
     const monthlyInterestRate = interestRate / 100 / 12;
     const numberOfPayments = loanTerm * 12;
     const debtService = numberOfPayments > 0 && monthlyInterestRate > 0 ?
