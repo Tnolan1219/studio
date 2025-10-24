@@ -7,9 +7,10 @@ import type { DealStage } from '@/lib/types';
 
 // Initialize Genkit with the Google AI plugin at the top level.
 // This ensures it's configured once and available globally for this flow.
+// CRITICAL: Explicitly pass the API key to ensure authentication in all environments.
 const ai = genkit({
   plugins: [
-    googleAI({ apiKey: "AIzaSyCfFqVeNy5WtM99GS04_fpuYzKR2BfMhOY" }),
+    googleAI({ apiKey: process.env.GEMINI_API_KEY }),
   ],
 });
 
