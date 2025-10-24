@@ -1,6 +1,6 @@
 'use server';
 
-import { genkit,type Tool } from 'genkit';
+import { genkit, type Tool } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'zod';
 import type { DealStage } from '@/lib/types';
@@ -10,7 +10,7 @@ import type { DealStage } from '@/lib/types';
 // It will use the GEMINI_API_KEY from your environment variables.
 const ai = genkit({
   plugins: [
-    googleAI(),
+    googleAI({ apiKey: process.env.GEMINI_API_KEY }),
   ],
 });
 
@@ -53,7 +53,7 @@ User's Query/Market Info: ${marketConditions}
 - **Budgeting Tip:** Provide a tip for managing the rehab budget.
 - **Timeline Estimate:** Give a *very rough* timeline estimate for a typical rehab of this scale.`;
     case 'Marketing':
-      return `${baseipro} Provide recommendations for the Marketing stage (for selling or renting). Include:
+      return `${baseIntro} Provide recommendations for the Marketing stage (for selling or renting). Include:
 - **Target Audience:** Who is the ideal buyer/renter?
 - **Listing Platforms:** Suggest 2-3 platforms to list on.
 - **Marketing Highlight:** What is the number one feature to highlight in the listing?`;
