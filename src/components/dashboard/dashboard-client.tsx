@@ -5,6 +5,7 @@ import AnalyzeTab from '@/components/dashboard/analyze-tab';
 import DealsTab from '@/components/dashboard/deals-tab';
 import ProfileTab from '@/components/dashboard/profile-tab';
 import { useDashboardTab } from '@/hooks/use-dashboard-tab';
+import { AIChatBox } from './ai-chat-box';
 
 export default function DashboardClient() {
     const { activeTab } = useDashboardTab();
@@ -15,6 +16,7 @@ export default function DashboardClient() {
             {activeTab === 'analyze' && <AnalyzeTab />}
             {activeTab === 'deals' && <DealsTab />}
             {activeTab === 'profile' && <ProfileTab />}
+            <AIChatBox />
         </>
     )
 }

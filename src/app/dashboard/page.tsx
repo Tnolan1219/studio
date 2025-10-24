@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useDashboardTab } from '@/hooks/use-dashboard-tab';
 import DashboardClient from '@/components/dashboard/dashboard-client';
+import { AnimatePresence, motion } from 'framer-motion';
 
 function DashboardView() {
   const { user, isUserLoading } = useUser();
@@ -37,20 +38,30 @@ function DashboardView() {
 
   const TabButton = ({ value, label, icon: Icon }: { value: string, label: string, icon: React.ElementType }) => (
     <Button
-      variant={activeTab === value ? 'default' : 'ghost'}
+      variant={'ghost'}
       size="icon"
       className={cn(
-        "relative flex flex-col h-14 w-14 rounded-full transition-all duration-300 overflow-hidden",
-        "tab-button", // Added for animation targeting
-        activeTab === value 
-          ? "text-primary-foreground scale-110 shadow-lg shadow-primary/40" 
-          : "text-muted-foreground"
+        "relative flex flex-col h-16 w-16 rounded-full transition-all duration-300 overflow-hidden group",
+        "text-muted-foreground hover:text-foreground"
       )}
       onClick={() => setActiveTab(value)}
     >
       <Icon className="h-5 w-5 mb-0.5 z-10" />
       <span className="text-[10px] font-semibold z-10">{label}</span>
-      <span className="liquid-fill" />
+      {activeTab === value && (
+         <motion.div
+            layoutId="active-tab-indicator"
+            className="absolute inset-0 bg-primary/80 rounded-full z-0"
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+         />
+      )}
+       <span className={cn(
+          "absolute z-10 inset-0 transition-colors",
+          activeTab === value ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-foreground'
+       )}>
+          <Icon className="h-5 w-5 mb-0.5 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -mt-2" />
+          <span className="text-[10px] font-semibold absolute bottom-2 left-1/2 -translate-x-1/2">{label}</span>
+       </span>
     </Button>
   );
 
@@ -60,7 +71,7 @@ function DashboardView() {
       <main className="flex-1 p-6 md:p-12 bg-transparent pb-28">
         <DashboardClient />
       </main>
-      <footer className="fixed bottom-0 left-0 right-0 z-50 h-24 pointer-events-none">
+      <footer className="fixed bottom-0 left-0 right-0 z-40 h-24 pointer-events-none">
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto">
             <div className="flex items-center gap-2 rounded-full bg-card/60 p-1 shadow-lg backdrop-blur-lg border border-border/20">
               <TabButton value="home" label="Home" icon={HomeIcon} />

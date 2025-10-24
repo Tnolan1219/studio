@@ -1,15 +1,16 @@
 'use server';
 
-import { genkit } from 'genkit';
+import { genkit,type Tool } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'zod';
 import type { DealStage } from '@/lib/types';
 
 // Initialize Genkit with the Google AI plugin at the top level.
-// This ensures it's configured once and available globally for this flow.
+// This ensures it's configured once and available globally for all AI requests.
+// It will use the GEMINI_API_KEY from your environment variables.
 const ai = genkit({
   plugins: [
-    googleAI(), // Initialize without parameters to use available credentials
+    googleAI(),
   ],
 });
 
@@ -26,6 +27,7 @@ const getPromptForStage = (
   financialData: string,
   marketConditions: string
 ): string => {
+  // For the general purpose chat, we just pass the user's query directly.
   if (stage === 'general-query') {
     return marketConditions;
   }
@@ -51,7 +53,7 @@ User's Query/Market Info: ${marketConditions}
 - **Budgeting Tip:** Provide a tip for managing the rehab budget.
 - **Timeline Estimate:** Give a *very rough* timeline estimate for a typical rehab of this scale.`;
     case 'Marketing':
-      return `${baseIntro} Provide recommendations for the Marketing stage (for selling or renting). Include:
+      return `${baseipro} Provide recommendations for the Marketing stage (for selling or renting). Include:
 - **Target Audience:** Who is the ideal buyer/renter?
 - **Listing Platforms:** Suggest 2-3 platforms to list on.
 - **Marketing Highlight:** What is the number one feature to highlight in the listing?`;
