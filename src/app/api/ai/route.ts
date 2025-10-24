@@ -1,3 +1,4 @@
+
 'use server';
 
 import { genkit } from 'genkit';
@@ -9,9 +10,7 @@ import type { DealStage } from '@/lib/types';
 // This ensures it's configured once and available globally for this flow.
 const ai = genkit({
   plugins: [
-    googleAI({
-      apiVersion: 'v1beta', // Important for model compatibility
-    }),
+    googleAI(),
   ],
 });
 
