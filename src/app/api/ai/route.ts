@@ -89,7 +89,7 @@ export const assessDeal = ai.defineFlow(
     );
 
     const llmResponse = await ai.generate({
-      model: 'gemini-pro',
+      model: 'gemini-2.5-flash-preview-04-17',
       prompt: prompt,
       config: {
         temperature: 0.5,

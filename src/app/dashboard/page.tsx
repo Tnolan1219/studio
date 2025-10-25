@@ -46,8 +46,6 @@ function DashboardView() {
       )}
       onClick={() => setActiveTab(value)}
     >
-      <Icon className="h-5 w-5 mb-0.5 z-10" />
-      <span className="text-[10px] font-semibold z-10">{label}</span>
       {activeTab === value && (
          <motion.div
             layoutId="active-tab-indicator"
@@ -56,11 +54,11 @@ function DashboardView() {
          />
       )}
        <span className={cn(
-          "absolute z-10 inset-0 transition-colors",
+          "absolute z-10 inset-0 transition-colors flex flex-col items-center justify-center",
           activeTab === value ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-foreground'
        )}>
-          <Icon className="h-5 w-5 mb-0.5 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -mt-2" />
-          <span className="text-[10px] font-semibold absolute bottom-2 left-1/2 -translate-x-1/2">{label}</span>
+          <Icon className="h-5 w-5 mb-0.5" />
+          <span className="text-[10px] font-semibold">{label}</span>
        </span>
     </Button>
   );
