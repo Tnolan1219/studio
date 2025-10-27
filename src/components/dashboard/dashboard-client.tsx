@@ -16,7 +16,7 @@ export default function DashboardClient() {
             {activeTab === 'analyze' && <AnalyzeTab />}
             {activeTab === 'deals' && <DealsTab />}
             {activeTab === 'profile' && <ProfileTab />}
-            <AIChatBox />
+            {/* <AIChatBox /> */}
         </>
     )
 }

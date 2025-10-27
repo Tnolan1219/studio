@@ -99,6 +99,7 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
         const vacancyLoss = currentGrossRent * (vacancy / 100);
         const effectiveGrossIncome = currentGrossRent - vacancyLoss;
         
+        const annualGrossIncome = currentGrossRent;
         const taxesAmount = annualGrossIncome * (propertyTaxes/100);
         const insuranceAmount = annualGrossIncome * (insurance/100);
         const maintenanceAmount = annualGrossIncome * (repairsAndMaintenance/100);
@@ -221,16 +222,18 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
     const totalInvestment = downPayment + (closingCosts/100 * purchasePrice) + rehabCost;
     
     const annualGrossIncome = data.grossMonthlyIncome * 12;
+    const vacancyLoss = annualGrossIncome * (vacancy / 100);
+    const effectiveGrossIncome = annualGrossIncome - vacancyLoss;
+    
     const taxesAmount = annualGrossIncome * (propertyTaxes / 100);
     const insuranceAmount = annualGrossIncome * (insurance / 100);
     const maintenanceAmount = annualGrossIncome * (repairsAndMaintenance / 100);
     const capexAmount = annualGrossIncome * (capitalExpenditures / 100);
     const managementAmount = annualGrossIncome * (managementFee / 100);
     const otherAmount = annualGrossIncome * (otherExpenses / 100);
-    const vacancyLoss = annualGrossIncome * (vacancy / 100);
     const totalOpEx = taxesAmount + insuranceAmount + maintenanceAmount + capexAmount + managementAmount + otherAmount;
 
-    const noi = annualGrossIncome - vacancyLoss - totalOpEx;
+    const noi = effectiveGrossIncome - totalOpEx;
     const monthlyCashFlow = (year1.cashFlowBeforeTax || 0) / 12;
     const cocReturn = totalInvestment > 0 ? ((year1.cashFlowBeforeTax || 0) / totalInvestment) * 100 : 0;
     const arv = purchasePrice + rehabCost;
@@ -462,19 +465,11 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
                  <Card>
                     <CardHeader> <CardTitle className="flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
                     <CardContent>
-                      <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>AI Advisor Prompt</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> e.g., "Analyze market conditions for zip code 90210," or "Suggest financing options for a first-time investor." </FormDescription> <FormMessage /> </FormItem> )} />
-                      {isAIPending ? (
-                        <div className="space-y-2 mt-4 flex justify-center"> <Loader2 className="h-6 w-6 animate-spin" /> </div>
-                      ) : aiResult?.assessment ? (
-                        <div className="text-sm text-muted-foreground mt-4 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
-                      ) : (
-                        <p className="text-sm text-muted-foreground mt-4"> Click "Generate AI Insights" after running an analysis. </p>
-                      )}
-                      {aiResult?.message && !aiResult.assessment && ( <p className="text-sm text-destructive mt-4">{aiResult.message}</p> )}
+                      <p className="text-sm text-muted-foreground mt-4"> AI Deal Assessment is coming soon. </p>
                     </CardContent>
                     <CardFooter className="flex justify-end">
-                        <Button type="button" onClick={handleGenerateInsights} disabled={isAIPending}>
-                            {isAIPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</> : 'Generate AI Insights'}
+                        <Button type="button" disabled>
+                            Generate AI Insights
                         </Button>
                     </CardFooter>
                   </Card>

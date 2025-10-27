@@ -347,19 +347,11 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
                <Card>
                 <CardHeader> <CardTitle className="flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
                 <CardContent>
-                  <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>AI Advisor Prompt</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> e.g., "What are the risks of flipping in this market?" or "Suggest value-add renovations for this property." </FormDescription> <FormMessage /> </FormItem> )} />
-                  {isAIPending ? (
-                    <div className="space-y-2 mt-4 flex justify-center"> <Loader2 className="h-6 w-6 animate-spin" /> </div>
-                  ) : aiResult?.assessment ? (
-                    <div className="text-sm text-muted-foreground mt-4 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
-                  ) : (
-                    <p className="text-sm text-muted-foreground mt-4"> Click "Generate AI Insights" after running an analysis. </p>
-                  )}
-                  {aiResult?.message && !aiResult.assessment && ( <p className="text-sm text-destructive mt-4">{aiResult.message}</p> )}
+                  <p className="text-sm text-muted-foreground mt-4"> AI Deal Assessment is coming soon. </p>
                 </CardContent>
                 <CardFooter className="flex justify-end">
-                    <Button type="button" onClick={handleGenerateInsights} disabled={isAIPending}>
-                        {isAIPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</> : 'Generate AI Insights'}
+                    <Button type="button" disabled>
+                        Generate AI Insights
                     </Button>
                 </CardFooter>
               </Card>

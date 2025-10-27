@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -301,22 +300,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
   });
 
   const handleGenerateInsights = () => {
-    const data = form.getValues();
-    startAITransition(async () => {
-        const proForma = calculateProForma(data);
-        const year1 = proForma[0] || {};
-        
-        const result = await getDealAssessment({
-          dealType: 'Commercial Multifamily (Advanced)',
-          financialData: `
-            Advanced Analysis:
-            Purchase Price: ${data.purchasePrice}, Rehab Cost: ${data.rehabCost}, Down Payment: ${data.downPayment},
-            Year 1 Gross Potential Rent: ${year1.grossPotentialRent}, Year 1 NOI: ${year1.noi}, Year 1 Cash Flow: ${year1.cashFlowBeforeTax}
-        `,
-          marketConditions: data.marketConditions
-        });
-        setAiResult(result);
-    });
+    // AI feature disabled
   };
 
   const watchedValues = form.watch();
@@ -771,19 +755,11 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                         <Card>
                             <CardHeader> <CardTitle className="flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
                             <CardContent>
-                            <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>AI Advisor Prompt</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> e.g., "Analyze the pros and cons of a triple-net lease for this property." </FormDescription> <FormMessage /> </FormItem> )} />
-                            {isAIPending ? (
-                                <div className="space-y-2 mt-4 flex justify-center"> <Loader2 className="h-6 w-6 animate-spin" /> </div>
-                            ) : aiResult?.assessment ? (
-                                <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
-                            ) : (
-                                <p className="text-sm text-muted-foreground mt-4"> Click "Run Analysis" to get an AI-powered assessment. </p>
-                            )}
-                            {aiResult?.message && !aiResult.assessment && ( <p className="text-sm text-destructive mt-4">{aiResult.message}</p> )}
+                                <p className="text-sm text-muted-foreground mt-4"> AI Deal Assessment is coming soon. </p>
                             </CardContent>
                              <CardFooter>
-                                <Button onClick={handleGenerateInsights} disabled={isAIPending} className="w-full">
-                                    {isAIPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</> : 'Generate AI Insights'}
+                                <Button disabled className="w-full">
+                                    Generate AI Insights
                                 </Button>
                             </CardFooter>
                         </Card>

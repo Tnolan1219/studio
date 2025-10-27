@@ -68,12 +68,13 @@ const calculateProForma = (deal: Deal): ProFormaEntry[] => {
     let currentLoanBalance = loanAmount;
     
     for (let year = 1; year <= 10; year++) {
-        const taxesAmount = currentGrossRent * (deal.propertyTaxes/100);
-        const insuranceAmount = currentGrossRent * (deal.insurance/100);
-        const maintenanceAmount = currentGrossRent * (deal.repairsAndMaintenance/100);
-        const capexAmount = currentGrossRent * (deal.capitalExpenditures/100);
-        const managementAmount = currentGrossRent * (deal.managementFee/100);
-        const otherAmount = currentGrossRent * (deal.otherExpenses/100);
+        const annualGrossIncome = currentGrossRent;
+        const taxesAmount = annualGrossIncome * (deal.propertyTaxes/100);
+        const insuranceAmount = annualGrossIncome * (deal.insurance/100);
+        const maintenanceAmount = annualGrossIncome * (deal.repairsAndMaintenance/100);
+        const capexAmount = annualGrossIncome * (deal.capitalExpenditures/100);
+        const managementAmount = annualGrossIncome * (deal.managementFee/100);
+        const otherAmount = annualGrossIncome * (deal.otherExpenses/100);
 
         const currentOpEx = taxesAmount + insuranceAmount + maintenanceAmount + capexAmount + managementAmount + otherAmount;
 
@@ -156,12 +157,13 @@ function DealDetailView() {
                     { label: 'CoC Return', value: `${deal.cocReturn?.toFixed(2)}%`},
                 ];
             case 'House Flip':
-                const acquisitionCosts = (deal.closingCosts/100) * deal.purchasePrice;
+                const loanAmount = deal.purchasePrice - deal.downPayment;
+                const acquisitionCosts = deal.purchasePrice * (deal.closingCosts / 100);
                 const holdingCosts = (
-                    (deal.propertyTaxes/100 * deal.purchasePrice / 12) +
-                    (deal.insurance/100 * deal.purchasePrice / 12)
+                    (deal.propertyTaxes / 100 * deal.purchasePrice / 12) +
+                    (deal.insurance / 100 * deal.purchasePrice / 12)
                 ) * deal.holdingLength + deal.otherExpenses;
-                const financingCosts = (deal.purchasePrice - deal.downPayment) * (deal.interestRate/100) * (deal.holdingLength/12);
+                const financingCosts = loanAmount * (deal.interestRate / 100) * (deal.holdingLength / 12);
                 const totalInvestment = deal.downPayment + deal.rehabCost + acquisitionCosts + holdingCosts + financingCosts;
                 return [
                     { label: 'Net Profit', value: `$${deal.netProfit?.toFixed(2)}`},
@@ -438,18 +440,11 @@ function DealDetailView() {
                             <CardTitle className="flex items-center gap-2"><Sparkles size={16} className="text-primary"/>AI Insights</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            {isAIPending ? (
-                                <div className="space-y-2 mt-4 flex justify-center"> <Loader2 className="h-6 w-6 animate-spin" /> </div>
-                            ) : aiResult?.assessment ? (
-                                <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
-                            ) : (
-                                 <p className="text-sm text-muted-foreground">Get an AI-powered analysis of this deal's strengths and weaknesses.</p>
-                            )}
-                            {aiResult?.message && !aiResult.assessment && ( <p className="text-sm text-destructive mt-4">{aiResult.message}</p> )}
+                             <p className="text-sm text-muted-foreground">AI Insights are coming soon.</p>
                         </CardContent>
                         <CardFooter>
-                            <Button onClick={handleGenerateInsights} disabled={isAIPending} className="w-full">
-                                {isAIPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</> : 'Generate AI Insights'}
+                            <Button disabled className="w-full">
+                                Coming Soon
                             </Button>
                         </CardFooter>
                     </Card>

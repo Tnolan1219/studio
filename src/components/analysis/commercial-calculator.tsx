@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useActionState, useState, useMemo, useTransition, useEffect } from 'react';
@@ -496,19 +495,11 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                 <Card>
                     <CardHeader> <CardTitle className="flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
                     <CardContent>
-                    <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>AI Advisor Prompt</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription> e.g., "Analyze the pros and cons of a triple-net lease for this property." </FormDescription> <FormMessage /> </FormItem> )} />
-                    {isAIPending ? (
-                        <div className="space-y-2 mt-4 flex justify-center"> <Loader2 className="h-6 w-6 animate-spin" /> </div>
-                    ) : aiResult?.assessment ? (
-                        <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
-                    ) : (
-                        <p className="text-sm text-muted-foreground mt-4"> Click "Run Analysis" to get an AI-powered assessment. </p>
-                    )}
-                    {aiResult?.message && !aiResult.assessment && ( <p className="text-sm text-destructive mt-4">{aiResult.message}</p> )}
+                     <p className="text-sm text-muted-foreground mt-4"> AI Deal Assessment is coming soon. </p>
                     </CardContent>
                     <CardFooter className="flex justify-end">
-                        <Button type="button" onClick={handleGenerateInsights} disabled={isAIPending}>
-                            {isAIPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</> : 'Generate AI Insights'}
+                        <Button type="button" disabled>
+                            Generate AI Insights
                         </Button>
                     </CardFooter>
                 </Card>
