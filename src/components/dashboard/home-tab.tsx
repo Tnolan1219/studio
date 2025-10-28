@@ -14,20 +14,9 @@ import type { Deal, ProFormaEntry } from '@/lib/types';
 import { useMemo } from "react";
 import { RealEstateQueryBox } from "./real-estate-query-box";
 import { Skeleton } from "../ui/skeleton";
-import {
-    ResponsiveContainer,
-    BarChart as RechartsBarChart,
-    PieChart,
-    Pie,
-    Cell,
-    Bar as RechartsBar,
-    XAxis,
-    YAxis,
-    Tooltip,
-    CartesianGrid,
-} from 'recharts';
 import { useDashboardTab } from "@/hooks/use-dashboard-tab";
 import { Button } from "../ui/button";
+import { PortfolioVisualization } from "./portfolio-visualization";
 
 const calculateProForma = (deal: Deal): ProFormaEntry[] => {
     const proForma: ProFormaEntry[] = [];
@@ -110,8 +99,6 @@ export default function HomeTab() {
                 totalEquity: 0,
                 annualCashFlow: 0,
                 dealCount: 0,
-                portfolioBreakdown: [],
-                equityLoanData: [],
             };
         }
         
@@ -119,15 +106,9 @@ export default function HomeTab() {
         let totalValue = 0;
         let totalLoanBalance = 0;
         let annualCashFlow = 0;
-        const typeCounts: Record<string, number> = {
-            'Rental Property': 0,
-            'House Flip': 0,
-            'Commercial Multifamily': 0,
-        };
-
+        
         deals.forEach(deal => {
             totalInvestment += deal.purchasePrice;
-            typeCounts[deal.dealType]++;
             const proForma = calculateProForma(deal);
             const firstYear = proForma[0];
             if (firstYear) {
@@ -137,20 +118,11 @@ export default function HomeTab() {
             } else if (deal.dealType === 'House Flip') {
                 totalValue += deal.arv;
                 totalLoanBalance += (deal.purchasePrice - deal.downPayment);
+                annualCashFlow += deal.netProfit || 0; // For flips, treat net profit as the "cash flow" for the year
             }
         });
 
         const totalEquity = totalValue - totalLoanBalance;
-
-        const portfolioBreakdown = Object.entries(typeCounts)
-            .filter(([, count]) => count > 0)
-            .map(([name, value]) => ({ name, value }));
-
-        const equityLoanData = [
-            { name: 'Total Equity', value: totalEquity, fill: 'hsl(var(--chart-1))' },
-            { name: 'Total Loan Balance', value: totalLoanBalance, fill: 'hsl(var(--chart-5))' },
-        ];
-
 
         return {
             totalInvestment,
@@ -158,8 +130,6 @@ export default function HomeTab() {
             totalEquity,
             annualCashFlow,
             dealCount: deals.length,
-            portfolioBreakdown,
-            equityLoanData,
         };
     }, [deals, user]);
 
@@ -239,56 +209,7 @@ export default function HomeTab() {
                 />
             </div>
             
-            <div className="grid gap-4 lg:grid-cols-5">
-                <Card className="lg:col-span-2 bg-card/60 backdrop-blur-sm">
-                    <CardHeader>
-                        <CardTitle>Portfolio Breakdown</CardTitle>
-                        <CardDescription>Asset allocation by deal type.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="h-[250px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie 
-                                    data={portfolioStats.portfolioBreakdown} 
-                                    dataKey="value" 
-                                    nameKey="name" 
-                                    cx="50%" 
-                                    cy="50%" 
-                                    outerRadius={80}
-                                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                                >
-                                    {portfolioStats.portfolioBreakdown.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={`hsl(var(--chart-${index + 1}))`} />
-                                    ))}
-                                </Pie>
-                                <Tooltip formatter={(value, name) => [`${value} ${value > 1 ? 'deals' : 'deal'}`, name]} />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-                
-                <Card className="lg:col-span-3 bg-card/60 backdrop-blur-sm">
-                     <CardHeader>
-                        <CardTitle>Equity vs. Loan</CardTitle>
-                        <CardDescription>Your total equity compared to outstanding loan balances.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="h-[250px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <RechartsBarChart data={portfolioStats.equityLoanData} layout="vertical" margin={{ left: 30 }}>
-                               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                <XAxis type="number" tickFormatter={formatCurrency} />
-                                <YAxis type="category" dataKey="name" width={80} />
-                                <Tooltip formatter={(value) => formatCurrency(value as number)} contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}/>
-                                <RechartsBar dataKey="value" barSize={35} radius={[0, 4, 4, 0]}>
-                                     {portfolioStats.equityLoanData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                                    ))}
-                                </RechartsBar>
-                            </RechartsBarChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-            </div>
+            <PortfolioVisualization deals={deals || []} />
 
             <NewsFeed />
         </div>

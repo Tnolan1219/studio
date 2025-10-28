@@ -1,0 +1,117 @@
+
+'use client';
+
+import type { Deal } from '@/lib/types';
+import { Building, Home, Repeat, TrendingUp, TrendingDown } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+
+const PROPERTY_ICONS = {
+  'Rental Property': Home,
+  'House Flip': Repeat,
+  'Commercial Multifamily': Building,
+};
+
+const PropertyCard = ({ deal }: { deal: Deal }) => {
+  const Icon = PROPERTY_ICONS[deal.dealType] || Home;
+
+  let equity = 0;
+  let totalValue = 0;
+  let cashFlow = deal.monthlyCashFlow ?? (deal.netProfit ? deal.netProfit / 12 : 0) ?? 0;
+  let equityPercentage = 0;
+
+  if (deal.dealType === 'House Flip') {
+    const loanAmount = deal.purchasePrice - deal.downPayment;
+    const acquisitionCosts = deal.purchasePrice * (deal.closingCosts / 100);
+    const holdingCosts = ((deal.propertyTaxes/100 * deal.purchasePrice / 12) + (deal.insurance/100 * deal.purchasePrice / 12)) * deal.holdingLength + deal.otherExpenses;
+    const financingCosts = (loanAmount * (deal.interestRate/100) * (deal.holdingLength/12));
+    const totalInvestment = deal.downPayment + deal.rehabCost + acquisitionCosts + holdingCosts + financingCosts;
+    
+    totalValue = deal.arv;
+    equity = totalValue > 0 ? totalInvestment : 0;
+    equityPercentage = totalValue > 0 ? (equity / totalValue) * 100 : 0;
+  } else {
+    const loanAmount = deal.purchasePrice - deal.downPayment;
+    totalValue = deal.arv > 0 ? deal.arv : deal.purchasePrice + deal.rehabCost;
+    equity = totalValue - loanAmount;
+    equityPercentage = totalValue > 0 ? (equity / totalValue) * 100 : 0;
+  }
+  
+  const equityFill = `${Math.max(0, Math.min(100, equityPercentage))}%`;
+
+  return (
+    <Card className="bg-card/60 backdrop-blur-sm overflow-hidden">
+        <CardHeader>
+            <CardTitle className="truncate text-lg">{deal.dealName}</CardTitle>
+            <CardDescription>{deal.dealType}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-between items-center">
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <div className="relative w-20 h-20">
+                            <Icon className="w-full h-full text-muted-foreground/20" />
+                            <div className="absolute bottom-0 left-0 w-full overflow-hidden" style={{ height: equityFill }}>
+                                <Icon className="w-full h-full text-primary" />
+                            </div>
+                        </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Equity: {equity.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
+                        <p>Value: {totalValue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
+                        <p>Equity: {equityPercentage.toFixed(1)}%</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+
+            <div className="text-right">
+                <p className="text-sm text-muted-foreground">
+                    {deal.dealType === 'House Flip' ? 'Est. Profit' : 'Monthly Cash Flow'}
+                </p>
+                <div
+                    className={cn(
+                        "flex items-center justify-end gap-1 text-2xl font-bold",
+                        cashFlow > 0 ? 'text-success' : 'text-destructive'
+                    )}
+                >
+                    <span>
+                        {cashFlow.toLocaleString('en-US', {
+                            style: 'currency',
+                            currency: 'USD',
+                            maximumFractionDigits: 0,
+                        })}
+                    </span>
+                    {cashFlow > 0 ? (
+                        <TrendingUp className="h-6 w-6 animate-pulse" />
+                    ) : (
+                        <TrendingDown className="h-6 w-6 animate-pulse" />
+                    )}
+                </div>
+            </div>
+        </CardContent>
+    </Card>
+  );
+};
+
+
+export const PortfolioVisualization = ({ deals }: { deals: Deal[] }) => {
+  return (
+    <Card className="bg-card/30 backdrop-blur-sm">
+        <CardHeader>
+            <CardTitle>My Portfolio</CardTitle>
+            <CardDescription>A visual representation of your investment properties.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {deals.map(deal => (
+                <PropertyCard key={deal.id} deal={deal} />
+            ))}
+        </CardContent>
+    </Card>
+  );
+};

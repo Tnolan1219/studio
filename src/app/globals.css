@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -20,7 +21,7 @@
     --accent-foreground: 220 14% 10%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --success: 158 64% 52%;
+    --success: 140 64% 52%;
     --warning: 45 96% 56%;
     --border: 220 13% 89%;
     --input: 220 13% 89%;
