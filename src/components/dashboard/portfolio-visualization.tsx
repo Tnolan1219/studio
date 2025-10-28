@@ -23,23 +23,21 @@ const PropertyCard = ({ deal }: { deal: Deal }) => {
 
   let equity = 0;
   let totalValue = 0;
+  let remainingDebt = 0;
   let cashFlow = deal.monthlyCashFlow ?? (deal.netProfit ? deal.netProfit / 12 : 0) ?? 0;
   let equityPercentage = 0;
 
   if (deal.dealType === 'House Flip') {
     const loanAmount = deal.purchasePrice - deal.downPayment;
-    const acquisitionCosts = deal.purchasePrice * (deal.closingCosts / 100);
-    const holdingCosts = ((deal.propertyTaxes/100 * deal.purchasePrice / 12) + (deal.insurance/100 * deal.purchasePrice / 12)) * deal.holdingLength + deal.otherExpenses;
-    const financingCosts = (loanAmount * (deal.interestRate/100) * (deal.holdingLength/12));
-    const totalInvestment = deal.downPayment + deal.rehabCost + acquisitionCosts + holdingCosts + financingCosts;
-    
     totalValue = deal.arv;
-    equity = totalValue > 0 ? totalInvestment : 0;
+    equity = totalValue - loanAmount; // Simplified equity for flips as ARV minus loan
+    remainingDebt = loanAmount;
     equityPercentage = totalValue > 0 ? (equity / totalValue) * 100 : 0;
-  } else {
+  } else { // Rental & Commercial
     const loanAmount = deal.purchasePrice - deal.downPayment;
     totalValue = deal.arv > 0 ? deal.arv : deal.purchasePrice + deal.rehabCost;
     equity = totalValue - loanAmount;
+    remainingDebt = loanAmount;
     equityPercentage = totalValue > 0 ? (equity / totalValue) * 100 : 0;
   }
   
@@ -56,16 +54,16 @@ const PropertyCard = ({ deal }: { deal: Deal }) => {
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <div className="relative w-20 h-20">
-                            <Icon className="w-full h-full text-muted-foreground/20" />
+                            <Icon className="w-full h-full text-muted-foreground/10" />
                             <div className="absolute bottom-0 left-0 w-full overflow-hidden" style={{ height: equityFill }}>
                                 <Icon className="w-full h-full text-primary" />
                             </div>
                         </div>
                     </TooltipTrigger>
                     <TooltipContent>
-                        <p>Equity: {equity.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
-                        <p>Value: {totalValue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
-                        <p>Equity: {equityPercentage.toFixed(1)}%</p>
+                        <p className="font-semibold">Property Value: {totalValue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
+                        <p>Total Equity: {equity.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} ({equityPercentage.toFixed(1)}%)</p>
+                        <p>Remaining Debt: {remainingDebt.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
                     </TooltipContent>
                 </Tooltip>
             </TooltipProvider>
@@ -77,7 +75,7 @@ const PropertyCard = ({ deal }: { deal: Deal }) => {
                 <div
                     className={cn(
                         "flex items-center justify-end gap-1 text-2xl font-bold",
-                        cashFlow > 0 ? 'text-success' : 'text-destructive'
+                        cashFlow >= 0 ? 'text-success' : 'text-destructive'
                     )}
                 >
                     <span>
@@ -87,10 +85,10 @@ const PropertyCard = ({ deal }: { deal: Deal }) => {
                             maximumFractionDigits: 0,
                         })}
                     </span>
-                    {cashFlow > 0 ? (
-                        <TrendingUp className="h-6 w-6 animate-pulse" />
+                    {cashFlow >= 0 ? (
+                        <TrendingUp className="h-6 w-6" />
                     ) : (
-                        <TrendingDown className="h-6 w-6 animate-pulse" />
+                        <TrendingDown className="h-6 w-6" />
                     )}
                 </div>
             </div>
