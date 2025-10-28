@@ -328,10 +328,10 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                         <XAxis type="number" stroke="hsl(var(--foreground))" fontSize={12} tickFormatter={value => `$${value / 1000}k`} />
                         <YAxis type="category" dataKey="name" stroke="hsl(var(--foreground))" fontSize={12} width={80} />
-                        <Tooltip 
+                        <Tooltip
                             cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
-                            contentStyle={{ 
-                                backgroundColor: 'hsl(var(--background))', 
+                            contentStyle={{
+                                backgroundColor: 'hsl(var(--background))',
                                 border: '1px solid hsl(var(--border))',
                                 color: 'hsl(var(--foreground))'
                             }}

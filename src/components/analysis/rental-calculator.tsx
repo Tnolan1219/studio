@@ -425,14 +425,14 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
                                 <BarChart data={analysisResult.chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                                 <XAxis dataKey="name" stroke="hsl(var(--foreground))" fontSize={12} />
-                                <YAxis stroke="hsl(var(--foreground))" fontSize={12} tickFormatter={value => `$${value}`} />
-                                <Tooltip 
+                                <YAxis stroke="hsl(var(--foreground))" fontSize={12} tickFormatter={(value) => `$${value}`} />
+                                <Tooltip
                                     cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
-                                    contentStyle={{ 
-                                        backgroundColor: 'hsl(var(--background))', 
+                                    contentStyle={{
+                                        backgroundColor: 'hsl(var(--background))',
                                         border: '1px solid hsl(var(--border))',
                                         color: 'hsl(var(--foreground))'
-                                    }} 
+                                    }}
                                 />
                                 <Bar dataKey="value" radius={[4, 4, 0, 0]} />
                                 </BarChart>

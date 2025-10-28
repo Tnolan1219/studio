@@ -571,8 +571,8 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                         <YAxis stroke="hsl(var(--foreground))" fontSize={12} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
                                         <Tooltip
                                             cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
-                                            contentStyle={{ 
-                                                backgroundColor: 'hsl(var(--background))', 
+                                            contentStyle={{
+                                                backgroundColor: 'hsl(var(--background))',
                                                 border: '1px solid hsl(var(--border))',
                                                 color: 'hsl(var(--foreground))'
                                             }}
