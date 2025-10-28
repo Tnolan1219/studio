@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, FirebaseClientProvider } from '@/firebase';
 import { Header } from '@/components/header';
-import { Home as HomeIcon, BarChart2, Briefcase, User } from 'lucide-react';
+import { Home as HomeIcon, BarChart2, Briefcase, User, Users } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -53,13 +53,13 @@ function DashboardView() {
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
          />
       )}
-       <span className={cn(
+       <div className={cn(
           "absolute z-10 inset-0 transition-colors flex flex-col items-center justify-center",
           activeTab === value ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-foreground'
        )}>
           <Icon className="h-5 w-5 mb-0.5" />
           <span className="text-[10px] font-semibold">{label}</span>
-       </span>
+       </div>
     </Button>
   );
 
@@ -75,6 +75,7 @@ function DashboardView() {
               <TabButton value="home" label="Home" icon={HomeIcon} />
               <TabButton value="analyze" label="Analyze" icon={BarChart2} />
               <TabButton value="deals" label="Deals" icon={Briefcase} />
+              <TabButton value="community" label="Community" icon={Users} />
               <TabButton value="profile" label="Profile" icon={User} />
             </div>
           </div>

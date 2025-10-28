@@ -7,57 +7,18 @@
       "type": "object",
       "description": "Represents a user profile in the TKN Fi RE application.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the UserProfile entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "User's full name."
-        },
-        "email": {
-          "type": "string",
-          "description": "User's email address.",
-          "format": "email"
-        },
-        "country": {
-          "type": "string",
-          "description": "User's country of residence."
-        },
-        "state": {
-          "type": "string",
-          "description": "User's state of residence."
-        },
-        "plan": {
-          "type": "string",
-          "description": "User's subscription plan status.",
-          "enum": ["Free", "Pro", "Executive", "Elite"]
-        },
-        "dutyStation": {
-          "type": "string",
-          "description": "User's duty station if applicable."
-        },
-        "rank": {
-          "type": "string",
-          "description": "User's rank if applicable."
-        },
-        "branch": {
-          "type": "string",
-          "description": "User's branch of service if applicable."
-        },
-        "financialGoal": {
-          "type": "string",
-          "description": "User's stated financial goal."
-        }
+        "id": { "type": "string", "description": "Unique identifier for the UserProfile entity." },
+        "name": { "type": "string", "description": "User's full name." },
+        "email": { "type": "string", "description": "User's email address.", "format": "email" },
+        "country": { "type": "string", "description": "User's country of residence." },
+        "state": { "type": "string", "description": "User's state of residence." },
+        "plan": { "type": "string", "description": "User's subscription plan status.", "enum": ["Free", "Pro", "Executive", "Elite"] },
+        "dutyStation": { "type": "string", "description": "User's duty station if applicable." },
+        "rank": { "type": "string", "description": "User's rank if applicable." },
+        "branch": { "type": "string", "description": "User's branch of service if applicable." },
+        "financialGoal": { "type": "string", "description": "User's stated financial goal." }
       },
-      "required": [
-        "id",
-        "name",
-        "email",
-        "country",
-        "state",
-        "plan"
-      ]
+      "required": ["id", "name", "email", "country", "state", "plan"]
     },
     "Deal": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -65,96 +26,50 @@
       "type": "object",
       "description": "Represents a saved real estate deal analyzed in the TKN Fi RE application.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Deal entity."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N Deal)"
-        },
-        "dealName": {
-          "type": "string",
-          "description": "Name given to the deal by the user."
-        },
-        "propertyType": {
-          "type": "string",
-          "description": "Type of property (Rental, Flip, Multifamily)."
-        },
-        "purchasePrice": {
-          "type": "number",
-          "description": "Purchase price of the property."
-        },
-        "monthlyCashFlow": {
-          "type": "number",
-          "description": "Calculated monthly cash flow for the deal."
-        },
-        "cocReturn": {
-          "type": "number",
-          "description": "Calculated cash-on-cash return for the deal."
-        },
-        "roi": {
-          "type": "number",
-          "description": "Calculated return on investment for the deal."
-        }
+        "id": { "type": "string", "description": "Unique identifier for the Deal entity." },
+        "userId": { "type": "string", "description": "Reference to UserProfile. (Relationship: UserProfile 1:N Deal)" },
+        "dealName": { "type": "string", "description": "Name given to the deal by the user." },
+        "propertyType": { "type": "string", "description": "Type of property (Rental, Flip, Multifamily)." },
+        "purchasePrice": { "type": "number", "description": "Purchase price of the property." },
+        "monthlyCashFlow": { "type": "number", "description": "Calculated monthly cash flow for the deal." },
+        "cocReturn": { "type": "number", "description": "Calculated cash-on-cash return for the deal." },
+        "roi": { "type": "number", "description": "Calculated return on investment for the deal." },
+        "isPublished": { "type": "boolean", "description": "Whether the deal is visible to the community." },
+        "authorName": { "type": "string", "description": "The name of the user who published the deal." }
       },
-      "required": [
-        "id",
-        "userId",
-        "dealName",
-        "propertyType",
-        "purchasePrice",
-        "monthlyCashFlow",
-        "cocReturn",
-        "roi"
-      ]
+      "required": ["id", "userId", "dealName", "propertyType", "purchasePrice", "isPublished", "authorName"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}/userProfile",
+        "path": "/users/{userId}",
         "definition": {
           "entityName": "UserProfile",
-          "schema": {
-            "$ref": "#/backend/entities/UserProfile"
-          },
-          "description": "Stores user profile data. Path-based ownership ensures only the user can access their profile.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/UserProfile" },
+          "description": "Stores user profile data. Path-based ownership ensures only the user can access their profile."
         }
       },
       {
         "path": "/users/{userId}/deals/{dealId}",
         "definition": {
           "entityName": "Deal",
-          "schema": {
-            "$ref": "#/backend/entities/Deal"
-          },
-          "description": "Stores deals associated with each user. Path-based ownership ensures only the user can access their deals.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            },
-            {
-              "name": "dealId",
-              "description": "The unique identifier of the deal."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Deal" },
+          "description": "Stores deals associated with each user. Path-based ownership ensures only the user can access their deals."
+        }
+      },
+      {
+        "path": "/publishedDeals/{dealId}",
+        "definition": {
+            "entityName": "Deal",
+            "schema": { "$ref": "#/backend/entities/Deal" },
+            "description": "A root-level collection containing copies of all deals that users have publicly published for the community to see."
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and support secure list operations (QAPs). User profiles and deals are stored under the respective user ID, which facilitates straightforward path-based ownership. This structure avoids the need for `get()` calls in security rules, enabling atomic operations.\n\n*   `/users/{userId}/userProfile`: Stores user profile data. Ensures that each profile is only accessible by the respective user.\n*   `/users/{userId}/deals/{dealId}`: Stores deals associated with each user. Each deal is owned by the user, and deals can only be listed and accessed by the owning user. Enforces plan limits (Free = 5 deals, Pro = 10, Executive = unlimited) through rules.\n\nAuthorization Independence is achieved by structuring the data such that access control is determined by the document's path, eliminating dependencies on data from other documents.\n\nQAPs are supported by the segregation of user data. Listing deals under `/users/{userId}/deals/{dealId}` ensures that only the deals belonging to the authenticated user are accessible via list operations. This prevents unauthorized access and guarantees secure data retrieval."
+    "reasoning": "The Firestore structure is designed for security and scalability. User-specific data (profiles, private deals) is nested under `/users/{userId}` for strict, path-based security rules. A new root-level collection, `/publishedDeals`, is introduced to support the 'Community Deals' feature. When a user publishes a deal, a copy is placed in this collection, which has read-only access for all authenticated users. This prevents exposing all user data while still enabling a public showcase of selected deals."
   }
 }

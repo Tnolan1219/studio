@@ -1,3 +1,4 @@
+
 import {
     Card,
     CardContent,
@@ -5,32 +6,93 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
-import {
-    Carousel,
-    CarouselContent,
-    CarouselItem,
-    CarouselNext,
-    CarouselPrevious,
-} from "@/components/ui/carousel";
-import {
-    Accordion,
-    AccordionContent,
-    AccordionItem,
-    AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { DollarSign, BarChart, Briefcase, Sparkles } from "lucide-react";
-import { mockTestimonials, mockFaqs } from "@/lib/mock-data";
+import { DollarSign, BarChart, Briefcase, Home, Building, Repeat, TrendingUp, PiggyBank, Scale } from "lucide-react";
 import { NewsFeed } from "./news-feed";
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, doc } from "firebase/firestore";
-import type { Deal } from '@/lib/types';
+import { collection } from "firebase/firestore";
+import type { Deal, ProFormaEntry } from '@/lib/types';
 import { useMemo } from "react";
 import { RealEstateQueryBox } from "./real-estate-query-box";
+import { Skeleton } from "../ui/skeleton";
+import {
+    ResponsiveContainer,
+    BarChart as RechartsBarChart,
+    PieChart,
+    Pie,
+    Cell,
+    Bar as RechartsBar,
+    XAxis,
+    YAxis,
+    Tooltip,
+} from 'recharts';
+import { useDashboardTab } from "@/hooks/use-dashboard-tab";
+import { Button } from "../ui/button";
+
+const calculateProForma = (deal: Deal): ProFormaEntry[] => {
+    const proForma: ProFormaEntry[] = [];
+    if (!deal || deal.dealType === 'House Flip') return [];
+
+    const loanAmount = deal.purchasePrice - deal.downPayment;
+    const monthlyInterestRate = deal.interestRate / 100 / 12;
+    const numberOfPayments = deal.loanTerm * 12;
+    const debtService = numberOfPayments > 0 && monthlyInterestRate > 0 ?
+        (loanAmount * (monthlyInterestRate * Math.pow(1 + monthlyInterestRate, numberOfPayments))) / (Math.pow(1 + monthlyInterestRate, numberOfPayments) - 1) * 12
+        : 0;
+
+    let currentGrossRent = deal.grossMonthlyIncome * 12;
+    let currentPropertyValue = deal.arv || deal.purchasePrice;
+    let currentLoanBalance = loanAmount;
+    
+    for (let year = 1; year <= 10; year++) {
+        const vacancyLoss = currentGrossRent * (deal.vacancy / 100);
+        const effectiveGrossIncome = currentGrossRent - vacancyLoss;
+        const taxesAmount = effectiveGrossIncome * (deal.propertyTaxes / 100);
+        const insuranceAmount = effectiveGrossIncome * (deal.insurance / 100);
+        const maintenanceAmount = effectiveGrossIncome * (deal.repairsAndMaintenance/100);
+        const capexAmount = effectiveGrossIncome * (deal.capitalExpenditures/100);
+        const managementAmount = effectiveGrossIncome * (deal.managementFee/100);
+        const otherAmount = effectiveGrossIncome * (deal.otherExpenses/100);
+
+        const currentOpEx = taxesAmount + insuranceAmount + maintenanceAmount + capexAmount + managementAmount + otherAmount;
+        const noi = effectiveGrossIncome - currentOpEx;
+
+        let yearEndLoanBalance = currentLoanBalance;
+        if(monthlyInterestRate > 0 && yearEndLoanBalance > 0) {
+            for (let i = 0; i < 12; i++) {
+                const interestPayment = yearEndLoanBalance * monthlyInterestRate;
+                const principalPayment = (debtService / 12) - interestPayment;
+                yearEndLoanBalance -= principalPayment;
+            }
+        } else {
+            yearEndLoanBalance = 0;
+        }
+
+        proForma.push({
+            year,
+            grossPotentialRent: currentGrossRent,
+            vacancyLoss,
+            effectiveGrossIncome,
+            operatingExpenses: currentOpEx,
+            noi,
+            debtService,
+            cashFlowBeforeTax: noi - debtService,
+            propertyValue: currentPropertyValue,
+            loanBalance: yearEndLoanBalance,
+            equity: currentPropertyValue - yearEndLoanBalance,
+        });
+        
+        currentGrossRent *= (1 + deal.annualIncomeGrowth / 100);
+        currentPropertyValue *= (1 + deal.annualAppreciation / 100);
+        currentLoanBalance = yearEndLoanBalance;
+    }
+    return proForma;
+};
+
 
 export default function HomeTab() {
     const { user } = useUser();
     const firestore = useFirestore();
+    const { setActiveTab } = useDashboardTab();
 
     const dealsCollection = useMemoFirebase(() => {
       if (!user || user.isAnonymous) return null;
@@ -39,33 +101,109 @@ export default function HomeTab() {
     
     const { data: deals, isLoading: dealsLoading } = useCollection<Deal>(dealsCollection);
 
-    const stats = useMemo(() => {
-        if (!deals || user?.isAnonymous) {
+    const portfolioStats = useMemo(() => {
+        if (!deals || user?.isAnonymous || deals.length === 0) {
             return {
                 totalInvestment: 0,
-                avgCocReturn: 0,
+                totalValue: 0,
+                totalEquity: 0,
+                annualCashFlow: 0,
                 dealCount: 0,
+                portfolioBreakdown: [],
+                equityLoanData: [],
             };
         }
+        
+        let totalInvestment = 0;
+        let totalValue = 0;
+        let totalLoanBalance = 0;
+        let annualCashFlow = 0;
+        const typeCounts: Record<string, number> = {
+            'Rental Property': 0,
+            'House Flip': 0,
+            'Commercial Multifamily': 0,
+        };
 
-        const totalInvestment = deals.reduce((acc, deal) => acc + deal.purchasePrice, 0);
-        const rentalDeals = deals.filter(deal => deal.dealType === 'Rental Property');
-        const avgCocReturn = rentalDeals.length > 0
-            ? rentalDeals.reduce((acc, deal) => acc + (deal.cocReturn || 0), 0) / rentalDeals.length
-            : 0;
+        deals.forEach(deal => {
+            totalInvestment += deal.purchasePrice;
+            typeCounts[deal.dealType]++;
+            const proForma = calculateProForma(deal);
+            const firstYear = proForma[0];
+            if (firstYear) {
+                totalValue += firstYear.propertyValue;
+                totalLoanBalance += firstYear.loanBalance;
+                annualCashFlow += firstYear.cashFlowBeforeTax;
+            } else if (deal.dealType === 'House Flip') {
+                totalValue += deal.arv;
+                totalLoanBalance += (deal.purchasePrice - deal.downPayment);
+            }
+        });
+
+        const totalEquity = totalValue - totalLoanBalance;
+
+        const portfolioBreakdown = Object.entries(typeCounts)
+            .filter(([, count]) => count > 0)
+            .map(([name, value]) => ({ name, value }));
+
+        const equityLoanData = [
+            { name: 'Total Equity', value: totalEquity, fill: 'hsl(var(--chart-1))' },
+            { name: 'Total Loan Balance', value: totalLoanBalance, fill: 'hsl(var(--chart-5))' },
+        ];
+
 
         return {
             totalInvestment,
-            avgCocReturn,
+            totalValue,
+            totalEquity,
+            annualCashFlow,
             dealCount: deals.length,
+            portfolioBreakdown,
+            equityLoanData,
         };
     }, [deals, user]);
 
+    const formatCurrency = (value: number) => {
+        if (Math.abs(value) >= 1_000_000) {
+            return `$${(value / 1_000_000).toFixed(2)}M`;
+        }
+        if (Math.abs(value) >= 1_000) {
+            return `$${(value / 1_000).toFixed(1)}k`;
+        }
+        return `$${value.toFixed(0)}`;
+    };
 
     const getWelcomeName = () => {
         if (!user) return "Guest";
         if (user.isAnonymous) return "Guest";
-        return user.displayName || user.email?.split('@')[0] || "User";
+        return user.displayName?.split(' ')[0] || user.email?.split('@')[0] || "User";
+    };
+
+    if (dealsLoading) {
+        return (
+            <div className="grid gap-6 animate-fade-in">
+                <Skeleton className="h-9 w-64" />
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28" />)}
+                </div>
+                 <div className="grid gap-4 md:grid-cols-2">
+                    <Skeleton className="h-80" />
+                    <Skeleton className="h-80" />
+                </div>
+            </div>
+        )
+    }
+
+    if (portfolioStats.dealCount === 0) {
+        return (
+            <div className="text-center py-16 border-2 border-dashed rounded-lg animate-fade-in">
+               <Briefcase className="mx-auto h-12 w-12 text-muted-foreground" />
+               <h3 className="mt-4 text-xl font-semibold">Welcome to your Dashboard, {getWelcomeName()}!</h3>
+               <p className="mt-2 text-muted-foreground">You haven't analyzed any deals yet. Get started by analyzing your first property.</p>
+               <Button className="mt-6" onClick={() => setActiveTab('analyze')}>
+                   Analyze a New Deal
+               </Button>
+            </div>
+        )
     }
 
     return (
@@ -74,123 +212,84 @@ export default function HomeTab() {
             
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <StatCard 
-                    title="Total Deals Analyzed"
-                    value={user?.isAnonymous ? "0" : (dealsLoading ? "..." : stats.dealCount.toString())}
+                    title="Portfolio Value"
+                    value={formatCurrency(portfolioStats.totalValue)}
+                    icon={<Home className="h-4 w-4 text-muted-foreground" />}
+                    description="Estimated current value of all deals"
+                />
+                <StatCard 
+                    title="Estimated Equity"
+                    value={formatCurrency(portfolioStats.totalEquity)}
+                    icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />}
+                    description="Value minus outstanding loan balances"
+                />
+                <StatCard 
+                    title="Annual Cash Flow"
+                    value={formatCurrency(portfolioStats.annualCashFlow)}
+                    icon={<PiggyBank className="h-4 w-4 text-muted-foreground" />}
+                    description="Pre-tax cash flow from all rentals"
+                />
+                <StatCard 
+                    title="Total Deals"
+                    value={portfolioStats.dealCount.toString()}
                     icon={<Briefcase className="h-4 w-4 text-muted-foreground" />}
-                    description="Across all categories"
-                />
-                <StatCard 
-                    title="Total Investment"
-                    value={user?.isAnonymous ? "$0" : (dealsLoading ? "..." : `$${(stats.totalInvestment / 1000000).toFixed(2)}M`)}
-                    icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
-                    description="Purchase price of saved deals"
-                />
-                <StatCard 
-                    title="Average CoC Return"
-                    value={user?.isAnonymous ? "0%" : (dealsLoading ? "..." : `${stats.avgCocReturn.toFixed(1)}%`)}
-                    icon={<BarChart className="h-4 w-4 text-muted-foreground" />}
-                    description="For your saved rental deals"
-                />
-                <StatCard 
-                    title="Current Plan"
-                    value={user?.isAnonymous ? "Guest" : "Pro"}
-                    icon={<Sparkles className="h-4 w-4 text-muted-foreground" />}
-                    description="Upgrade for more features"
+                    description="Number of deals in your portfolio"
                     isPrimary
                 />
             </div>
             
-            <div className="grid gap-4 lg:grid-cols-2">
-                <NewsFeed />
+            <div className="grid gap-4 lg:grid-cols-5">
+                <Card className="lg:col-span-2 bg-card/60 backdrop-blur-sm">
+                    <CardHeader>
+                        <CardTitle>Portfolio Breakdown</CardTitle>
+                        <CardDescription>Asset allocation by deal type.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="h-[250px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie 
+                                    data={portfolioStats.portfolioBreakdown} 
+                                    dataKey="value" 
+                                    nameKey="name" 
+                                    cx="50%" 
+                                    cy="50%" 
+                                    outerRadius={80}
+                                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                >
+                                    {portfolioStats.portfolioBreakdown.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={`hsl(var(--chart-${index + 1}))`} />
+                                    ))}
+                                </Pie>
+                                <Tooltip formatter={(value, name) => [`${value} ${value > 1 ? 'deals' : 'deal'}`, name]} />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
                 
-                <Card className="bg-card/60 backdrop-blur-sm">
-                    <CardHeader>
-                        <CardTitle>What's New</CardTitle>
-                        <CardDescription>Latest updates and features.</CardDescription>
+                <Card className="lg:col-span-3 bg-card/60 backdrop-blur-sm">
+                     <CardHeader>
+                        <CardTitle>Equity vs. Loan</CardTitle>
+                        <CardDescription>Your total equity compared to outstanding loan balances.</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <ul className="space-y-4 text-sm">
-                            <li className="flex items-start">
-                                <span className="mr-2 mt-1">🚀</span>
-                                <div>
-                                    <strong>Commercial Multifamily Calculator:</strong> Now in beta! Analyze large apartment buildings with our most powerful tool yet.
-                                </div>
-                            </li>
-                            <li className="flex items-start">
-                                <span className="mr-2 mt-1">✨</span>
-                                <div>
-                                    <strong>UI Refresh:</strong> Enjoy our new frosted glass look and feel, with improved performance on all devices.
-                                </div>
-                            </li>
-                            <li className="flex items-start">
-                                <span className="mr-2 mt-1">🤖</span>
-                                <div>
-                                    <strong>Smarter AI Assessments:</strong> Our AI now provides even more detailed risk analysis for house flips.
-                                </div>
-                            </li>
-                        </ul>
-                    </CardContent>
-                </Card>
-            </div>
-            
-            <div className="grid gap-4 lg:grid-cols-2">
-                <Card className="bg-card/60 backdrop-blur-sm">
-                    <CardHeader>
-                        <CardTitle>Community Voice</CardTitle>
-                        <CardDescription>What our members are saying.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Carousel
-                            opts={{
-                                align: "start",
-                                loop: true,
-                            }}
-                            className="w-full"
-                        >
-                            <CarouselContent>
-                                {mockTestimonials.map((t, i) => (
-                                    <CarouselItem key={i}>
-                                        <div className="p-1">
-                                            <div className="flex flex-col items-center text-center p-6 space-y-4">
-                                                <Avatar className="h-16 w-16">
-                                                    <AvatarImage src={t.avatarUrl} data-ai-hint="person portrait" />
-                                                    <AvatarFallback>{t.name.charAt(0)}</AvatarFallback>
-                                                </Avatar>
-                                                <p className="italic">"{t.text}"</p>
-                                                <div>
-                                                    <p className="font-semibold">{t.name}</p>
-                                                    <p className="text-sm text-muted-foreground">{t.role}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </CarouselItem>
-                                ))}
-                            </CarouselContent>
-                            <CarouselPrevious className="hidden sm:flex"/>
-                            <CarouselNext className="hidden sm:flex"/>
-                        </Carousel>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-card/60 backdrop-blur-sm">
-                    <CardHeader>
-                        <CardTitle>Frequently Asked Questions</CardTitle>
-                        <CardDescription>Quick answers to common questions.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Accordion type="single" collapsible className="w-full">
-                            {mockFaqs.map((faq, i) => (
-                                <AccordionItem value={`item-${i}`} key={i}>
-                                    <AccordionTrigger>{faq.question}</AccordionTrigger>
-                                    <AccordionContent>{faq.answer}</AccordionContent>
-                                </AccordionItem>
-                            ))}
-                        </Accordion>
+                    <CardContent className="h-[250px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <RechartsBarChart data={portfolioStats.equityLoanData} layout="vertical" margin={{ left: 30 }}>
+                               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                <XAxis type="number" tickFormatter={formatCurrency} />
+                                <YAxis type="category" dataKey="name" width={80} />
+                                <Tooltip formatter={(value) => formatCurrency(value as number)} contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}/>
+                                <RechartsBar dataKey="value" barSize={35} radius={[0, 4, 4, 0]}>
+                                     {portfolioStats.equityLoanData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                                    ))}
+                                </RechartsBar>
+                            </RechartsBarChart>
+                        </ResponsiveContainer>
                     </CardContent>
                 </Card>
             </div>
 
-            <RealEstateQueryBox />
+            <NewsFeed />
         </div>
     );
 }
