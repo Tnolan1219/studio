@@ -24,6 +24,7 @@ import {
     XAxis,
     YAxis,
     Tooltip,
+    CartesianGrid,
 } from 'recharts';
 import { useDashboardTab } from "@/hooks/use-dashboard-tab";
 import { Button } from "../ui/button";
