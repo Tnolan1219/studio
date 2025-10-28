@@ -30,7 +30,8 @@ const PropertyCard = ({ deal }: { deal: Deal }) => {
   if (deal.dealType === 'House Flip') {
     const loanAmount = deal.purchasePrice - deal.downPayment;
     totalValue = deal.arv;
-    equity = totalValue - loanAmount; // Simplified equity for flips as ARV minus loan
+    const totalInvestment = deal.downPayment + deal.rehabCost + (deal.purchasePrice * (deal.closingCosts / 100));
+    equity = deal.arv - (deal.purchasePrice - deal.downPayment) - deal.rehabCost - (deal.purchasePrice * (deal.closingCosts/100)); // A simplified view for flips
     remainingDebt = loanAmount;
     equityPercentage = totalValue > 0 ? (equity / totalValue) * 100 : 0;
   } else { // Rental & Commercial
@@ -41,7 +42,7 @@ const PropertyCard = ({ deal }: { deal: Deal }) => {
     equityPercentage = totalValue > 0 ? (equity / totalValue) * 100 : 0;
   }
   
-  const equityFill = `${Math.max(0, Math.min(100, equityPercentage))}%`;
+  const equityFillHeight = `${Math.max(0, Math.min(100, equityPercentage))}%`;
 
   return (
     <Card className="bg-card/60 backdrop-blur-sm overflow-hidden">
@@ -54,16 +55,21 @@ const PropertyCard = ({ deal }: { deal: Deal }) => {
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <div className="relative w-20 h-20">
-                            <Icon className="w-full h-full text-muted-foreground/10" />
-                            <div className="absolute bottom-0 left-0 w-full overflow-hidden" style={{ height: equityFill }}>
+                            <Icon className="w-full h-full text-muted-foreground/20" />
+                            <div 
+                                className="absolute bottom-0 left-0 w-full overflow-hidden" 
+                                style={{ height: equityFillHeight }}
+                            >
                                 <Icon className="w-full h-full text-primary" />
                             </div>
                         </div>
                     </TooltipTrigger>
                     <TooltipContent>
-                        <p className="font-semibold">Property Value: {totalValue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
-                        <p>Total Equity: {equity.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} ({equityPercentage.toFixed(1)}%)</p>
-                        <p>Remaining Debt: {remainingDebt.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
+                        <div className="space-y-1 text-sm">
+                            <p><span className="font-semibold">Value:</span> {totalValue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
+                            <p><span className="font-semibold">Equity:</span> {equity.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} ({equityPercentage.toFixed(1)}%)</p>
+                            <p><span className="font-semibold">Debt:</span> {remainingDebt.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
+                        </div>
                     </TooltipContent>
                 </Tooltip>
             </TooltipProvider>
