@@ -150,8 +150,7 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
     const monthlyOtherIncome = otherIncomes.reduce((acc: number, item: { amount: number; }) => acc + item.amount, 0);
     let currentOtherIncome = monthlyOtherIncome * 12;
 
-    const monthlyOpEx = operatingExpenses.reduce((acc: number, item: { amount: number; }) => acc + item.amount, 0);
-    let currentOpEx = monthlyOpEx * 12;
+    let currentOpEx = operatingExpenses.reduce((acc, item) => acc + item.amount, 0) * 12;
 
     let currentPropertyValue = purchasePrice + rehabCost;
     let currentLoanBalance = loanAmount;

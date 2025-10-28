@@ -99,9 +99,8 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
     let currentGrossRent = unitMix.reduce((acc: number, unit: { count: number; rent: number; }) => acc + (unit.count * unit.rent * 12), 0);
     const monthlyOtherIncome = otherIncomes.reduce((acc: number, item: { amount: number; }) => acc + item.amount, 0);
     let currentOtherIncome = monthlyOtherIncome * 12;
+    let currentOpEx = operatingExpenses.reduce((acc, item) => acc + item.amount, 0) * 12;
 
-    const monthlyOpEx = operatingExpenses.reduce((acc: number, item: { amount: number; }) => acc + item.amount, 0);
-    let currentOpEx = monthlyOpEx * 12;
 
     let currentPropertyValue = purchasePrice + rehabCost;
     let currentLoanBalance = loanAmount;
@@ -243,14 +242,14 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
   }, [deal, isEditMode, form.reset]);
 
   const handleAnalysis = (data: FormData) => {
-    const { purchasePrice, downPayment } = data;
+    const { purchasePrice, downPayment, rehabCost = 0, closingCosts = 0 } = data;
     const proForma = calculateProForma(data);
     const year1 = proForma[0] || {};
     
-    const totalInvestment = downPayment; // simplified for this model
+    const totalInvestment = downPayment + rehabCost + (closingCosts/100 * purchasePrice);
     const noi = year1.noi || 0;
     const monthlyCashFlow = (year1.cashFlowBeforeTax || 0) / 12;
-    const cocReturn = totalInvestment > 0 ? ((monthlyCashFlow * 12) / totalInvestment) * 100 : 0;
+    const cocReturn = totalInvestment > 0 ? ((year1.cashFlowBeforeTax || 0) / totalInvestment) * 100 : 0;
     const capRate = purchasePrice > 0 ? (noi / purchasePrice) * 100 : 0;
 
     const cashFlowChartData = proForma.slice(0, 10).map(entry => ({
@@ -340,7 +339,6 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
       isAdvanced: false, // Simple calculator always saves as non-advanced
       // Defaulting unused fields
       arv: 0,
-      rehabCost: 0,
       repairsAndMaintenance: 0,
       capitalExpenditures: 0,
       managementFee: 0,
@@ -472,8 +470,8 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={analysisResult.chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                <XAxis dataKey="year" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
+                                <XAxis dataKey="year" stroke="hsl(var(--foreground))" fontSize={12} />
+                                <YAxis stroke="hsl(var(--foreground))" fontSize={12} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
                                 <Tooltip
                                     cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
                                     contentStyle={{ 

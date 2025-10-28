@@ -326,8 +326,8 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={analysisResult.chartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }} >
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={value => `$${value / 1000}k`} />
-                        <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} width={80} />
+                        <XAxis type="number" stroke="hsl(var(--foreground))" fontSize={12} tickFormatter={value => `$${value / 1000}k`} />
+                        <YAxis type="category" dataKey="name" stroke="hsl(var(--foreground))" fontSize={12} width={80} />
                         <Tooltip 
                             cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
                             contentStyle={{ 
