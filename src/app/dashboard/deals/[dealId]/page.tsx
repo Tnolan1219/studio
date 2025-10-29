@@ -3,7 +3,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
-import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, FirebaseClientProvider } from '@/firebase';
 import { doc, collection, serverTimestamp, query, orderBy, deleteDoc, setDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import type { Deal, DealComment, DealStatus } from '@/lib/types';
