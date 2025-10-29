@@ -1,103 +1,172 @@
 /**
- * @fileOverview Firestore Security Rules for TKN Fi RE application.
+ * @file Firebase Security Rules for TKN Fi RE Application
  *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for private data
- * and allows public read access to published deals.
+ * @corePhilosophy This ruleset enforces a strict user-ownership model for user profiles and their associated deals,
+ *                 while also enabling a public "Community Deals" feature through a dedicated top-level collection.
+ *                 Only authenticated users can read and write data.
  *
- * Data Structure:
- * - User profiles are stored under `/users/{userId}`.
- * - User-specific deals are stored under `/users/{userId}/deals/{dealId}`.
- * - Publicly visible deals are copied to `/publishedDeals/{dealId}`.
+ * @dataStructure - `/users/{userId}`: Stores user profile information, accessible only by the owning user.
+ *                  - `/users/{userId}/deals/{dealId}`: Stores real estate deals specific to a user, accessible only by that user.
+ *                  - `/publishedDeals/{dealId}`: Stores publicly-visible deals. Readable by any authenticated user.
  *
- * Key Security Decisions:
- * - Users can only access their own profile and deals.
- * - All authenticated users can read published deals.
- * - Listing all users is disallowed.
- * - All write operations to root collections require authentication.
+ * @keySecurityDecisions - User listing is disallowed.
+ *                         - Public read access is granted only to the `/publishedDeals` collection.
+ *                         - Write access to `/publishedDeals` is controlled by validating the author ID.
+ *                         - A user can only access their own deals and profile.
+ *                         - All write operations require user authentication.
  *
- * Denormalization for Authorization:
- * - `publishedDeals` copies the `authorName` from the original Deal document. This simplifies the rules and avoids cross-collection reads.
- *
- * Structural Segregation:
- * - Private deals are stored under the user's profile, while public deals are stored in a separate, top-level collection.
+ * @denormalizationForAuthorization The `Deal` entity has a `userId` field to associate deals with users.
+ *                                 The `Deal` entity has an `authorName` field representing the name of the user who created the deal.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the request is made by a signed-in user.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the request is made by the owner of the resource.
-     * @param {string} userId - The user ID to compare against the request's auth UID.
-     */
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the request is made by the existing owner of the resource.
-     * @param {string} userId - The user ID to compare against the resource's data.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * @description Enforces rules for user profiles.
+     * @description Enforces access control for user profiles.
      * @path /users/{userId}
-     * @allow (create) - User with UID 'user123' can create their own profile with id: 'user123'.
-     * @allow (get, update, delete) - User with UID 'user123' can read, update, and delete their own profile.
-     * @deny (create) - User with UID 'user456' cannot create a profile for 'user123'.
-     * @deny (update, delete) - User with UID 'user456' cannot update or delete the profile of 'user123'.
+     * @allow (create) If the user is creating their own profile (new user signup).
+     * @allow (get, update, delete) If the user is the owner of the profile.
+     * @deny (list) User listing is not allowed.
+     * @deny (create) If a user attempts to create a profile with an ID that doesn't match their auth UID.
+     * @deny (*) If the user is not authenticated.
      * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
+      // Helper function to check if the user is signed in
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Helper function to check if the user is the owner
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      // Helper function to check if the user is the owner of an existing document
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      // Allow a user to create their own profile on signup, with matching user ID
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
+
+      // Only the owner can read their profile
       allow get: if isOwner(userId);
-      allow list: if false; // Prevent listing all users.
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
+
+      // Prevent listing all users
+      allow list: if false;
+
+      // Only the owner can update their profile
       allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+
+      // Only the owner can delete their profile
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Enforces rules for deals associated with a user.
+     * @description Enforces access control for deals under a specific user.
      * @path /users/{userId}/deals/{dealId}
-     * @allow (create) - User with UID 'user123' can create a deal under their profile.
-     * @allow (get, update, delete) - User with UID 'user123' can read, update, and delete their own deals.
-     * @deny (create) - User with UID 'user456' cannot create a deal for 'user123'.
-     * @deny (update, delete) - User with UID 'user456' cannot update or delete a deal belonging to 'user123'.
-     * @principle Restricts access to a user's own data tree.
+     * @allow (create) If the user is the owner and the deal's userId matches the path.
+     * @allow (get, list, update, delete) If the user is the owner.
+     * @deny (*) If the user is not authenticated or not the owner.
+     * @principle Restricts access to a user's own deals.
      */
     match /users/{userId}/deals/{dealId} {
+      // Helper function to check if the user is signed in
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Helper function to check if the user is the owner
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      // Helper function to check if the user is the owner of an existing document
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      // Allow creating a deal if the user is signed in, is the owner, and the deal's userId matches the path
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
+
+      // Only the owner can read their deals
       allow get: if isOwner(userId);
+
+      // Only the owner can list their deals
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+
+      // Only the owner can update their deals
       allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+
+      // Only the owner can delete their deals
       allow delete: if isExistingOwner(userId);
+
+       /**
+         * @description Enforces access control for comments under deals for a specific user.
+         * @path /users/{userId}/deals/{dealId}/comments/{commentId}
+         * @allow (get, list) If the user is the owner of the deal.
+         * @allow (create) If the user is the owner of the deal.
+         * @allow (update, delete) If the user is the owner of the deal.
+         * @deny (*) If the user is not authenticated or not the owner.
+         * @principle Restricts access to a user's own deals comments.
+         */
+      match /comments/{commentId} {
+
+           // Allow creating a deal if the user is signed in, is the owner, and the deal's userId matches the path
+          allow create: if isSignedIn() && isOwner(userId);
+
+          // Only the owner can read their deals
+          allow get: if isOwner(userId);
+
+          // Only the owner can list their deals
+          allow list: if isOwner(userId);
+
+          // Only the owner can update their deals
+          allow update: if isExistingOwner(userId);
+
+          // Only the owner can delete their deals
+          allow delete: if isExistingOwner(userId);
+      }
     }
 
     /**
-     * @description Enforces rules for publicly published deals.
+     * @description Enforces access control for published deals (community deals).
      * @path /publishedDeals/{dealId}
-     * @allow (get, list) - Any authenticated user can read published deals.
-     * @allow (create) - Only the deal's owner (identified by userId) can create. The userId field on the document must match the request's auth UID.
-     * @allow (update, delete) - Only the deal's owner (identified by userId) can update or delete, and only if the document exists.
-     * @deny (create) - Anonymous users cannot create published deals.
-     * @deny (update, delete) - Anonymous users cannot update or delete published deals.
-     * @principle Allows public read access while restricting write access to the owner.
+     * @allow (get, list) Public read access for all authenticated users.
+     * @allow (create) Only if the authorId matches the authenticated user's ID.
+     * @allow (update, delete) Only the original author can update or delete.
+     * @deny (*) If the user is not authenticated.
+     * @principle Enables public read access while restricting write access to the owner.
      */
     match /publishedDeals/{dealId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && resource != null;
-      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid && resource != null;
+      // Helper function to check if the user is signed in
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Helper function to check if the user is the owner, based on authorId field
+      function isOwner(authorId) {
+        return isSignedIn() && request.auth.uid == authorId;
+      }
+
+      // Helper function to check if the user is the owner of an existing document
+      function isExistingOwner(authorId) {
+        return isOwner(authorId) && resource != null;
+      }
+
+      // Allow all authenticated users to read published deals
+      allow get, list: if isSignedIn();
+
+      // Only the author can create a published deal, and authorId must match the user's ID
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+
+      // Only the original author can update the published deal
+      allow update: if isExistingOwner(resource.data.authorId) && request.resource.data.authorId == resource.data.authorId;
+
+      // Only the original author can delete the published deal
+      allow delete: if isExistingOwner(resource.data.authorId);
     }
   }
 }
