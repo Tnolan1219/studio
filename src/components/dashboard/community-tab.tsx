@@ -45,34 +45,36 @@ const CommunityDealCard = ({ deal }: { deal: Deal }) => {
     const cashFlowLabel = deal.dealType === 'House Flip' ? 'Net Profit' : 'Cash Flow';
 
     return (
-        <Card className={`bg-card/60 backdrop-blur-sm transition-all duration-300 hover:scale-105 cursor-pointer h-full flex flex-col ${getProfitabilityClass(deal)}`}>
-            <CardHeader>
-                <div className="flex justify-between items-start">
+        <Link href={`/community/deals/${deal.id}`} passHref>
+            <Card className={`bg-card/60 backdrop-blur-sm transition-all duration-300 hover:scale-105 cursor-pointer h-full flex flex-col ${getProfitabilityClass(deal)}`}>
+                <CardHeader>
+                    <div className="flex justify-between items-start">
+                        <div className='overflow-hidden'>
+                            <CardTitle className="text-lg truncate">{deal.dealName}</CardTitle>
+                            <CardDescription>{deal.dealType}</CardDescription>
+                        </div>
+                        <div className="text-xs text-muted-foreground text-right">
+                            <p>By {deal.authorName}</p>
+                             <p>{deal.createdAt && new Date(deal.createdAt.seconds * 1000).toLocaleDateString()}</p>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="grid grid-cols-3 gap-2 text-center flex-grow">
+                     <div className='overflow-hidden'>
+                        <p className="text-xs text-muted-foreground">Price</p>
+                        <p className="text-lg font-bold truncate">${(deal.purchasePrice / 1000).toFixed(0)}k</p>
+                    </div>
                     <div className='overflow-hidden'>
-                        <CardTitle className="text-lg truncate">{deal.dealName}</CardTitle>
-                        <CardDescription>{deal.dealType}</CardDescription>
+                        <p className="text-xs text-muted-foreground">{metricLabel}</p>
+                        <p className="text-lg font-bold truncate">{metric?.toFixed(1)}%</p>
                     </div>
-                    <div className="text-xs text-muted-foreground text-right">
-                        <p>By {deal.authorName}</p>
-                         <p>{deal.createdAt && new Date(deal.createdAt.seconds * 1000).toLocaleDateString()}</p>
+                    <div className='overflow-hidden'>
+                        <p className="text-xs text-muted-foreground">{cashFlowLabel}</p>
+                        <p className="text-lg font-bold truncate">${cashFlowValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                     </div>
-                </div>
-            </CardHeader>
-            <CardContent className="grid grid-cols-3 gap-2 text-center flex-grow">
-                 <div className='overflow-hidden'>
-                    <p className="text-xs text-muted-foreground">Price</p>
-                    <p className="text-lg font-bold truncate">${(deal.purchasePrice / 1000).toFixed(0)}k</p>
-                </div>
-                <div className='overflow-hidden'>
-                    <p className="text-xs text-muted-foreground">{metricLabel}</p>
-                    <p className="text-lg font-bold truncate">{metric?.toFixed(1)}%</p>
-                </div>
-                <div className='overflow-hidden'>
-                    <p className="text-xs text-muted-foreground">{cashFlowLabel}</p>
-                    <p className="text-lg font-bold truncate">${cashFlowValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                </div>
-            </CardContent>
-        </Card>
+                </CardContent>
+            </Card>
+        </Link>
     );
 }
 
@@ -148,7 +150,7 @@ export default function CommunityTab() {
             <Card className="bg-card/60 backdrop-blur-sm">
                 <CardHeader>
                     <CardTitle className="font-headline">Community Deals</CardTitle>
-                    <CardDescription>Explore deals shared by other investors in the Valentor RE community.</CardDescription>
+                    <CardDescription>Explore and comment on deals shared by other investors in the Valentor RE community.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="flex flex-col md:flex-row gap-4 mb-6">
@@ -206,3 +208,5 @@ export default function CommunityTab() {
         </div>
     );
 }
+
+    

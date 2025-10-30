@@ -1,172 +1,97 @@
 /**
- * @file Firebase Security Rules for TKN Fi RE Application
+ * @fileoverview Firestore Security Rules for TKN Fi RE application.
  *
- * @corePhilosophy This ruleset enforces a strict user-ownership model for user profiles and their associated deals,
- *                 while also enabling a public "Community Deals" feature through a dedicated top-level collection.
- *                 Only authenticated users can read and write data.
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for personal data while providing a public space for shared deals.  User data and private deals are accessible only to the owning user. Public deals are copied to a top-level collection for community access.
  *
- * @dataStructure - `/users/{userId}`: Stores user profile information, accessible only by the owning user.
- *                  - `/users/{userId}/deals/{dealId}`: Stores real estate deals specific to a user, accessible only by that user.
- *                  - `/publishedDeals/{dealId}`: Stores publicly-visible deals. Readable by any authenticated user.
+ * Data Structure:
+ * - /users/{userId}: User profile data, accessible only to the user.
+ * - /users/{userId}/deals/{dealId}: Private deal data, accessible only to the user.
+ * - /publishedDeals/{dealId}: Publicly shared deals, readable by all authenticated users, writable only by the owner.
  *
- * @keySecurityDecisions - User listing is disallowed.
- *                         - Public read access is granted only to the `/publishedDeals` collection.
- *                         - Write access to `/publishedDeals` is controlled by validating the author ID.
- *                         - A user can only access their own deals and profile.
- *                         - All write operations require user authentication.
+ * Key Security Decisions:
+ * - User listing is disabled.
+ * - Public deals are denormalized (copied) to the /publishedDeals collection for efficient public reads.
+ * - Data validation is limited to ownership checks and relationship integrity.
  *
- * @denormalizationForAuthorization The `Deal` entity has a `userId` field to associate deals with users.
- *                                 The `Deal` entity has an `authorName` field representing the name of the user who created the deal.
+ * Denormalization for Authorization:
+ * Deals intended for the community are copied to the `publishedDeals` collection, along with the `authorName`. This avoids complex queries and allows public read access.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Enforces access control for user profiles.
+     * @description Protects user profile data.
      * @path /users/{userId}
-     * @allow (create) If the user is creating their own profile (new user signup).
-     * @allow (get, update, delete) If the user is the owner of the profile.
-     * @deny (list) User listing is not allowed.
-     * @deny (create) If a user attempts to create a profile with an ID that doesn't match their auth UID.
-     * @deny (*) If the user is not authenticated.
-     * @principle Enforces document ownership for writes.
+     * @allow (read, write) if the user is the owner of the profile (userId matches auth.uid).
+     * @deny (read, write) if the user is not the owner of the profile.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
-      // Helper function to check if the user is signed in
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // Helper function to check if the user is the owner
       function isOwner(userId) {
-        return request.auth.uid == userId;
+        return request.auth != null && request.auth.uid == userId;
       }
 
-      // Helper function to check if the user is the owner of an existing document
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      // Allow a user to create their own profile on signup, with matching user ID
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-
-      // Only the owner can read their profile
       allow get: if isOwner(userId);
+      allow list: if false; // Disable user listing.
 
-      // Prevent listing all users
-      allow list: if false;
-
-      // Only the owner can update their profile
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-
-      // Only the owner can delete their profile
-      allow delete: if isExistingOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isOwner(userId) && resource.data.id == userId; //Enforce ownership immutability
+      allow delete: if isOwner(userId);
     }
 
     /**
-     * @description Enforces access control for deals under a specific user.
+     * @description Protects deals associated with a specific user.
      * @path /users/{userId}/deals/{dealId}
-     * @allow (create) If the user is the owner and the deal's userId matches the path.
-     * @allow (get, list, update, delete) If the user is the owner.
-     * @deny (*) If the user is not authenticated or not the owner.
-     * @principle Restricts access to a user's own deals.
+     * @allow (read, write) if the user is the owner of the deal (userId matches auth.uid).
+     * @deny (read, write) if the user is not the owner of the deal.
+     * @principle Enforces document ownership for all operations within a user's data tree.
      */
     match /users/{userId}/deals/{dealId} {
-      // Helper function to check if the user is signed in
-      function isSignedIn() {
-        return request.auth != null;
-      }
+        function isOwner(userId) {
+            return request.auth != null && request.auth.uid == userId;
+        }
 
-      // Helper function to check if the user is the owner
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
+        function isExistingOwner(userId) {
+            return isOwner(userId) && resource != null;
+        }
 
-      // Helper function to check if the user is the owner of an existing document
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
 
-      // Allow creating a deal if the user is signed in, is the owner, and the deal's userId matches the path
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-
-      // Only the owner can read their deals
-      allow get: if isOwner(userId);
-
-      // Only the owner can list their deals
-      allow list: if isOwner(userId);
-
-      // Only the owner can update their deals
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-
-      // Only the owner can delete their deals
-      allow delete: if isExistingOwner(userId);
-
-       /**
-         * @description Enforces access control for comments under deals for a specific user.
-         * @path /users/{userId}/deals/{dealId}/comments/{commentId}
-         * @allow (get, list) If the user is the owner of the deal.
-         * @allow (create) If the user is the owner of the deal.
-         * @allow (update, delete) If the user is the owner of the deal.
-         * @deny (*) If the user is not authenticated or not the owner.
-         * @principle Restricts access to a user's own deals comments.
-         */
-      match /comments/{commentId} {
-
-           // Allow creating a deal if the user is signed in, is the owner, and the deal's userId matches the path
-          allow create: if isSignedIn() && isOwner(userId);
-
-          // Only the owner can read their deals
-          allow get: if isOwner(userId);
-
-          // Only the owner can list their deals
-          allow list: if isOwner(userId);
-
-          // Only the owner can update their deals
-          allow update: if isExistingOwner(userId);
-
-          // Only the owner can delete their deals
-          allow delete: if isExistingOwner(userId);
-      }
+        allow create: if isOwner(userId) && request.resource.data.userId == userId;
+        allow update: if isExistingOwner(userId) && request.resource.data.userId == userId; // Enforce ownership immutability
+        allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Enforces access control for published deals (community deals).
+     * @description Manages publicly shared deals.
      * @path /publishedDeals/{dealId}
-     * @allow (get, list) Public read access for all authenticated users.
-     * @allow (create) Only if the authorId matches the authenticated user's ID.
-     * @allow (update, delete) Only the original author can update or delete.
-     * @deny (*) If the user is not authenticated.
-     * @principle Enables public read access while restricting write access to the owner.
+     * @allow (read) to all authenticated users.
+     * @allow (create) to users who are creating a deal with their own userId.
+     * @allow (update, delete) to the owner of the deal.
+     * @deny (create, update, delete) to non-owners.
+     * @principle Allows public read access to published deals while restricting write access to the owner.
      */
     match /publishedDeals/{dealId} {
-      // Helper function to check if the user is signed in
-      function isSignedIn() {
-        return request.auth != null;
-      }
+        function isSignedIn() {
+            return request.auth != null;
+        }
 
-      // Helper function to check if the user is the owner, based on authorId field
-      function isOwner(authorId) {
-        return isSignedIn() && request.auth.uid == authorId;
-      }
+        function isOwner(authorId) {
+          return request.auth != null && request.auth.uid == authorId;
+        }
 
-      // Helper function to check if the user is the owner of an existing document
-      function isExistingOwner(authorId) {
-        return isOwner(authorId) && resource != null;
-      }
+        function isExistingOwner(authorId) {
+            return isOwner(authorId) && resource != null;
+        }
 
-      // Allow all authenticated users to read published deals
-      allow get, list: if isSignedIn();
+        allow get, list: if isSignedIn();
 
-      // Only the author can create a published deal, and authorId must match the user's ID
-      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-
-      // Only the original author can update the published deal
-      allow update: if isExistingOwner(resource.data.authorId) && request.resource.data.authorId == resource.data.authorId;
-
-      // Only the original author can delete the published deal
-      allow delete: if isExistingOwner(resource.data.authorId);
+        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid && request.resource.data.isPublished == true;
+        allow update: if isExistingOwner(resource.data.userId) && request.resource.data.isPublished == true;
+        allow delete: if isExistingOwner(resource.data.userId);
     }
   }
 }

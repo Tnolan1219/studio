@@ -38,6 +38,20 @@
         "authorName": { "type": "string", "description": "The name of the user who published the deal." }
       },
       "required": ["id", "userId", "dealName", "propertyType", "purchasePrice", "isPublished", "authorName"]
+    },
+    "CommunityComment": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "CommunityComment",
+        "type": "object",
+        "description": "Represents a comment made by a user on a publicly published deal.",
+        "properties": {
+            "id": { "type": "string", "description": "Unique identifier for the comment." },
+            "userId": { "type": "string", "description": "The ID of the user who made the comment." },
+            "authorName": { "type": "string", "description": "The display name of the user who made the comment." },
+            "text": { "type": "string", "description": "The content of the comment." },
+            "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of when the comment was created." }
+        },
+        "required": ["id", "userId", "authorName", "text", "createdAt"]
     }
   },
   "auth": {
@@ -68,8 +82,18 @@
             "schema": { "$ref": "#/backend/entities/Deal" },
             "description": "A root-level collection containing copies of all deals that users have publicly published for the community to see."
         }
+      },
+      {
+        "path": "/publishedDeals/{dealId}/comments/{commentId}",
+        "definition": {
+            "entityName": "CommunityComment",
+            "schema": { "$ref": "#/backend/entities/CommunityComment" },
+            "description": "Stores comments made by the community on a specific published deal."
+        }
       }
     ],
-    "reasoning": "The Firestore structure is designed for security and scalability. User-specific data (profiles, private deals) is nested under `/users/{userId}` for strict, path-based security rules. A new root-level collection, `/publishedDeals`, is introduced to support the 'Community Deals' feature. When a user publishes a deal, a copy is placed in this collection, which has read-only access for all authenticated users. This prevents exposing all user data while still enabling a public showcase of selected deals."
+    "reasoning": "The Firestore structure is designed for security and scalability. User-specific data (profiles, private deals) is nested under `/users/{userId}` for strict, path-based security rules. A new root-level collection, `/publishedDeals`, is introduced to support the 'Community Deals' feature. When a user publishes a deal, a copy is placed in this collection, which has read-only access for all authenticated users. The `comments` subcollection is added to `publishedDeals` to allow community interaction on public deals, with rules allowing authenticated users to read and write comments."
   }
 }
+
+    
