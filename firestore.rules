@@ -23,56 +23,25 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Protects user profile data.
+     * @description Protects user profile data and all nested subcollections.
      * @path /users/{userId}
      * @allow (read, write) if the user is the owner of the profile (userId matches auth.uid).
-     * @deny (read, write) if the user is not the owner of the profile.
-     * @principle Enforces document ownership for all operations.
-     */
-    match /users/{userId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-
-      allow get: if isOwner(userId);
-      allow list: if false; // Disable user listing.
-
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isOwner(userId) && resource.data.id == userId; //Enforce ownership immutability
-      allow delete: if isOwner(userId);
-    }
-
-    /**
-     * @description Protects deals associated with a specific user.
-     * @path /users/{userId}/deals/{dealId}
-     * @allow (read, write) if the user is the owner of the deal (userId matches auth.uid).
-     * @deny (read, write) if the user is not the owner of the deal.
+     * @deny (read, write) if the user is not the owner.
      * @principle Enforces document ownership for all operations within a user's data tree.
      */
-    match /users/{userId}/deals/{dealId} {
-        function isOwner(userId) {
-            return request.auth != null && request.auth.uid == userId;
-        }
-
-        function isExistingOwner(userId) {
-            return isOwner(userId) && resource != null;
-        }
-
-        allow get: if isOwner(userId);
-        allow list: if isOwner(userId);
-
-        allow create: if isOwner(userId) && request.resource.data.userId == userId;
-        allow update: if isExistingOwner(userId) && request.resource.data.userId == userId; // Enforce ownership immutability
-        allow delete: if isExistingOwner(userId);
+    match /users/{userId}/{document=**} {
+      function isOwner() {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      allow read, write: if isOwner();
     }
-    
+
     /**
-     * @description Manages publicly shared deals.
+     * @description Manages publicly shared deals and their comments.
      * @path /publishedDeals/{dealId}
      * @allow (read) to all authenticated users.
      * @allow (create) to users who are creating a deal with their own userId.
      * @allow (update, delete) to the owner of the deal.
-     * @deny (create, update, delete) to non-owners.
      * @principle Allows public read access to published deals while restricting write access to the owner.
      */
     match /publishedDeals/{dealId} {
@@ -81,22 +50,24 @@ service cloud.firestore {
         }
 
         function isOwner(authorId) {
-          return request.auth != null && request.auth.uid == authorId;
-        }
-
-        function isExistingOwner(authorId) {
-            return isOwner(authorId) && resource != null;
+          return isSignedIn() && request.auth.uid == authorId;
         }
 
         allow get, list: if isSignedIn();
 
-        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid && request.resource.data.isPublished == true;
-        allow update: if isExistingOwner(resource.data.userId) && request.resource.data.isPublished == true;
-        allow delete: if isExistingOwner(resource.data.userId);
+        allow create: if isOwner(request.resource.data.userId) && request.resource.data.isPublished == true;
+        allow update: if isOwner(resource.data.userId) && request.resource.data.isPublished == true;
+        allow delete: if isOwner(resource.data.userId);
 
+        /**
+         * @description Manages comments on public deals.
+         * @path /publishedDeals/{dealId}/comments/{commentId}
+         * @allow (read, create) to any signed-in user.
+         * @allow (update, delete) only to the user who created the comment.
+         */
         match /comments/{commentId} {
-             allow read: if isSignedIn();
-             allow create: if isSignedIn();
+             allow read, list: if isSignedIn();
+             allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
              allow update, delete: if isOwner(resource.data.userId);
         }
     }
