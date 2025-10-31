@@ -65,9 +65,9 @@ User's Query/Market Info: ${marketConditions}
 
 Provide a markdown-formatted assessment covering:
 - **Recommendation:** (e.g., "Recommended", "Caution") with a brief justification.
-- **Financials:** Key positive or negative metrics.
-- **Financing:** Creative ideas or notes.
-- **Value-Add:** Quick ideas to maximize ROI.`;
+- **Key Metrics:** Briefly comment on the CoC Return, Cap Rate, or ROI.
+- **Potential Risks:** Identify one or two major risks.
+- **Value-Add Idea:** Suggest one creative idea to maximize ROI.`;
   }
 };
 

@@ -345,16 +345,47 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
             )}
             <div className="mt-6">
                <Card>
-                <CardHeader> <CardTitle className="flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mt-4"> AI Deal Assessment is coming soon. </p>
-                </CardContent>
-                <CardFooter className="flex justify-end">
-                    <Button type="button" disabled>
-                        Generate AI Insights
-                    </Button>
-                </CardFooter>
-              </Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Sparkles size={20} className="text-primary" /> AI Deal Assessment
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <FormField
+                            name="marketConditions"
+                            control={form.control}
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Market Conditions & Questions for AI</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="e.g., The local market is seeing strong job growth. What are the risks of rising interest rates for this deal?" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        {isAIPending ? (
+                             <div className="mt-4 p-4 rounded-lg bg-muted/50 flex items-center justify-center">
+                                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                                <span>Generating insights...</span>
+                            </div>
+                        ) : aiResult ? (
+                            <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                                {aiResult.assessment ? (
+                                    <div className="prose dark:prose-invert max-w-none text-sm" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
+                                ) : (
+                                    <p className="text-destructive">{aiResult.message}</p>
+                                )}
+                            </div>
+                        ) : null}
+                    </CardContent>
+                    <CardFooter className="flex justify-end">
+                        <Button type="button" onClick={handleGenerateInsights} disabled={isAIPending}>
+                            {isAIPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                            Generate AI Insights
+                        </Button>
+                    </CardFooter>
+                </Card>
             </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-2">

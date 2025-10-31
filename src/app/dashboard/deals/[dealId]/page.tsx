@@ -475,11 +475,19 @@ function DealDetailView() {
                             <CardTitle className="flex items-center gap-2"><Sparkles size={16} className="text-primary"/>AI Insights</CardTitle>
                         </CardHeader>
                         <CardContent>
-                             <p className="text-sm text-muted-foreground">AI Insights are coming soon.</p>
+                            {isAIPending ? (
+                                <div className="flex justify-center items-center py-8">
+                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                </div>
+                            ) : aiResult ? (
+                                <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment || `<p class="text-destructive">${aiResult.message}</p>` }} />
+                            ) : (
+                                <p className="text-sm text-muted-foreground">Click below to get a quick AI-powered analysis of this deal.</p>
+                            )}
                         </CardContent>
                         <CardFooter>
-                            <Button disabled className="w-full">
-                                Coming Soon
+                            <Button onClick={handleGenerateInsights} disabled={isAIPending} className="w-full">
+                                {isAIPending ? 'Generating...' : 'Run Quick Analysis'}
                             </Button>
                         </CardFooter>
                     </Card>
