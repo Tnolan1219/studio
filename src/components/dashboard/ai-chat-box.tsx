@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -76,7 +77,7 @@ export function AIChatBox() {
                         animate={{ y: 0, opacity: 1 }}
                         exit={{ y: '100%', opacity: 0 }}
                         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                        className="fixed bottom-20 right-4 z-50 w-full max-w-md"
+                        className="fixed bottom-28 right-4 z-50 w-full max-w-md"
                     >
                         <Card className="bg-card/80 backdrop-blur-lg shadow-2xl h-[60vh] flex flex-col">
                             <CardHeader className="flex flex-row items-center justify-between">
@@ -142,9 +143,9 @@ export function AIChatBox() {
                 )}
             </AnimatePresence>
 
-            <button
+             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="fixed bottom-4 right-4 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="fixed bottom-28 right-4 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             >
                 {isOpen ? <ChevronsUpDown className="w-6 h-6"/> : <Sparkles className="w-6 h-6"/>}
             </button>

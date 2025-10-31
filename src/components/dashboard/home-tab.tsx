@@ -17,6 +17,7 @@ import { Skeleton } from "../ui/skeleton";
 import { useDashboardTab } from "@/hooks/use-dashboard-tab";
 import { Button } from "../ui/button";
 import { PortfolioVisualization } from "./portfolio-visualization";
+import { AIChatBox } from "./ai-chat-box";
 
 const calculateProForma = (deal: Deal): ProFormaEntry[] => {
     const proForma: ProFormaEntry[] = [];
@@ -209,9 +210,11 @@ export default function HomeTab() {
                 />
             </div>
             
-            <PortfolioVisualization deals={deals || []} />
-
             <NewsFeed />
+
+            <PortfolioVisualization deals={deals || []} />
+            
+            <AIChatBox />
         </div>
     );
 }
