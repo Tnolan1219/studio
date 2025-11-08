@@ -328,14 +328,13 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
       netProfit: 0, // Not used for rentals
     };
     
-    if (isEditMode && deal) {
-      const dealRef = doc(firestore, `users/${user.uid}/deals`, deal.id);
-      setDocumentNonBlocking(dealRef, dealData, { merge: true });
+    const dealRef = doc(firestore, `users/${user.uid}/deals`, dealId);
+    setDocumentNonBlocking(dealRef, dealData, { merge: true });
+
+    if (isEditMode) {
       toast({ title: 'Changes Saved', description: `${dealData.dealName} has been updated.` });
       if (onSave) onSave();
     } else {
-      const dealRef = doc(firestore, `users/${user.uid}/deals`, dealId);
-      setDocumentNonBlocking(dealRef, dealData, { merge: true });
       toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
       form.reset();
       setAnalysisResult(null);

@@ -355,13 +355,12 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
     };
     
     const dealRef = doc(firestore, `users/${user.uid}/deals`, dealId);
+    setDocumentNonBlocking(dealRef, dealData, { merge: true });
 
-    if (isEditMode && deal) {
-      setDocumentNonBlocking(dealRef, dealData, { merge: true });
+    if (isEditMode) {
       toast({ title: 'Changes Saved', description: `${dealData.dealName} has been updated.` });
       if (onSave) onSave();
     } else {
-      setDocumentNonBlocking(dealRef, dealData, { merge: true });
       toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
       form.reset();
       setAnalysisResult(null);
