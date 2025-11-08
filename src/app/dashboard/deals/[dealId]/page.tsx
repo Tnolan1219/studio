@@ -4,7 +4,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, FirebaseClientProvider } from '@/firebase';
-import { doc, collection, serverTimestamp, query, orderBy, deleteDoc, setDoc } from 'firebase/firestore';
+import { doc, collection, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { setDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import type { Deal, DealComment, DealStatus } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -185,33 +185,26 @@ function DealDetailView() {
         toast({ title: 'Status Updated', description: `Deal status changed to "${status}".` });
     };
     
-    const handlePublishToggle = async () => {
+    const handlePublishToggle = () => {
         if (!dealRef || !deal || !user) return;
         const newPublishState = !deal?.isPublished;
-        
         const publicDealRef = doc(firestore, `publishedDeals/${deal.id}`);
 
-        try {
-            if (newPublishState) {
-                const publicDealData = {
-                    ...deal,
-                    isPublished: true,
-                    authorName: user.displayName || 'Anonymous',
-                    // Ensure we don't leak private user data
-                    userId: '', 
-                    investorNotes: '',
-                };
-                await setDoc(publicDealRef, publicDealData);
-            } else {
-                await deleteDoc(publicDealRef);
-            }
-            
-            setDocumentNonBlocking(dealRef, { isPublished: newPublishState }, { merge: true });
-            toast({ title: newPublishState ? 'Deal Published' : 'Deal Unpublished', description: `Deal is now ${newPublishState ? 'visible to the community' : 'private'}.` });
-        } catch (error) {
-            console.error("Error toggling publish state:", error);
-            toast({ title: 'Error', description: 'Could not update deal\'s publish state.', variant: 'destructive'});
+        if (newPublishState) {
+            const publicDealData = {
+                ...deal,
+                isPublished: true,
+                authorName: user.displayName || 'Anonymous',
+                userId: user.uid, // Copy owner's UID for security rules
+                investorNotes: '', // Do not publish private notes
+            };
+            setDocumentNonBlocking(publicDealRef, publicDealData, {});
+        } else {
+            deleteDocumentNonBlocking(publicDealRef);
         }
+        
+        setDocumentNonBlocking(dealRef, { isPublished: newPublishState }, { merge: true });
+        toast({ title: newPublishState ? 'Deal Published' : 'Deal Unpublished', description: `Deal is now ${newPublishState ? 'visible to the community' : 'private'}.` });
     };
 
     const handleSaveNotes = () => {
@@ -233,24 +226,19 @@ function DealDetailView() {
         toast({ title: 'Comment Posted' });
     };
 
-    const handleDeleteDeal = async () => {
+    const handleDeleteDeal = () => {
         if (!dealRef || !deal) return;
         
-        try {
-             // If the deal is published, delete it from the public collection first
-            if (deal.isPublished) {
-                const publicDealRef = doc(firestore, `publishedDeals/${deal.id}`);
-                await deleteDoc(publicDealRef);
-            }
-            
-            deleteDocumentNonBlocking(dealRef);
-            toast({ title: 'Deal Deleted', description: `${deal?.dealName} has been removed.`, variant: 'destructive'});
-            router.push('/dashboard');
-            setActiveTab('deals');
-        } catch (error) {
-            console.error("Error deleting deal:", error);
-            toast({ title: 'Error', description: 'Could not delete the deal.', variant: 'destructive'});
+        // If the deal is published, delete it from the public collection first
+        if (deal.isPublished) {
+            const publicDealRef = doc(firestore, `publishedDeals/${deal.id}`);
+            deleteDocumentNonBlocking(publicDealRef);
         }
+        
+        deleteDocumentNonBlocking(dealRef);
+        toast({ title: 'Deal Deleted', description: `${deal?.dealName} has been removed.`, variant: 'destructive'});
+        router.push('/dashboard');
+        setActiveTab('deals');
     }
     
     const handleBackToDeals = () => {
@@ -504,3 +492,5 @@ export default function DealDetailPage() {
         </FirebaseClientProvider>
     )
 }
+
+    

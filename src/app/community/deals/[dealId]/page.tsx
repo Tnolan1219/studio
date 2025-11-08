@@ -180,12 +180,12 @@ function CommunityDealDetailView() {
                      <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center justify-between">
-                                Notes for Investors
+                                Notes
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <p className="text-sm text-muted-foreground italic">
-                                {deal.investorNotes || "No investor notes were provided for this deal."}
+                                {deal.investorNotes || "No notes were provided for this deal."}
                             </p>
                         </CardContent>
                     </Card>
