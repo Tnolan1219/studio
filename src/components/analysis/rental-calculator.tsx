@@ -243,31 +243,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
   };
 
   const handleGenerateInsights = () => {
-    if (!analysisResult) {
-      toast({
-        title: 'Run Analysis First',
-        description: 'Please run the local analysis before generating AI insights.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const data = form.getValues();
-    startAITransition(async () => {
-        const result = await getDealAssessment({
-          dealType: 'Rental Property',
-          financialData: `
-            Purchase Price: ${data.purchasePrice}, Rehab: ${data.rehabCost}, ARV: ${data.arv},
-            Down Payment: ${data.downPayment}, Interest Rate: ${data.interestRate}%, Loan Term: ${data.loanTerm} years,
-            Gross Monthly Income: ${data.grossMonthlyIncome}, 
-            Calculated Monthly Cash Flow: ${analysisResult.monthlyCashFlow.toFixed(2)},
-            Calculated CoC Return: ${analysisResult.cocReturn.toFixed(2)}%,
-            Calculated Cap Rate: ${analysisResult.capRate.toFixed(2)}%
-        `,
-          marketConditions: data.marketConditions,
-        });
-        setAiResult(result);
-    });
+    // AI feature is disabled
   };
 
   const handleSaveDeal = async () => {
@@ -445,51 +421,6 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
                     </div>
                 </>
             )}
-
-            <div className="mt-6">
-                 <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Sparkles size={20} className="text-primary" /> AI Deal Assessment
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <FormField
-                            name="marketConditions"
-                            control={form.control}
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Market Conditions & Questions for AI</FormLabel>
-                                    <FormControl>
-                                        <Textarea placeholder="e.g., The local market is seeing strong job growth. What are the risks of rising interest rates for this deal?" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        {isAIPending ? (
-                             <div className="mt-4 p-4 rounded-lg bg-muted/50 flex items-center justify-center">
-                                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                                <span>Generating insights...</span>
-                            </div>
-                        ) : aiResult ? (
-                            <div className="mt-4 p-4 bg-muted/50 rounded-lg">
-                                {aiResult.assessment ? (
-                                    <div className="prose dark:prose-invert max-w-none text-sm" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
-                                ) : (
-                                    <p className="text-destructive">{aiResult.message}</p>
-                                )}
-                            </div>
-                        ) : null}
-                    </CardContent>
-                    <CardFooter className="flex justify-end">
-                        <Button type="button" onClick={handleGenerateInsights} disabled={isAIPending}>
-                            {isAIPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                            Generate AI Insights
-                        </Button>
-                    </CardFooter>
-                  </Card>
-            </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
             {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}

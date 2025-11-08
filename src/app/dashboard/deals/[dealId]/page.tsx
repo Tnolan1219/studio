@@ -252,23 +252,7 @@ function DealDetailView() {
     }
 
     const handleGenerateInsights = () => {
-        if (!deal) return;
-        startAITransition(async () => {
-            let financialData = '';
-            if (deal.dealType === 'Rental Property' || deal.dealType === 'Commercial Multifamily') {
-                financialData = `Purchase Price: ${deal.purchasePrice}, Monthly Income: ${deal.grossMonthlyIncome}, NOI: ${deal.noi}, Cap Rate: ${deal.capRate}`;
-            } else if (deal.dealType === 'House Flip') {
-                financialData = `Purchase Price: ${deal.purchasePrice}, ARV: ${deal.arv}, Rehab Cost: ${deal.rehabCost}, Net Profit: ${deal.netProfit}, ROI: ${deal.roi}`;
-            }
-
-            const result = await getDealAssessment({
-              dealType: deal.dealType,
-              financialData,
-              marketConditions: deal.marketConditions,
-              stage: 'initial-analysis'
-            });
-            setAiResult(result);
-        });
+        // AI feature is disabled
     }
     
     if (isDealLoading) {
@@ -458,27 +442,6 @@ function DealDetailView() {
                             </div>
                         </CardFooter>
                     </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><Sparkles size={16} className="text-primary"/>AI Insights</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {isAIPending ? (
-                                <div className="flex justify-center items-center py-8">
-                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                </div>
-                            ) : aiResult ? (
-                                <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment || `<p class="text-destructive">${aiResult.message}</p>` }} />
-                            ) : (
-                                <p className="text-sm text-muted-foreground">Click below to get a quick AI-powered analysis of this deal.</p>
-                            )}
-                        </CardContent>
-                        <CardFooter>
-                            <Button onClick={handleGenerateInsights} disabled={isAIPending} className="w-full">
-                                {isAIPending ? 'Generating...' : 'Run Quick Analysis'}
-                            </Button>
-                        </CardFooter>
-                    </Card>
                 </div>
             </div>
         </div>
@@ -492,5 +455,3 @@ export default function DealDetailPage() {
         </FirebaseClientProvider>
     )
 }
-
-    

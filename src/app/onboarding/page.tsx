@@ -112,39 +112,7 @@ function OnboardingView() {
   };
 
   const handleShowExample = async () => {
-    setIsExampleLoading(true);
-    try {
-       const prompt = `You are an AI assistant for a real estate investment app. 
-Generate a single, concise, and inspiring example of a financial goal for a user.
-The goal should be related to real estate investing.
-Make it specific and actionable. For example: "My goal is to acquire three cash-flowing rental properties within the next five years to generate $1,500/month in passive income, allowing me to achieve financial flexibility."
-Do not include any markdown formatting, just return the plain text of the example goal.`;
-      
-      const result = await getDealAssessment({
-          dealType: 'general',
-          financialData: '',
-          marketConditions: prompt,
-          stage: 'general-query'
-      });
-
-      if (result.assessment) {
-        // The result is HTML, we need to strip tags for the example text
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = result.assessment;
-        setGoalExample(tempDiv.textContent || tempDiv.innerText || '');
-      } else {
-        throw new Error(result.message);
-      }
-
-    } catch (e: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error Generating Example',
-        description: e.message || 'Could not generate an example. Please try again.',
-      });
-    } finally {
-      setIsExampleLoading(false);
-    }
+    // AI feature is disabled
   };
 
   const onSubmit = (data: OnboardingFormValues) => {
@@ -277,10 +245,6 @@ Do not include any markdown formatting, just return the plain text of the exampl
                         </FormControl>
                         <FormDescription className='flex justify-between items-center'>
                           <span>This helps us personalize your experience.</span>
-                           <Button type="button" variant="link" size="sm" onClick={handleShowExample} disabled={isExampleLoading} className="text-primary">
-                                {isExampleLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Wand2 className="w-4 h-4 mr-1" />}
-                                {isExampleLoading ? 'Generating...' : 'Show an example'}
-                           </Button>
                         </FormDescription>
                         {goalExample && (
                             <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded-md border italic">

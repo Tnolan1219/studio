@@ -74,17 +74,6 @@ export function NewsFeed() {
                              {renderSkeleton()}
                         </AccordionContent>
                     </AccordionItem>
-                    <AccordionItem value="item-3">
-                        <AccordionTrigger className="text-primary">
-                            <div className='flex items-center gap-2'>
-                                <Sparkles size={16} />
-                                Ask a Specific Question
-                            </div>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                             <p className="text-sm text-muted-foreground">This feature is under construction.</p>
-                        </AccordionContent>
-                    </AccordionItem>
                 </Accordion>
             </CardContent>
         </Card>
