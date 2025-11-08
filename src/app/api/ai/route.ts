@@ -1,3 +1,4 @@
+
 'use server';
 
 import { genkit, type Tool } from 'genkit';
@@ -89,7 +90,7 @@ export const assessDeal = ai.defineFlow(
     );
 
     const llmResponse = await ai.generate({
-      model: 'gemini-pro',
+      model: 'googleai/gemini-pro',
       prompt: prompt,
       config: {
         temperature: 0.5,
