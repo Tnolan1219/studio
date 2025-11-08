@@ -1,28 +1,24 @@
 
-'use server';
-/**
- * @fileoverview This file initializes the Genkit AI instance and exports it for use throughout the application.
- * It ensures that Genkit is configured only once.
- */
+import { defineFlow, runFlow } from '@genkit-ai/flow';
+import { generate } from '@genkit-ai/ai';
+import { geminiPro } from '@genkit-ai/google-genai';
+import * as z from 'zod';
 
-import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/google-genai';
+export const chatbotFlow = defineFlow(
+  {
+    name: 'chatbotFlow',
+    inputSchema: z.object({ prompt: z.string() }),
+    outputSchema: z.string(),
+  },
+  async ({ prompt }) => {
+    const llmResponse = await generate({
+      model: geminiPro,
+      prompt: prompt,
+      config: {
+        temperature: 0.7,
+      },
+    });
 
-export const ai = genkit({
-  plugins: [googleAI({ apiKey: process.env.GEMINI_API_KEY })],
-});
-// src/ai/genkit.ts
-
-import { defineFlow } from 'genkit';
-import { geminiPro } from '@genkit-ai/googleai';
-
-// ✅ Register Gemini model with your API key
-export const ai = defineFlow({
-  name: 'chatbotFlow',
-  steps: [
-    geminiPro({
-      model: 'models/gemini-pro',
-      temperature: 0.7,
-    }),
-  ],
-});
+    return llmResponse.text();
+  }
+);

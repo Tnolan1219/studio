@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -15,30 +14,28 @@ export function Chatbot() {
 
     const newMessages = [...messages, { sender: 'user' as const, text: input }];
     setMessages(newMessages);
-    const userInput = input;
     setInput('');
 
     try {
-      const response = await fetch('/api/ai', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: userInput }),
+        body: JSON.stringify({ prompt: input }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || 'An unexpected API error occurred.');
+        throw new Error('API error');
       }
 
+      const data = await response.json();
       const botMessage = data.text || 'Sorry, I could not understand that.';
 
       setMessages([...newMessages, { sender: 'bot' as const, text: botMessage }]);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching from AI API:', error);
-      setMessages([...newMessages, { sender: 'bot' as const, text: `Sorry, something went wrong: ${error.message}` }]);
+      setMessages([...newMessages, { sender: 'bot' as const, text: 'Sorry, something went wrong.' }]);
     }
   };
 
