@@ -3,8 +3,8 @@
 
 import { useState, useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirestore, setDocumentNonBlocking, FirebaseClientProvider } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useUser, useFirestore, FirebaseClientProvider, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -153,7 +153,7 @@ Do not include any markdown formatting, just return the plain text of the exampl
     const userProfileRef = doc(firestore, 'users', user.uid);
     
     const profileData = {
-        id: user.uid, // Add this line
+        id: user.uid,
         ...data,
         email: user.email,
         photoURL: user.photoURL,
@@ -161,12 +161,18 @@ Do not include any markdown formatting, just return the plain text of the exampl
         plan: 'Free'
     };
     
-    // Use the non-blocking update function. It will handle the permission error internally
-    // and emit a detailed error for the FirebaseErrorListener to catch.
-    setDocumentNonBlocking(userProfileRef, profileData, { merge: true });
+    // Non-blocking write with contextual error handling
+    setDoc(userProfileRef, profileData, { merge: true })
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: userProfileRef.path,
+          operation: 'write',
+          requestResourceData: profileData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
 
-    // Optimistically show success and redirect. If an error occurs, the global
-    // error overlay will appear.
+    // Optimistically show success and redirect.
     toast({
       title: 'Profile Created!',
       description: 'Welcome to Valentor RE. You are now being redirected.',
