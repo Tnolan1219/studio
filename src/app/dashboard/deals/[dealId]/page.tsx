@@ -252,7 +252,17 @@ function DealDetailView() {
     }
 
     const handleGenerateInsights = () => {
-        // AI feature is disabled
+        if (!deal) return;
+    
+        startAITransition(async () => {
+            const financialData = keyMetrics.map(m => `${m.label}: ${m.value}`).join(', ');
+            const result = await getDealAssessment({
+                dealType: deal.dealType,
+                financialData: financialData,
+                marketConditions: deal.marketConditions,
+            });
+            setAiResult(result);
+        });
     }
     
     if (isDealLoading) {
@@ -410,6 +420,31 @@ function DealDetailView() {
                 </div>
 
                 <div className="space-y-6">
+                     <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Sparkles size={16} className="text-primary" />
+                                AI Deal Insights
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             {isAIPending ? (
+                                <div className="flex justify-center items-center py-8">
+                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                </div>
+                            ) : aiResult ? (
+                                <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment || `<p class="text-destructive">${aiResult.message}</p>` }} />
+                            ) : (
+                                <p className="text-sm text-muted-foreground">Click the button below to get an AI-powered analysis of this deal's strengths and weaknesses.</p>
+                            )}
+                        </CardContent>
+                        <CardFooter>
+                            <Button onClick={handleGenerateInsights} disabled={isAIPending} className="w-full">
+                                {isAIPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                {isAIPending ? 'Generating...' : 'Generate Insights'}
+                            </Button>
+                        </CardFooter>
+                    </Card>
                     <Card>
                          <CardHeader><CardTitle>Deal Settings</CardTitle></CardHeader>
                          <CardContent className="space-y-4">

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, FirebaseClientProvider, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -73,7 +73,7 @@ function OnboardingView() {
 
   const [currentStep, setCurrentStep] = useState(0);
   const [goalExample, setGoalExample] = useState('');
-  const [isExampleLoading, setIsExampleLoading] = useState(false);
+  const [isExampleLoading, startExampleTransition] = useTransition();
 
   const form = useForm<OnboardingFormValues>({
     resolver: zodResolver(onboardingSchema),
@@ -112,7 +112,19 @@ function OnboardingView() {
   };
 
   const handleShowExample = async () => {
-    // AI feature is disabled
+    startExampleTransition(async () => {
+        const result = await getDealAssessment({
+            dealType: 'Financial Goal',
+            financialData: `Experience Level: ${form.getValues('experience') || 'Not specified'}`,
+            marketConditions: "Generate a concise, compelling one-sentence financial goal for a real estate investor.",
+            stage: 'general-query'
+        });
+        if (result.assessment) {
+            // The response is plain text, so we just strip any potential markdown/html for safety
+            const plainText = result.assessment.replace(/<[^>]*>?/gm, '').replace(/[*_`]/g, '');
+            setGoalExample(plainText);
+        }
+    });
   };
 
   const onSubmit = (data: OnboardingFormValues) => {
@@ -245,6 +257,10 @@ function OnboardingView() {
                         </FormControl>
                         <FormDescription className='flex justify-between items-center'>
                           <span>This helps us personalize your experience.</span>
+                           <Button type="button" variant="ghost" size="sm" onClick={handleShowExample} disabled={isExampleLoading}>
+                            {isExampleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Wand2 className="mr-2 h-4 w-4" />}
+                            Show an example
+                          </Button>
                         </FormDescription>
                         {goalExample && (
                             <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded-md border italic">

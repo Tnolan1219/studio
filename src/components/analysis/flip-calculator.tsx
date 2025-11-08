@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -159,7 +160,24 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
   };
 
   const handleGenerateInsights = () => {
-    // AI feature is disabled
+    if (!analysisResult) {
+      toast({
+        title: 'Analysis Required',
+        description: 'Please run the analysis before generating AI insights.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    startAITransition(async () => {
+      const financialData = `Net Profit: ${analysisResult.netProfit.toFixed(2)}, ROI: ${analysisResult.roi.toFixed(2)}%`;
+      const result = await getDealAssessment({
+        dealType: 'House Flip',
+        financialData: financialData,
+        marketConditions: form.getValues('marketConditions'),
+      });
+      setAiResult(result);
+    });
   };
 
   const handleSaveDeal = async () => {
@@ -281,6 +299,51 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
                         <FormField name="otherExpenses" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Other Total Costs</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormDescription className="text-xs">e.g. utilities, HOA</FormDescription> <FormMessage /> </FormItem> )} />
                         <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Selling Costs (% of ARV)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                     </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Sparkles size={20} className="text-primary"/>
+                            AI Deal Assessment
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <FormField
+                            name="marketConditions"
+                            control={form.control}
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Questions or Market Conditions for AI</FormLabel>
+                                <FormControl>
+                                <Textarea
+                                    placeholder="e.g., What are the risks of flipping in a cooling market? Suggest value-add renovations for this property type."
+                                    {...field}
+                                />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        {isAIPending && (
+                            <div className="flex justify-center items-center py-8">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            </div>
+                        )}
+                        {aiResult && (
+                            <div className="mt-4 p-4 bg-muted/50 rounded-lg animate-fade-in">
+                            {aiResult.assessment ? (
+                                <div className="prose dark:prose-invert max-w-none text-sm" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
+                            ) : (
+                                <p className="text-destructive text-sm">{aiResult.message}</p>
+                            )}
+                            </div>
+                        )}
+                    </CardContent>
+                    <CardFooter>
+                        <Button type="button" onClick={handleGenerateInsights} disabled={isAIPending} className="w-full">
+                            {isAIPending ? 'Generating...' : 'Generate AI Insights'}
+                        </Button>
+                    </CardFooter>
                 </Card>
               </div>
             </div>

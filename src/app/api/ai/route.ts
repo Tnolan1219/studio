@@ -7,7 +7,7 @@ import { z } from 'zod';
 import type { DealStage } from '@/lib/types';
 
 // Initialize Genkit with the Google AI plugin at the top level.
-// This ensures it's configured once and available globally for all AI requests.
+// This ensures it's configured once and available for all AI requests.
 // It will use the GEMINI_API_KEY from your environment variables.
 const ai = genkit({
   plugins: [

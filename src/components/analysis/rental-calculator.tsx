@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -243,7 +244,24 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
   };
 
   const handleGenerateInsights = () => {
-    // AI feature is disabled
+    if (!analysisResult) {
+      toast({
+        title: 'Analysis Required',
+        description: 'Please run the analysis before generating AI insights.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    startAITransition(async () => {
+      const financialData = `NOI: ${analysisResult.noi.toFixed(2)}, CoC Return: ${analysisResult.cocReturn.toFixed(2)}%, Cap Rate: ${analysisResult.capRate.toFixed(2)}%`;
+      const result = await getDealAssessment({
+        dealType: 'Rental Property',
+        financialData: financialData,
+        marketConditions: form.getValues('marketConditions'),
+      });
+      setAiResult(result);
+    });
   };
 
   const handleSaveDeal = async () => {
@@ -419,6 +437,52 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
                     <div className="mt-6">
                         <ProFormaTable data={analysisResult.proFormaData} />
                     </div>
+                    
+                    <Card className="mt-6">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Sparkles size={20} className="text-primary"/>
+                                AI Deal Assessment
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <FormField
+                                name="marketConditions"
+                                control={form.control}
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Questions or Market Conditions for AI</FormLabel>
+                                    <FormControl>
+                                    <Textarea
+                                        placeholder="e.g., What are the risks of rising interest rates for this deal? Is the cap rate competitive for this area?"
+                                        {...field}
+                                    />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            {isAIPending && (
+                                <div className="flex justify-center items-center py-8">
+                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                </div>
+                            )}
+                            {aiResult && (
+                                <div className="mt-4 p-4 bg-muted/50 rounded-lg animate-fade-in">
+                                {aiResult.assessment ? (
+                                    <div className="prose dark:prose-invert max-w-none text-sm" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
+                                ) : (
+                                    <p className="text-destructive text-sm">{aiResult.message}</p>
+                                )}
+                                </div>
+                            )}
+                        </CardContent>
+                        <CardFooter>
+                            <Button type="button" onClick={handleGenerateInsights} disabled={isAIPending} className="w-full">
+                                {isAIPending ? 'Generating...' : 'Generate AI Insights'}
+                            </Button>
+                        </CardFooter>
+                    </Card>
                 </>
             )}
           </CardContent>
