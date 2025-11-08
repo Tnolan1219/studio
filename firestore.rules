@@ -1,75 +1,30 @@
 
-/**
- * @fileoverview Firestore Security Rules for TKN Fi RE application.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for personal data while providing a public space for shared deals.  User data and private deals are accessible only to the owning user. Public deals are copied to a top-level collection for community access.
- *
- * Data Structure:
- * - /users/{userId}: User profile data, accessible only to the user.
- * - /users/{userId}/deals/{dealId}: Private deal data, accessible only to the user.
- * - /publishedDeals/{dealId}: Publicly shared deals, readable by all authenticated users, writable only by the owner.
- *
- * Key Security Decisions:
- * - User listing is disabled.
- * - Public deals are denormalized (copied) to the /publishedDeals collection for efficient public reads.
- * - Data validation is limited to ownership checks and relationship integrity.
- *
- * Denormalization for Authorization:
- * Deals intended for the community are copied to the `publishedDeals` collection, along with the `authorName`. This avoids complex queries and allows public read access.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description Protects user profile data and all nested subcollections.
-     * @path /users/{userId}
-     * @allow (read, write) if the user is the owner of the profile (userId matches auth.uid).
-     * @deny (read, write) if the user is not the owner.
-     * @principle Enforces document ownership for all operations within a user's data tree.
-     */
+    // Users can read and write to their own user document and all subcollections.
+    // This provides full ownership of private deals and comments.
     match /users/{userId}/{document=**} {
-      function isOwner() {
-        return request.auth != null && request.auth.uid == userId;
-      }
-      allow read, write: if isOwner();
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    /**
-     * @description Manages publicly shared deals and their comments.
-     * @path /publishedDeals/{dealId}
-     * @allow (read) to all authenticated users.
-     * @allow (create) to users who are creating a deal with their own userId.
-     * @allow (update, delete) to the owner of the deal.
-     * @principle Allows public read access to published deals while restricting write access to the owner.
-     */
+    // Published deals are readable by any authenticated user.
     match /publishedDeals/{dealId} {
-        function isSignedIn() {
-            return request.auth != null;
-        }
+      allow get, list: if request.auth != null;
 
-        function isOwner(authorId) {
-          return isSignedIn() && request.auth.uid == authorId;
-        }
+      // Only the owner of the deal can create, update, or delete it.
+      // The `isPublished` flag must be true to prevent private deals from being copied here.
+      allow create: if request.auth.uid == request.resource.data.userId && request.resource.data.isPublished == true;
+      allow update: if request.auth.uid == resource.data.userId && request.resource.data.isPublished == true;
+      allow delete: if request.auth.uid == resource.data.userId;
 
-        allow get, list: if isSignedIn();
-
-        allow create: if isOwner(request.resource.data.userId) && request.resource.data.isPublished == true;
-        allow update: if isOwner(resource.data.userId) && request.resource.data.isPublished == true;
-        allow delete: if isOwner(resource.data.userId);
-
-        /**
-         * @description Manages comments on public deals.
-         * @path /publishedDeals/{dealId}/comments/{commentId}
-         * @allow (read, create) to any signed-in user.
-         * @allow (update, delete) only to the user who created the comment.
-         */
-        match /comments/{commentId} {
-             allow read, list: if isSignedIn();
-             allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-             allow update, delete: if isOwner(resource.data.userId);
-        }
+      // Comments on public deals can be read, created, updated, or deleted by authenticated users.
+      // Updates and deletes are restricted to the comment's author.
+      match /comments/{commentId} {
+        allow read, list, create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      }
     }
   }
 }
