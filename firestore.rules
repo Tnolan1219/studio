@@ -26,5 +26,10 @@ service cloud.firestore {
         allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
       }
     }
+    
+    // Gemini AI chat sessions
+    match /users/{userId}/gemini-sessions/{sessionId}/{document=**} {
+        allow read, write, create: if request.auth != null && request.auth.uid == userId;
+    }
   }
 }

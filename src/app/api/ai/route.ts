@@ -1,16 +1,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/google-genai';
-
-// Initialize Genkit with the Google AI plugin
-genkit({
-  plugins: [
-    googleAI({ apiKey: process.env.GEMINI_API_KEY }),
-  ],
-});
+import { ai } from '@/ai/genkit'; // Use the shared instance
 
 export async function POST(request: NextRequest) {
+  // Check if the Gemini API key is available
+  if (!process.env.GEMINI_API_KEY) {
+    const errorMessage = 'The Gemini API key is not configured on the server. Please check your environment variables.';
+    console.error(errorMessage);
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
+  }
+
   try {
     const { prompt } = await request.json();
 
@@ -18,7 +17,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
-    const llmResponse = await genkit.generate({
+    const llmResponse = await ai.generate({
       model: 'gemini-pro',
       prompt: prompt,
       config: {
@@ -28,8 +27,10 @@ export async function POST(request: NextRequest) {
 
     const text = llmResponse.text;
     return NextResponse.json({ text });
-  } catch (error) {
+  } catch (error: any) {
     console.error('AI API error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    // Provide a more descriptive error message to the client
+    const message = error.message || 'An unknown error occurred with the AI service.';
+    return NextResponse.json({ error: `Internal Server Error: ${message}` }, { status: 500 });
   }
 }
