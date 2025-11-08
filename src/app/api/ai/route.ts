@@ -36,6 +36,8 @@ const getPromptForStage = (
   const baseIntro = `You are a real estate investment expert providing concise, actionable advice for a ${dealType} deal. The user is currently in the '${stage}' stage.
 Financials: ${financialData}
 User's Query/Market Info: ${marketConditions}
+
+Provide your response in markdown format. Use bullet points for lists.
 `;
 
   switch (stage) {
@@ -59,7 +61,7 @@ User's Query/Market Info: ${marketConditions}
 - **Listing Platforms:** Suggest 2-3 platforms to list on.
 - **Marketing Highlight:** What is the number one feature to highlight in the listing?`;
     default:
-      return `You are a real estate investment expert. Analyze the following deal and provide a quick, efficient response using simplified bullet points.
+      return `You are a real estate investment expert. Analyze the following deal and provide a quick, efficient response using markdown with simplified bullet points.
 - Deal Type: ${dealType}
 - Financials: ${financialData}
 - Market/Query: ${marketConditions}
