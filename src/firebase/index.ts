@@ -4,6 +4,7 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { firebaseConfig, isFirebaseConfigValid } from './config';
+import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 /**
  * Initializes Firebase. It's safe to call this multiple times.
@@ -24,7 +25,14 @@ export function initializeFirebase() {
 
   // If no apps are initialized, initialize the main app.
   if (getApps().length === 0) {
-    initializeApp(firebaseConfig);
+    const app = initializeApp(firebaseConfig);
+    
+    if (typeof window !== 'undefined') {
+        const appCheck = initializeAppCheck(app, {
+          provider: new ReCaptchaV3Provider("6LfLfQYsAAAAAOH_VizLq93NPBVv-Jh6Qfb_50o_"),
+          isTokenAutoRefreshEnabled: true
+        });
+    }
   }
 
   // Get the initialized app and return the SDKs.
