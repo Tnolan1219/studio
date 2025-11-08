@@ -39,7 +39,12 @@ export async function getDealAssessment(input: {
     
     const prompt = getPromptForStage(input.stage || 'initial-analysis', input.dealType, input.financialData, input.marketConditions);
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/ai`, {
+    // Use a relative path for the API call within the same app.
+    // Fallback to localhost for local development if NEXT_PUBLIC_APP_URL is not set.
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const apiUrl = new URL('/api/ai', baseUrl).toString();
+
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
