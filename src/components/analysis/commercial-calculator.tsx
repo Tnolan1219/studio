@@ -394,14 +394,14 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                 <div className="grid lg:grid-cols-2 gap-6">
                     <div className="space-y-6">
                         <Card>
-                            <CardHeader><CardTitle className="text-lg">Property & Purchase</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="text-lg font-headline">Property & Purchase</CardTitle></CardHeader>
                             <CardContent className="space-y-4">
                                 <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                 <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                             </CardContent>
                         </Card>
                         <Card>
-                            <CardHeader><CardTitle className="text-lg">Income</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="text-lg font-headline">Income</CardTitle></CardHeader>
                             <CardContent className="space-y-4">
                                 <div>
                                     <FormLabel>Unit Mix</FormLabel>
@@ -420,7 +420,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                             </CardContent>
                         </Card>
                          <Card>
-                            <CardHeader><CardTitle className="text-lg">Expenses</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="text-lg font-headline">Expenses</CardTitle></CardHeader>
                             <CardContent className="space-y-4">
                                 <LineItemInput control={form.control} name="operatingExpenses" formLabel="Operating Expenses" fieldLabel="Expense Item" placeholder="e.g., Property Tax, Insurance" icon={<DollarSign size={14}/>} />
                                 <FormField name="vacancyRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Vacancy Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -429,7 +429,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                     </div>
                     <div className="space-y-6">
                         <Card>
-                            <CardHeader><CardTitle className="text-lg">Financing</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="text-lg font-headline">Financing</CardTitle></CardHeader>
                             <CardContent className="grid grid-cols-3 gap-4">
                                 <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                 <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -437,7 +437,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                             </CardContent>
                         </Card>
                         <Card>
-                            <CardHeader><CardTitle className="text-lg">Projections</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="text-lg font-headline">Projections</CardTitle></CardHeader>
                             <CardContent className="grid grid-cols-2 gap-4">
                                 <FormField name="annualIncomeGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Income Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                 <FormField name="annualExpenseGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Expense Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -447,46 +447,17 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                         </Card>
                          <Card>
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
+                                <CardTitle className="font-headline flex items-center gap-2">
                                     <Sparkles size={20} className="text-primary"/>
                                     AI Deal Assessment
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <FormField
-                                    name="marketConditions"
-                                    control={form.control}
-                                    render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Questions or Market Conditions for AI</FormLabel>
-                                        <FormControl>
-                                        <Textarea
-                                            placeholder="e.g., High-traffic downtown area with strong retail demand. What are the pros and cons of a triple-net lease for this property?"
-                                            {...field}
-                                        />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                    )}
-                                />
-                                {isAIPending && (
-                                    <div className="flex justify-center items-center py-8">
-                                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                    </div>
-                                )}
-                                {aiResult && (
-                                    <div className="mt-4 p-4 bg-muted/50 rounded-lg animate-fade-in">
-                                    {aiResult.assessment ? (
-                                        <div className="prose dark:prose-invert max-w-none text-sm" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
-                                    ) : (
-                                        <p className="text-destructive text-sm">{aiResult.message}</p>
-                                    )}
-                                    </div>
-                                )}
+                                <p className="text-sm text-muted-foreground text-center p-4">AI Analysis is currently under construction. Check back soon!</p>
                             </CardContent>
-                            <CardFooter>
-                                <Button type="button" onClick={handleGenerateInsights} disabled={isAIPending} className="w-full">
-                                    {isAIPending ? 'Generating...' : 'Generate AI Insights'}
+                             <CardFooter>
+                                <Button type="button" disabled className="w-full">
+                                    Generate AI Insights
                                 </Button>
                             </CardFooter>
                         </Card>
@@ -496,7 +467,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                 {analysisResult && (
                     <>
                     <Card>
-                        <CardHeader><CardTitle>Key Metrics (Year 1)</CardTitle></CardHeader>
+                        <CardHeader><CardTitle className="font-headline">Key Metrics (Year 1)</CardTitle></CardHeader>
                         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div><p className="text-sm text-muted-foreground">Cap Rate</p><p className="text-2xl font-bold">{analysisResult.capRate.toFixed(2)}%</p></div>
                             <div><p className="text-sm text-muted-foreground">CoC Return</p><p className="text-2xl font-bold">{analysisResult.cocReturn.toFixed(2)}%</p></div>
@@ -506,7 +477,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                     </Card>
                     
                     <Card>
-                        <CardHeader> <CardTitle className="flex items-center gap-2"> <BarChart2 size={20} /> 10-Year Cash Flow Projection </CardTitle> </CardHeader>
+                        <CardHeader> <CardTitle className="font-headline flex items-center gap-2"> <BarChart2 size={20} /> 10-Year Cash Flow Projection </CardTitle> </CardHeader>
                         <CardContent className="h-[250px] -ml-4 pr-4">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={analysisResult.chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>

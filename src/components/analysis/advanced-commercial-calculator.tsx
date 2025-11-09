@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -553,7 +554,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                     <TabsContent value="overview" className="mt-6">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <Card>
-                                <CardHeader><CardTitle>Key Metrics (Year 1)</CardTitle></CardHeader>
+                                <CardHeader><CardTitle className="font-headline">Key Metrics (Year 1)</CardTitle></CardHeader>
                                 <CardContent className="grid grid-cols-2 gap-4">
                                     <div><p className="text-sm text-muted-foreground">Cap Rate</p><p className="text-2xl font-bold">{capRate.toFixed(2)}%</p></div>
                                     <div><p className="text-sm text-muted-foreground">CoC Return</p><p className="text-2xl font-bold">{cocReturn.toFixed(2)}%</p></div>
@@ -562,7 +563,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                 </CardContent>
                             </Card>
                              <Card>
-                                <CardHeader> <CardTitle className="flex items-center gap-2"> <BarChart2 size={20} /> 10-Year Cash Flow </CardTitle> </CardHeader>
+                                <CardHeader> <CardTitle className="font-headline flex items-center gap-2"> <BarChart2 size={20} /> 10-Year Cash Flow </CardTitle> </CardHeader>
                                 <CardContent className="h-[200px] -ml-4 pr-4">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <RechartsBarChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
@@ -590,7 +591,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
 
                      <TabsContent value="income" className="mt-6">
                         <Card>
-                            <CardHeader><CardTitle>Income Sources</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="font-headline">Income Sources</CardTitle></CardHeader>
                             <CardContent className="space-y-6">
                                <div>
                                     <FormLabel>Unit Mix</FormLabel>
@@ -612,7 +613,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
 
                     <TabsContent value="expenses" className="mt-6">
                          <Card>
-                            <CardHeader><CardTitle>Acquisition & Operating Expenses</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="font-headline">Acquisition & Operating Expenses</CardTitle></CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -628,7 +629,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
 
                     <TabsContent value="financing" className="mt-6">
                         <Card>
-                            <CardHeader><CardTitle>Financing Details</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="font-headline">Financing Details</CardTitle></CardHeader>
                             <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                 <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -639,7 +640,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                     
                     <TabsContent value="projections" className="mt-6">
                         <Card>
-                            <CardHeader><CardTitle>Growth & Exit Assumptions</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="font-headline">Growth & Exit Assumptions</CardTitle></CardHeader>
                              <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                 <FormField name="holdingLength" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Holding Length (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                 <FormField name="annualIncomeGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Income Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -652,7 +653,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                     </TabsContent>
                     <TabsContent value="returns" className="mt-6">
                         <Card>
-                            <CardHeader><CardTitle>Deal Returns & Profitability</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="font-headline">Deal Returns & Profitability</CardTitle></CardHeader>
                             <CardContent className="space-y-6">
                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                                     <div className="p-4 rounded-lg bg-muted">
@@ -686,7 +687,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                     <TabsContent value="sensitivity" className="mt-6">
                         <Card>
                             <CardHeader>
-                                <CardTitle>Sensitivity Analysis</CardTitle>
+                                <CardTitle className="font-headline">Sensitivity Analysis</CardTitle>
                                 <CardDescription>See how your returns change with different market assumptions.</CardDescription>
                             </CardHeader>
                             <CardContent>
@@ -752,9 +753,9 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                     </TabsContent>
                     <TabsContent value="detailed_analysis" className="mt-6">
                         <Card>
-                            <CardHeader> <CardTitle className="flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
+                            <CardHeader> <CardTitle className="font-headline flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
                             <CardContent>
-                                <p className="text-sm text-muted-foreground mt-4"> AI Deal Assessment is coming soon. </p>
+                                <p className="text-sm text-muted-foreground text-center p-4">AI Analysis is currently under construction. Check back soon!</p>
                             </CardContent>
                              <CardFooter>
                                 <Button disabled className="w-full">

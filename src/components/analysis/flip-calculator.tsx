@@ -270,7 +270,7 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-4">
                   <Card>
-                      <CardHeader><CardTitle className="text-lg">Purchase & Rehab</CardTitle></CardHeader>
+                      <CardHeader><CardTitle className="text-lg font-headline">Purchase & Rehab</CardTitle></CardHeader>
                       <CardContent className="grid grid-cols-2 gap-4">
                           <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -280,7 +280,7 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
                       </CardContent>
                   </Card>
                   <Card>
-                      <CardHeader><CardTitle className="text-lg">Financing</CardTitle></CardHeader>
+                      <CardHeader><CardTitle className="text-lg font-headline">Financing</CardTitle></CardHeader>
                       <CardContent className="grid grid-cols-2 gap-4">
                           <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.01" {...field}/></FormControl> <FormMessage /> </FormItem> )} />
@@ -291,7 +291,7 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
 
               <div className="space-y-4">
                  <Card>
-                    <CardHeader><CardTitle className="text-lg">Holding & Selling Costs</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="text-lg font-headline">Holding & Selling Costs</CardTitle></CardHeader>
                     <CardContent className="grid grid-cols-2 gap-4">
                         <FormField name="holdingLength" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Holding (Months)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                         <FormField name="propertyTaxes" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Prop. Taxes (%/yr)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -302,46 +302,17 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
                 </Card>
                  <Card>
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                        <CardTitle className="font-headline flex items-center gap-2">
                             <Sparkles size={20} className="text-primary"/>
                             AI Deal Assessment
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <FormField
-                            name="marketConditions"
-                            control={form.control}
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Questions or Market Conditions for AI</FormLabel>
-                                <FormControl>
-                                <Textarea
-                                    placeholder="e.g., What are the risks of flipping in a cooling market? Suggest value-add renovations for this property type."
-                                    {...field}
-                                />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        {isAIPending && (
-                            <div className="flex justify-center items-center py-8">
-                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                            </div>
-                        )}
-                        {aiResult && (
-                            <div className="mt-4 p-4 bg-muted/50 rounded-lg animate-fade-in">
-                            {aiResult.assessment ? (
-                                <div className="prose dark:prose-invert max-w-none text-sm" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
-                            ) : (
-                                <p className="text-destructive text-sm">{aiResult.message}</p>
-                            )}
-                            </div>
-                        )}
+                        <p className="text-sm text-muted-foreground text-center p-4">AI Analysis is currently under construction. Check back soon!</p>
                     </CardContent>
                     <CardFooter>
-                        <Button type="button" onClick={handleGenerateInsights} disabled={isAIPending} className="w-full">
-                            {isAIPending ? 'Generating...' : 'Generate AI Insights'}
+                        <Button type="button" disabled className="w-full">
+                            Generate AI Insights
                         </Button>
                     </CardFooter>
                 </Card>
@@ -351,7 +322,7 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
             {analysisResult && (
                 <div className="grid md:grid-cols-2 gap-6 mt-6">
                 <Card>
-                    <CardHeader><CardTitle>Key Metrics</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="font-headline">Key Metrics</CardTitle></CardHeader>
                     <CardContent className="grid grid-cols-2 gap-4">
                     <div> <p className="text-sm text-muted-foreground">Net Profit</p> <p className="text-2xl font-bold">${analysisResult.netProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
                     <div> <p className="text-sm text-muted-foreground">ROI on Cash</p> <p className="text-2xl font-bold">{analysisResult.roi.toFixed(2)}%</p> </div>
@@ -361,7 +332,7 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
                 </Card>
 
                 <Card>
-                    <CardHeader> <CardTitle className="flex items-center gap-2"> <BarChart2 size={20} /> Cost vs. Profit Breakdown </CardTitle> </CardHeader>
+                    <CardHeader> <CardTitle className="font-headline flex items-center gap-2"> <BarChart2 size={20} /> Cost vs. Profit Breakdown </CardTitle> </CardHeader>
                     <CardContent className="h-[250px]">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={analysisResult.chartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }} >

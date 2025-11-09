@@ -351,7 +351,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-4">
                   <Card>
-                      <CardHeader><CardTitle className="text-lg">Purchase & Loan</CardTitle></CardHeader>
+                      <CardHeader><CardTitle className="text-lg font-headline">Purchase & Loan</CardTitle></CardHeader>
                       <CardContent className="grid grid-cols-2 gap-4">
                           <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -364,7 +364,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
                       </CardContent>
                   </Card>
                    <Card>
-                      <CardHeader><CardTitle className="text-lg">Income</CardTitle></CardHeader>
+                      <CardHeader><CardTitle className="text-lg font-headline">Income</CardTitle></CardHeader>
                       <CardContent className="grid grid-cols-2 gap-4">
                            <FormField name="grossMonthlyIncome" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Gross Monthly Income</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                       </CardContent>
@@ -373,7 +373,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
 
               <div className="space-y-4">
                    <Card>
-                      <CardHeader><CardTitle className="text-lg">Operating Expenses (% of Income)</CardTitle></CardHeader>
+                      <CardHeader><CardTitle className="text-lg font-headline">Operating Expenses (% of Income)</CardTitle></CardHeader>
                       <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
                           <FormField name="propertyTaxes" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Taxes</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="insurance" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Insurance</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -385,7 +385,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
                       </CardContent>
                   </Card>
                   <Card>
-                    <CardHeader><CardTitle className="text-lg">Projections</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="text-lg font-headline">Projections</CardTitle></CardHeader>
                     <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <FormField name="annualIncomeGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Income Growth</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                         <FormField name="annualExpenseGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Expense Growth</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -400,7 +400,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
                 <>
                     <div className="grid md:grid-cols-2 gap-6 mt-6">
                         <Card>
-                            <CardHeader><CardTitle>Key Metrics</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="font-headline">Key Metrics</CardTitle></CardHeader>
                             <CardContent className="grid grid-cols-2 gap-4">
                             <div> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className="text-2xl font-bold">${analysisResult.monthlyCashFlow.toFixed(2)}</p> </div>
                             <div> <p className="text-sm text-muted-foreground">CoC Return</p> <p className="text-2xl font-bold">{analysisResult.cocReturn.toFixed(2)}%</p> </div>
@@ -411,7 +411,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
 
                         <Card>
                             <CardHeader>
-                            <CardTitle className="flex items-center gap-2"> <BarChart2 size={20} /> Monthly Breakdown </CardTitle>
+                            <CardTitle className="font-headline flex items-center gap-2"> <BarChart2 size={20} /> Monthly Breakdown </CardTitle>
                             </CardHeader>
                             <CardContent className="h-[200px]">
                             <ResponsiveContainer width="100%" height="100%">
@@ -440,47 +440,18 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
                     
                     <Card className="mt-6">
                         <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
+                            <CardTitle className="font-headline flex items-center gap-2">
                                 <Sparkles size={20} className="text-primary"/>
                                 AI Deal Assessment
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <FormField
-                                name="marketConditions"
-                                control={form.control}
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Questions or Market Conditions for AI</FormLabel>
-                                    <FormControl>
-                                    <Textarea
-                                        placeholder="e.g., What are the risks of rising interest rates for this deal? Is the cap rate competitive for this area?"
-                                        {...field}
-                                    />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                            {isAIPending && (
-                                <div className="flex justify-center items-center py-8">
-                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                </div>
-                            )}
-                            {aiResult && (
-                                <div className="mt-4 p-4 bg-muted/50 rounded-lg animate-fade-in">
-                                {aiResult.assessment ? (
-                                    <div className="prose dark:prose-invert max-w-none text-sm" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
-                                ) : (
-                                    <p className="text-destructive text-sm">{aiResult.message}</p>
-                                )}
-                                </div>
-                            )}
+                           <p className="text-sm text-muted-foreground text-center p-4">AI Analysis is currently under construction. Check back soon!</p>
                         </CardContent>
                         <CardFooter>
-                            <Button type="button" onClick={handleGenerateInsights} disabled={isAIPending} className="w-full">
-                                {isAIPending ? 'Generating...' : 'Generate AI Insights'}
-                            </Button>
+                           <Button type="button" disabled className="w-full">
+                                Generate AI Insights
+                           </Button>
                         </CardFooter>
                     </Card>
                 </>

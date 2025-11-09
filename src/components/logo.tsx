@@ -6,7 +6,7 @@ export function Logo() {
   return (
     <Link href="/" className="flex items-center gap-2">
       <Image
-        src="/ducknobackground.png"
+        src="/logo3.png"
         alt="Valentor RE Logo"
         width={40}
         height={40}

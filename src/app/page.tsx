@@ -16,7 +16,7 @@ export default function LandingPage() {
           <Logo />
         </div>
         <div className="z-10 text-center animate-fade-in">
-          <Image src="/ducknobackground.png" alt="Valentor RE Logo" width={128} height={128} className="mx-auto mb-4" unoptimized />
+          <Image src="/logo3.png" alt="Valentor RE Logo" width={128} height={128} className="mx-auto mb-4" unoptimized />
             
           <h1 className="text-5xl font-bold font-headline text-foreground">
             Valentor RE
