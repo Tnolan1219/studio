@@ -26,8 +26,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Sparkles, BarChart2, Loader2 } from 'lucide-react';
-import { Skeleton } from '../ui/skeleton';
+import { BarChart2, Loader2, TrendingUp, TrendingDown, PiggyBank } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -36,6 +35,9 @@ import {
   Tooltip,
   Bar,
   CartesianGrid,
+  LineChart,
+  Line,
+  Legend
 } from 'recharts';
 import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, serverTimestamp, doc } from 'firebase/firestore';
@@ -65,6 +67,7 @@ const formSchema = z.object({
   annualIncomeGrowth: z.coerce.number().min(0).max(100),
   annualExpenseGrowth: z.coerce.number().min(0).max(100),
   annualAppreciation: z.coerce.number().min(0).max(100),
+  holdingLength: z.coerce.number().int().min(1).max(30),
   sellingCosts: z.coerce.number().min(0).max(100),
   marketConditions: z.string().min(10, 'Please describe market conditions.'),
 });
@@ -90,23 +93,24 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
         : 0;
 
     let currentGrossRent = grossMonthlyIncome * 12;
-    let currentOpEx = 
-        (currentGrossRent * (propertyTaxes/100)) + 
-        (currentGrossRent * (insurance/100)) + 
-        (currentGrossRent * (repairsAndMaintenance/100)) +
-        (currentGrossRent * (capitalExpenditures/100)) +
-        (currentGrossRent * (managementFee/100)) +
-        (currentGrossRent * (otherExpenses/100));
 
     const arv = purchasePrice + rehabCost;
     
     let currentPropertyValue = arv;
     let currentLoanBalance = loanAmount;
     
-    for (let year = 1; year <= 10; year++) {
+    for (let year = 1; year <= Math.max(values.holdingLength, 10); year++) {
         
         const vacancyLoss = currentGrossRent * (vacancy / 100);
         const effectiveGrossIncome = currentGrossRent - vacancyLoss;
+        
+        let currentOpEx = 
+            (effectiveGrossIncome * (propertyTaxes/100)) + 
+            (effectiveGrossIncome * (insurance/100)) + 
+            (effectiveGrossIncome * (repairsAndMaintenance/100)) +
+            (effectiveGrossIncome * (capitalExpenditures/100)) +
+            (effectiveGrossIncome * (managementFee/100)) +
+            (effectiveGrossIncome * (otherExpenses/100));
         
         const noi = effectiveGrossIncome - currentOpEx;
 
@@ -136,7 +140,6 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
         });
         
         currentGrossRent *= (1 + annualIncomeGrowth / 100);
-        currentOpEx *= (1 + annualExpenseGrowth / 100);
         currentPropertyValue *= (1 + annualAppreciation / 100);
         currentLoanBalance = yearEndLoanBalance;
     }
@@ -152,8 +155,6 @@ interface RentalCalculatorProps {
 }
 
 export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0 }: RentalCalculatorProps) {
-  const [isAIPending, startAITransition] = useTransition();
-  const [aiResult, setAiResult] = useState<{message: string, assessment: string | null} | null>(null);
   
   // State for calculated results
   const [analysisResult, setAnalysisResult] = useState<{
@@ -161,7 +162,9 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
       cocReturn: number;
       capRate: number;
       noi: number;
-      chartData: any[];
+      breakdownChartData: any[];
+      cashFlowChartData: any[];
+      amortizationChartData: any[];
       proFormaData: ProFormaEntry[];
   } | null>(null);
 
@@ -201,6 +204,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
       annualIncomeGrowth: 3,
       annualExpenseGrowth: 2,
       annualAppreciation: 3,
+      holdingLength: 10,
       sellingCosts: 6,
       marketConditions: 'Analyze the rental market in the 90210 zip code. What are the average rents for a 3-bedroom house?',
     },
@@ -226,41 +230,37 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
     const arv = data.purchasePrice + data.rehabCost;
     const capRate = arv > 0 ? (noi / arv) * 100 : 0;
 
-    const chartData = [
+    const breakdownChartData = [
         { name: 'Income', value: data.grossMonthlyIncome, fill: 'hsl(var(--primary))' },
-        { name: 'Expenses', value: year1.operatingExpenses / 12, fill: 'hsl(var(--destructive))' },
+        { name: 'Expenses', value: (year1.operatingExpenses || 0) / 12, fill: 'hsl(var(--destructive))' },
         { name: 'Mortgage', value: (year1.debtService || 0) / 12, fill: 'hsl(var(--accent))' },
         { name: 'Cash Flow', value: monthlyCashFlow > 0 ? monthlyCashFlow : 0, fill: 'hsl(var(--chart-2))' },
     ];
+    
+    const cashFlowChartData = [
+      { year: 'Invest', cashFlow: -totalInvestment },
+      ...proForma.slice(0, data.holdingLength).map(entry => ({
+        year: `Year ${entry.year}`,
+        cashFlow: entry.cashFlowBeforeTax
+      })),
+    ];
+    
+    const amortizationChartData = proForma.slice(0, data.loanTerm).map(entry => ({
+        year: entry.year,
+        Equity: entry.equity,
+        'Loan Balance': entry.loanBalance,
+    }));
+
 
     setAnalysisResult({
         monthlyCashFlow,
         cocReturn,
         capRate,
         noi,
-        chartData,
+        breakdownChartData,
+        cashFlowChartData,
+        amortizationChartData,
         proFormaData: proForma,
-    });
-  };
-
-  const handleGenerateInsights = () => {
-    if (!analysisResult) {
-      toast({
-        title: 'Analysis Required',
-        description: 'Please run the analysis before generating AI insights.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    startAITransition(async () => {
-      const financialData = `NOI: ${analysisResult.noi.toFixed(2)}, CoC Return: ${analysisResult.cocReturn.toFixed(2)}%, Cap Rate: ${analysisResult.capRate.toFixed(2)}%`;
-      const result = await getDealAssessment({
-        dealType: 'Rental Property',
-        financialData: financialData,
-        marketConditions: form.getValues('marketConditions'),
-      });
-      setAiResult(result);
     });
   };
 
@@ -390,6 +390,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
                         <FormField name="annualIncomeGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Income Growth</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                         <FormField name="annualExpenseGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Expense Growth</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                         <FormField name="annualAppreciation" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Appreciation</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                        <FormField name="holdingLength" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Hold Length (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                         <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Selling Costs</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                     </CardContent>
                   </Card>
@@ -397,53 +398,73 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
             </div>
 
             {analysisResult && (
-                <>
-                    <div className="grid md:grid-cols-2 gap-6 mt-6">
-                        <Card>
-                            <CardHeader><CardTitle className="font-headline">Key Metrics</CardTitle></CardHeader>
-                            <CardContent className="grid grid-cols-2 gap-4">
+                <div className="space-y-6 mt-6">
+                    <Card>
+                        <CardHeader><CardTitle className="font-headline">Key Metrics (Year 1)</CardTitle></CardHeader>
+                        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className="text-2xl font-bold">${analysisResult.monthlyCashFlow.toFixed(2)}</p> </div>
                             <div> <p className="text-sm text-muted-foreground">CoC Return</p> <p className="text-2xl font-bold">{analysisResult.cocReturn.toFixed(2)}%</p> </div>
-                            <div> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="font-bold">${analysisResult.noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
-                            <div> <p className="text-sm text-muted-foreground">Cap Rate</p> <p className="font-bold">{analysisResult.capRate.toFixed(2)}%</p> </div>
-                            </CardContent>
-                        </Card>
+                            <div> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="font-bold text-lg">${analysisResult.noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
+                            <div> <p className="text-sm text-muted-foreground">Cap Rate (on ARV)</p> <p className="font-bold">{analysisResult.capRate.toFixed(2)}%</p> </div>
+                        </CardContent>
+                    </Card>
 
+                    <div className="grid md:grid-cols-2 gap-6">
                         <Card>
                             <CardHeader>
-                            <CardTitle className="font-headline flex items-center gap-2"> <BarChart2 size={20} /> Monthly Breakdown </CardTitle>
+                                <CardTitle className="font-headline flex items-center gap-2"> <PiggyBank size={20} /> Cash Flow Over Time </CardTitle>
+                                <CardDescription>Annual pre-tax cash flow over the holding period, starting with your initial investment.</CardDescription>
                             </CardHeader>
-                            <CardContent className="h-[200px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={analysisResult.chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                <XAxis dataKey="name" stroke="hsl(var(--foreground))" fontSize={12} />
-                                <YAxis stroke="hsl(var(--foreground))" fontSize={12} tickFormatter={(value) => `$${value}`} />
-                                <Tooltip
-                                    cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
-                                    contentStyle={{
-                                        backgroundColor: 'hsl(var(--background))',
-                                        border: '1px solid hsl(var(--border))',
-                                        color: 'hsl(var(--foreground))'
-                                    }}
-                                />
-                                <Bar dataKey="value" radius={[4, 4, 0, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
+                            <CardContent className="h-[250px] -ml-4 pr-4">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={analysisResult.cashFlowChartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                        <XAxis dataKey="year" stroke="hsl(var(--foreground))" fontSize={12} />
+                                        <YAxis stroke="hsl(var(--foreground))" fontSize={12} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
+                                        <Tooltip
+                                            cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
+                                            contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))' }}
+                                            formatter={(value: number, name: string) => [value < 0 ? `-$${(-value).toLocaleString()}` : `$${value.toLocaleString()}`, 'Cash Flow']}
+                                        />
+                                        <Bar dataKey="cashFlow">
+                                            {analysisResult.cashFlowChartData.map((entry, index) => (
+                                                <Bar key={`cell-${index}`} fill={entry.cashFlow >= 0 ? 'hsl(var(--primary))' : 'hsl(var(--destructive))'} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="font-headline flex items-center gap-2"> <TrendingUp size={20} /> Amortization & Equity </CardTitle>
+                                <CardDescription>Your loan balance decreasing as your equity grows over the loan term.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="h-[250px] -ml-4 pr-4">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={analysisResult.amortizationChartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                        <XAxis dataKey="year" stroke="hsl(var(--foreground))" fontSize={12} label={{ value: 'Year', position: 'insideBottom', offset: -5 }}/>
+                                        <YAxis stroke="hsl(var(--foreground))" fontSize={12} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
+                                        <Tooltip
+                                            cursor={{ stroke: 'hsl(var(--primary))', strokeDasharray: '3 3' }}
+                                            contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))' }}
+                                             formatter={(value: number) => `$${value.toLocaleString(undefined, {maximumFractionDigits: 0})}`}
+                                        />
+                                        <Legend />
+                                        <Line type="monotone" dataKey="Equity" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                                        <Line type="monotone" dataKey="Loan Balance" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={false} />
+                                    </LineChart>
+                                </ResponsiveContainer>
                             </CardContent>
                         </Card>
                     </div>
                     
-                    <div className="mt-6">
-                        <ProFormaTable data={analysisResult.proFormaData} />
-                    </div>
+                    <ProFormaTable data={analysisResult.proFormaData} />
                     
-                    <Card className="mt-6">
+                    <Card>
                         <CardHeader>
-                            <CardTitle className="font-headline flex items-center gap-2">
-                                <Sparkles size={20} className="text-primary"/>
-                                AI Deal Assessment
-                            </CardTitle>
+                            <CardTitle className="font-headline">AI Deal Assessment</CardTitle>
                         </CardHeader>
                         <CardContent>
                            <p className="text-sm text-muted-foreground text-center p-4">AI Analysis is currently under construction. Check back soon!</p>
@@ -454,13 +475,13 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
                            </Button>
                         </CardFooter>
                     </Card>
-                </>
+                </div>
             )}
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
             {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
             <Button type="submit">Run Analysis</Button>
-            <Button variant="secondary" onClick={handleSaveDeal} disabled={isAIPending || isSaving}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
+            <Button variant="secondary" onClick={handleSaveDeal} disabled={isSaving}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
           </CardFooter>
         </form>
       </Form>
