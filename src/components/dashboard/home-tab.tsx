@@ -1,4 +1,3 @@
-
 import {
     Card,
     CardContent,
@@ -7,7 +6,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { DollarSign, BarChart, Briefcase, Home, Building, Repeat, TrendingUp, PiggyBank, Scale } from "lucide-react";
-import { NewsFeed } from "./news-feed";
+import { QuickTips } from "./quick-tips";
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection } from "firebase/firestore";
 import type { Deal, ProFormaEntry } from '@/lib/types';
@@ -209,7 +208,7 @@ export default function HomeTab() {
                 />
             </div>
             
-            <NewsFeed />
+            <QuickTips />
 
             <PortfolioVisualization deals={deals || []} />
         </div>
