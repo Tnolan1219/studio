@@ -5,7 +5,6 @@ import Image from 'next/image';
 import { AuthModal } from '@/components/auth-modal';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { Logo } from '@/components/logo';
-import { Chatbot } from '@/components/chatbot';
 
 export default function LandingPage() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -17,7 +16,7 @@ export default function LandingPage() {
           <Logo />
         </div>
         <div className="z-10 text-center animate-fade-in">
-          <Image src="/logo3.png" alt="Valentor RE Logo" width={128} height={128} className="mx-auto mb-4" unoptimized />
+          <Image src="/ducknobackground.png" alt="Valentor RE Logo" width={128} height={128} className="mx-auto mb-4" unoptimized />
             
           <h1 className="text-5xl font-bold font-headline text-foreground">
             Valentor RE
@@ -33,7 +32,6 @@ export default function LandingPage() {
           </button>
         </div>
         <AuthModal isOpen={isAuthModalOpen} onOpenChange={setIsAuthModalOpen} />
-        <Chatbot />
       </div>
     </FirebaseClientProvider>
   );

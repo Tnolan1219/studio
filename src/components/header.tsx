@@ -23,17 +23,28 @@ export function Header() {
 
   const handleSignOut = async () => {
     try {
-      await signOut(auth);
+      if(auth) {
+        await signOut(auth);
+      }
       router.push('/');
     } catch (error) {
       console.error('Error signing out:', error);
     }
   };
 
+  const getInitials = () => {
+    if (!user) return "?";
+    if (user.isAnonymous) return 'G';
+    const name = user.displayName;
+    if (name) return name.split(' ').map((n) => n[0]).join('').toUpperCase();
+    if (user.email) return user.email.charAt(0).toUpperCase();
+    return 'U';
+  }
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
-        <div className="mr-auto flex items-center">
+        <div className="flex-1 flex items-center">
           <Logo />
         </div>
         <div className="flex items-center gap-4">
@@ -41,21 +52,21 @@ export function Header() {
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Avatar className="cursor-pointer">
+                <Avatar className="cursor-pointer h-9 w-9">
                   <AvatarImage src={user.photoURL ?? ''} />
                   <AvatarFallback>
-                    {user.displayName?.charAt(0) ?? '?'}
+                    {getInitials()}
                   </AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuLabel>{user.displayName}</DropdownMenuLabel>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>{user.isAnonymous ? "Guest" : (user.displayName || user.email)}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => router.push('/dashboard')}>
                   Dashboard
                 </DropdownMenuItem>
-                <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuItem>Settings</DropdownMenuItem>
+                <DropdownMenuItem disabled>Profile</DropdownMenuItem>
+                <DropdownMenuItem disabled>Settings</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   Sign Out
