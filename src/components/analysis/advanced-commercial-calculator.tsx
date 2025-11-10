@@ -538,7 +538,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                     <div className="text-center"> <p className="text-sm text-primary/80 font-headline">IRR</p> <p className="text-2xl font-bold text-primary">{unleveredIRR.toFixed(2)}%</p></div>
                     <div className="text-center"> <p className="text-sm text-primary/80 font-headline">Equity Multiple</p> <p className="text-2xl font-bold text-primary">{equityMultiple.toFixed(2)}x</p></div>
                     <div className="text-center"> <p className="text-sm text-primary/80 font-headline">Cap Rate (Y1)</p> <p className="text-2xl font-bold text-primary">{capRate.toFixed(2)}%</p></div>
-                    <div className="text-center"> <p className="text-sm text-primary/80 font-headline">NOI (Y1)</p <p className="text-2xl font-bold text-primary">${noi.toLocaleString(undefined, {maximumFractionDigits: 0})}</p></div>
+                    <div className="text-center"> <p className="text-sm text-primary/80 font-headline">NOI (Y1)</p> <p className="text-2xl font-bold text-primary">${noi.toLocaleString(undefined, {maximumFractionDigits: 0})}</p></div>
                 </div>
                 <Tabs defaultValue="assumptions" className="w-full">
                     <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-4 h-auto">
@@ -643,9 +643,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                 </div>
                                 <div>
                                     <h4 className="font-semibold mb-2">Investor Waterfall</h4>
-                                     <div className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-lg bg-muted/20">
-                                        <p className="text-sm text-muted-foreground">Investor waterfall modeling coming soon.</p>
-                                    </div>
+                                    <p className="text-sm text-muted-foreground text-center p-4 border-2 border-dashed rounded-lg bg-muted/20">Investor waterfall modeling coming soon.</p>
                                 </div>
                             </CardContent>
                         </Card>
