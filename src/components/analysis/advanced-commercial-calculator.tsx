@@ -73,6 +73,7 @@ const unitMixSchema = z.object({
 const lineItemSchema = z.object({
     name: z.string().min(1, "Name is required"),
     amount: z.coerce.number().min(0),
+    type: z.enum(['percent', 'fixed']).default('fixed'),
 })
 
 const formSchema = z.object({
@@ -93,7 +94,6 @@ const formSchema = z.object({
   operatingExpenses: z.array(lineItemSchema),
   capitalExpenditures: z.array(lineItemSchema),
   vacancyRate: z.coerce.number().min(0).max(100),
-  replacementReserves: z.coerce.number().min(0).optional().default(250),
   
   // Financing
   loanToValue: z.coerce.number().min(0).max(100).optional().default(75),
@@ -159,7 +159,7 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
     const combinedValues = { ...values, ...sensitivityOverrides };
     const {
         purchasePrice, rehabCost = 0, closingCosts = 0, downPayment, interestRate, loanTerm, amortizationPeriod, interestOnlyPeriod,
-        unitMix, otherIncomes, operatingExpenses, vacancyRate, lossToLease = 0, replacementReserves = 0,
+        unitMix, otherIncomes, operatingExpenses, capitalExpenditures, vacancyRate, lossToLease = 0,
         annualIncomeGrowth, annualExpenseGrowth, annualAppreciation
     } = combinedValues;
 
@@ -170,16 +170,18 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
     const numberOfPayments = amortizationPeriod * 12;
     const totalUnits = unitMix.reduce((acc, unit) => acc + unit.count, 0);
     
-    // Calculate P&I payment based on amortization period
     const principalAndInterestPayment = numberOfPayments > 0 && monthlyInterestRate > 0 ?
         (loanAmount * (monthlyInterestRate * Math.pow(1 + monthlyInterestRate, numberOfPayments))) / (Math.pow(1 + monthlyInterestRate, numberOfPayments) - 1)
         : 0;
 
     let currentGrossRent = unitMix.reduce((acc: number, unit: { count: number; rent: number; }) => acc + (unit.count * unit.rent * 12), 0);
-    const monthlyOtherIncome = otherIncomes.reduce((acc: number, item: { amount: number; }) => acc + item.amount, 0);
-    let currentOtherIncome = monthlyOtherIncome * 12;
-
-    let currentManualOpEx = operatingExpenses.reduce((acc, item) => acc + item.amount, 0) * 12;
+    
+    const calculateAnnualOtherIncome = (grossRent: number) => {
+        return otherIncomes.reduce((acc, item) => {
+            if (item.type === 'fixed') return acc + item.amount * 12;
+            return acc + (grossRent * (item.amount / 100));
+        }, 0);
+    };
 
     let currentPropertyValue = purchasePrice + rehabCost;
     let currentLoanBalance = loanAmount;
@@ -194,7 +196,6 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
 
             if (currentMonthInLoan <= interestOnlyPeriod * 12) {
                 annualDebtService += interestPayment;
-                // No principal reduction during I/O period
             } else {
                 const principalPayment = principalAndInterestPayment - interestPayment;
                 annualDebtService += principalAndInterestPayment;
@@ -202,23 +203,38 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
             }
         }
         
+        const currentOtherIncome = calculateAnnualOtherIncome(currentGrossRent);
         const grossPotentialRent = currentGrossRent + currentOtherIncome;
         const lossToLeaseAmount = grossPotentialRent * (lossToLease / 100);
         const scheduledGrossIncome = grossPotentialRent - lossToLeaseAmount;
         const vacancyLoss = scheduledGrossIncome * (vacancyRate / 100);
         const effectiveGrossIncome = scheduledGrossIncome - vacancyLoss;
 
-        const reservesAmount = totalUnits * replacementReserves;
-        const currentOpEx = currentManualOpEx + reservesAmount;
+        const calculateOpEx = (egi: number) => {
+            return operatingExpenses.reduce((acc, item) => {
+                if (item.type === 'fixed') return acc + item.amount * 12;
+                return acc + (egi * (item.amount / 100));
+            }, 0);
+        };
         
-        const noi = effectiveGrossIncome - currentOpEx;
+        const calculateCapEx = (egi: number) => {
+             return capitalExpenditures.reduce((acc, item) => {
+                if (item.type === 'fixed') return acc + item.amount; // Assume CapEx is annual
+                return acc + (egi * (item.amount / 100));
+            }, 0);
+        };
+
+        const currentOpEx = calculateOpEx(effectiveGrossIncome);
+        const currentCapEx = calculateCapEx(effectiveGrossIncome);
+
+        const noi = effectiveGrossIncome - currentOpEx - currentCapEx;
 
         proForma.push({
             year,
             grossPotentialRent: grossPotentialRent,
             vacancyLoss,
             effectiveGrossIncome,
-            operatingExpenses: currentOpEx,
+            operatingExpenses: currentOpEx + currentCapEx, // Combine for table display
             noi,
             debtService: annualDebtService,
             cashFlowBeforeTax: noi - annualDebtService,
@@ -228,8 +244,6 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
         });
         
         currentGrossRent *= (1 + annualIncomeGrowth / 100);
-        currentOtherIncome *= (1 + annualIncomeGrowth / 100);
-        currentManualOpEx *= (1 + annualExpenseGrowth / 100);
         currentPropertyValue *= (1 + annualAppreciation / 100);
         currentLoanBalance = yearEndLoanBalance;
     }
@@ -238,20 +252,21 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
 };
 
 
-const LineItemInput = ({ control, name, formLabel, fieldLabel, placeholder, icon, description }: { control: any, name: any, formLabel: string, fieldLabel: string, placeholder: string, icon: React.ReactNode, description?: string }) => {
+const LineItemInput = ({ control, name, formLabel, fieldLabel, placeholder, description }: { control: any, name: any, formLabel: string, fieldLabel: string, placeholder: string, description?: string }) => {
     const { fields, append, remove } = useFieldArray({ control, name });
     return (
         <div>
             <FormLabel>{formLabel}</FormLabel>
             {description && <FormDescription className="text-xs">{description}</FormDescription>}
             {fields.map((field, index) => (
-                <div key={field.id} className="grid grid-cols-[1fr,1fr,auto] gap-2 items-end mt-2">
+                <div key={field.id} className="grid grid-cols-[2fr,1fr,1fr,auto] gap-2 items-end mt-2">
                     <FormField control={control} name={`${name}.${index}.name`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">{fieldLabel}</FormLabel><FormControl><Input placeholder={placeholder} {...field} /></FormControl> </FormItem> )} />
-                    <FormField control={control} name={`${name}.${index}.amount`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Amount (Total)</FormLabel><FormControl><InputWithIcon icon={icon} type="number" {...field} /></FormControl> </FormItem> )} />
+                    <FormField control={control} name={`${name}.${index}.amount`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Amount</FormLabel><FormControl><Input type="number" {...field} /></FormControl> </FormItem> )} />
+                    <FormField control={control} name={`${name}.${index}.type`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Type</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="fixed">$</SelectItem><SelectItem value="percent">%</SelectItem></SelectContent></Select></FormItem> )} />
                     <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
                 </div>
             ))}
-            <Button type="button" size="sm" variant="outline" onClick={() => append({ name: '', amount: 0 })} className="mt-2 flex items-center gap-1"> <Plus size={16} /> Add Item </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => append({ name: '', amount: 0, type: 'fixed' })} className="mt-2 flex items-center gap-1"> <Plus size={16} /> Add Item </Button>
         </div>
     );
 };
@@ -311,28 +326,26 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
       purchasePrice: 5000000,
       closingCosts: 2,
       acquisitionFee: 1,
-      rehabCost: 0, // Will be calculated from CapEx
+      rehabCost: 250000,
       // Income
       unitMix: [
         { type: 'Studio', count: 10, rent: 1200, sqft: 500 },
         { type: '1BR', count: 20, rent: 1600, sqft: 750 },
         { type: '2BR', count: 10, rent: 2200, sqft: 1000 },
       ],
-      otherIncomes: [{name: 'Laundry', amount: 500}],
+      otherIncomes: [{name: 'Laundry', amount: 500, type: 'fixed'}],
       vacancyRate: 5,
       lossToLease: 3,
       // Expenses
       operatingExpenses: [
-        {name: 'Property Taxes', amount: 4000},
-        {name: 'Insurance', amount: 1500},
-        {name: 'Repairs & Maintenance', amount: 2500},
-        {name: 'Management Fee', amount: 3500},
+        {name: 'Property Taxes', amount: 8, type: 'percent'},
+        {name: 'Insurance', amount: 2.5, type: 'percent'},
+        {name: 'Repairs & Maintenance', amount: 3, type: 'percent'},
+        {name: 'Management Fee', amount: 4, type: 'percent'},
       ],
       capitalExpenditures: [
-          {name: 'Interior Renovations', amount: 200000},
-          {name: 'Exterior Painting', amount: 50000},
+        {name: 'Replacement Reserves', amount: 5, type: 'percent'}
       ],
-      replacementReserves: 250,
       // Financing
       loanToValue: 75,
       downPayment: 1250000,
@@ -370,8 +383,12 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                 }
             }
             if (name?.startsWith('capitalExpenditures')) {
-                const capexTotal = values.capitalExpenditures?.reduce((acc, item) => acc + item.amount, 0) || 0;
-                if (capexTotal !== values.rehabCost) {
+                const capexTotal = values.capitalExpenditures?.reduce((acc, item) => {
+                    if (item.type === 'fixed') return acc + item.amount;
+                    // Note: % based capex is calculated against EGI in the main logic
+                    return acc;
+                }, 0) || 0;
+                 if (capexTotal !== values.rehabCost) {
                     form.setValue('rehabCost', capexTotal, { shouldValidate: true });
                 }
             }
@@ -425,12 +442,28 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
           cashFlow: parseFloat(entry.cashFlowBeforeTax.toFixed(2))
       }));
       
+      const year1GrossRent = unitMix.reduce((acc, u) => acc + (u.count * u.rent * 12), 0);
+      const year1OtherIncome = otherIncomes.reduce((acc, i) => {
+          if (i.type === 'fixed') return acc + i.amount * 12;
+          return acc + (year1GrossRent * (i.amount / 100));
+      }, 0)
+
       const incomeBreakdownData = [
-          ...unitMix.map(u => ({ name: `${u.type} Rent`, value: u.count * u.rent })),
-          ...otherIncomes.map(i => ({ name: i.name, value: i.amount }))
+          ...unitMix.map(u => ({ name: `${u.type} Rent`, value: u.count * u.rent * 12 })),
+          { name: 'Other Income', value: year1OtherIncome}
       ].filter(item => item.value > 0);
 
-      const expenseBreakdownData = [...operatingExpenses.map(e => ({ name: e.name, value: e.amount }))].filter(item => item.value > 0);
+      const year1EGI = (year1GrossRent + year1OtherIncome) * (1 - (watchedValues.vacancyRate / 100));
+      const expenseBreakdownData = [
+          ...operatingExpenses.map(e => ({ 
+              name: e.name, 
+              value: e.type === 'fixed' ? e.amount * 12 : year1EGI * (e.amount / 100) 
+          })),
+          ...watchedValues.capitalExpenditures.map(c => ({
+              name: c.name,
+              value: c.type === 'fixed' ? c.amount : year1EGI * (c.amount / 100)
+          }))
+      ].filter(item => item.value > 0);
 
 
       // Advanced metrics calculation
@@ -749,18 +782,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                                     <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                                 </div>
                                                 <FormField name="acquisitionFee" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Acquisition Fee (%)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                                <Card>
-                                                    <CardHeader className="p-4">
-                                                        <CardTitle className="text-base flex items-center gap-2"><Wrench size={16} /> Capital Expenditures</CardTitle>
-                                                    </CardHeader>
-                                                    <CardContent className="p-4 pt-0 space-y-4">
-                                                         <LineItemInput control={form.control} name="capitalExpenditures" formLabel="" fieldLabel="CapEx Item" placeholder="e.g., Roof Replacement" icon={<DollarSign size={14}/>} />
-                                                        <div className="flex justify-between items-center pt-2 border-t">
-                                                            <Label className="font-bold">Total CapEx Budget</Label>
-                                                            <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} disabled className="font-bold text-lg" /></FormControl> <FormMessage /> </FormItem> )} />
-                                                        </div>
-                                                    </CardContent>
-                                                </Card>
+                                                <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Initial Rehab Budget</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                             </CardContent>
                                         </Card>
                                         <Card className="border-primary/20">
@@ -805,7 +827,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                                     ))}
                                                     <Button type="button" size="sm" variant="outline" onClick={() => appendUnit({type: '', count: 0, rent: 0, sqft: 0})} className="mt-2 flex items-center gap-1"><Plus size={16}/> Add Unit Type</Button>
                                                 </div>
-                                                <LineItemInput control={form.control} name="otherIncomes" formLabel="Other Income" fieldLabel="Income Source" placeholder="e.g., Laundry, Parking" icon={<DollarSign size={14}/>} description="Enter amounts as monthly totals." />
+                                                <LineItemInput control={form.control} name="otherIncomes" formLabel="Other Income" fieldLabel="Income Source" placeholder="e.g., Laundry, Parking" />
                                                 <FormField name="lossToLease" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loss to Lease</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl><FormDescription className="text-xs">Difference between market and actual rent.</FormDescription> <FormMessage /> </FormItem> )} />
 
                                             </CardContent>
@@ -813,11 +835,14 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                         <Card className="border-primary/20">
                                             <CardHeader><CardTitle className="font-headline text-primary">Operating Expenses</CardTitle></CardHeader>
                                             <CardContent className="space-y-4">
-                                                <LineItemInput control={form.control} name="operatingExpenses" formLabel="Recurring Monthly Expenses" fieldLabel="Expense Item" placeholder="e.g., Property Tax, Insurance" icon={<DollarSign size={14}/>} description="Enter amounts as monthly totals."/>
-                                                <div className='grid grid-cols-2 gap-4'>
-                                                    <FormField name="vacancyRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Physical Vacancy</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                                    <FormField name="replacementReserves" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Replacement Reserves</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={14}/>} type="number" {...field} /></FormControl> <FormDescription className="text-xs">Per unit / per year amount.</FormDescription><FormMessage /> </FormItem> )} />
-                                                </div>
+                                                <LineItemInput control={form.control} name="operatingExpenses" formLabel="Recurring Expenses" fieldLabel="Expense Item" placeholder="e.g., Property Tax, Insurance"/>
+                                                <FormField name="vacancyRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Physical Vacancy</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                            </CardContent>
+                                        </Card>
+                                        <Card className="border-primary/20">
+                                            <CardHeader><CardTitle className="font-headline text-primary">Capital Expenditures (CapEx)</CardTitle></CardHeader>
+                                            <CardContent className="space-y-4">
+                                                <LineItemInput control={form.control} name="capitalExpenditures" formLabel="CapEx Reserves" fieldLabel="Reserve Item" placeholder="e.g., General Reserves"/>
                                             </CardContent>
                                         </Card>
                                          <Card className="border-primary/20">
@@ -872,8 +897,8 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                 </Card>
                                 <Card>
                                     <CardHeader>
-                                        <CardTitle className='font-headline'>Monthly Income Breakdown (Year 1)</CardTitle>
-                                        <CardDescription>Sources of gross monthly income.</CardDescription>
+                                        <CardTitle className='font-headline'>Annual Income Breakdown (Year 1)</CardTitle>
+                                        <CardDescription>Sources of gross annual income.</CardDescription>
                                     </CardHeader>
                                     <CardContent>
                                         <div className='h-[400px] w-full'>
@@ -921,8 +946,8 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                 </Card>
                                 <Card>
                                     <CardHeader>
-                                        <CardTitle className='font-headline'>Monthly Expense Breakdown (Year 1)</CardTitle>
-                                        <CardDescription>Composition of monthly operating expenses.</CardDescription>
+                                        <CardTitle className='font-headline'>Annual Expense Breakdown (Year 1)</CardTitle>
+                                        <CardDescription>Composition of annual operating expenses.</CardDescription>
                                     </CardHeader>
                                     <CardContent>
                                         <div className='h-[350px] w-full'>
