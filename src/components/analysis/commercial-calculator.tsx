@@ -91,7 +91,6 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
   const { toast } = useToast();
   const isEditMode = !!deal;
   
-  // Hooks for Basic Mode
   const [analysisResult, setAnalysisResult] = useState<{
       monthlyCashFlow: number;
       cocReturn: number;
@@ -119,11 +118,17 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
       loanTerm: 30,
       grossMonthlyIncome: 10000,
       vacancy: 7,
-      propertyTaxes: 15, // as % of GMI
-      insurance: 5, // as % of GMI
+      propertyTaxes: 15,
+      insurance: 5,
       repairsAndMaintenance: 8,
       managementFee: 5,
       otherExpenses: 2,
+      capitalExpenditures: 0,
+      annualIncomeGrowth: 0,
+      annualExpenseGrowth: 0,
+      annualAppreciation: 0,
+      holdingLength: 10,
+      sellingCosts: 5,
     },
   });
 
@@ -288,10 +293,12 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
              <CardFooter className="flex justify-end gap-2">
                 {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
                 <Button type="submit">Run Analysis</Button>
-                <Button variant="secondary" onClick={handleSaveDeal} disabled={isSaving}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
+                <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isSaving}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
             </CardFooter>
         </form>
       </Form>
     </Card>
   );
 }
+
+    
