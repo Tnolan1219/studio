@@ -39,6 +39,7 @@ import { collection, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
 import type { Deal, UserProfile, LineItem, UnitMixItem } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 
 const formSchema = z.object({
@@ -236,6 +237,28 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
     else { form.reset(); setAnalysisResult(null); }
     setIsSaving(false);
   };
+  
+    const getMetricColor = (value: number, type: 'coc' | 'cap' | 'dscr' | 'cashflow') => {
+        if (isNaN(value) || !isFinite(value)) return 'text-muted-foreground';
+        switch (type) {
+            case 'coc':
+            case 'cap':
+                if (value >= 8) return 'text-success';
+                if (value >= 4) return 'text-yellow-500';
+                return 'text-destructive';
+            case 'dscr':
+                if (value >= 1.25) return 'text-success';
+                if (value >= 1.0) return 'text-yellow-500';
+                return 'text-destructive';
+            case 'cashflow':
+                 if (value > 200) return 'text-success';
+                 if (value > 0) return 'text-yellow-500';
+                 return 'text-destructive';
+            default:
+                return 'text-foreground';
+        }
+    }
+
 
   return (
     <Card className="bg-card/60 backdrop-blur-sm">
@@ -292,12 +315,12 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                             <CardContent className="grid md:grid-cols-2 gap-6">
                                 <div className="space-y-4">
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                        <div> <p className="text-sm text-muted-foreground">Cap Rate (ARV)</p> <p className="text-2xl font-bold">{analysisResult.capRate.toFixed(2)}%</p> </div>
-                                        <div> <p className="text-sm text-muted-foreground">CoC Return (Y1)</p> <p className="text-2xl font-bold">{analysisResult.cocReturn.toFixed(2)}%</p> </div>
-                                        <div> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className="text-2xl font-bold">${analysisResult.monthlyCashFlow.toFixed(2)}</p> </div>
-                                        <div> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="text-xl font-bold">${analysisResult.noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
-                                        <div> <p className="text-sm text-muted-foreground">DSCR</p> <p className="text-2xl font-bold">{isFinite(analysisResult.dscr) ? `${analysisResult.dscr.toFixed(2)}x` : 'N/A'}</p> </div>
-                                        <div> <p className="text-sm text-muted-foreground">Total Investment</p> <p className="text-xl font-bold">${analysisResult.totalInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
+                                        <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">Cap Rate (ARV)</p> <p className={cn("text-2xl font-bold", getMetricColor(analysisResult.capRate, 'cap'))}>{analysisResult.capRate.toFixed(2)}%</p> </div>
+                                        <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">CoC Return (Y1)</p> <p className={cn("text-2xl font-bold", getMetricColor(analysisResult.cocReturn, 'coc'))}>{analysisResult.cocReturn.toFixed(2)}%</p> </div>
+                                        <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className={cn("text-2xl font-bold", getMetricColor(analysisResult.monthlyCashFlow, 'cashflow'))}>${analysisResult.monthlyCashFlow.toFixed(2)}</p> </div>
+                                        <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="text-xl font-bold">${analysisResult.noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
+                                        <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">DSCR</p> <p className={cn("text-2xl font-bold", getMetricColor(analysisResult.dscr, 'dscr'))}>{isFinite(analysisResult.dscr) ? `${analysisResult.dscr.toFixed(2)}x` : 'N/A'}</p> </div>
+                                        <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">Total Investment</p> <p className="text-xl font-bold">${analysisResult.totalInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
                                     </div>
                                 </div>
                                 <div className="h-[250px] w-full pt-4">
