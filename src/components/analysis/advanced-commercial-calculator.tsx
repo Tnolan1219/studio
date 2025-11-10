@@ -104,6 +104,11 @@ const formSchema = z.object({
   holdingLength: z.coerce.number().int().min(1).max(30),
   exitCapRate: z.coerce.number().min(0).max(100),
 
+  // Partnership
+  preferredReturn: z.coerce.number().min(0).max(100),
+  promoteHurdle: z.coerce.number().min(0).max(100),
+  promoteSplit: z.coerce.number().min(0).max(100),
+
   marketConditions: z.string().optional(),
   isAdvanced: z.boolean().optional(),
 });
@@ -314,6 +319,10 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
       holdingLength: 10,
       sellingCosts: 5,
       exitCapRate: 5.5,
+       // Partnership
+      preferredReturn: 8,
+      promoteHurdle: 15,
+      promoteSplit: 30,
       // Meta
       marketConditions: 'Analyze this deal using advanced metrics. Consider value-add opportunities by renovating 10 units in Year 2 for a 20% rent premium. What would the IRR and Equity Multiple be over a 10 year hold?',
       isAdvanced: true,
@@ -340,9 +349,9 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
   const {
     monthlyCashFlow, cocReturn, capRate, noi, chartData, proFormaData,
     unleveredIRR, equityMultiple, netSaleProceeds, totalCashInvested,
-    sensitivityData
+    sensitivityData, lpReturns, gpReturns
   } = useMemo(() => {
-      const { purchasePrice, downPayment, rehabCost = 0, closingCosts = 0, holdingLength, sellingCosts, exitCapRate } = watchedValues;
+      const { purchasePrice, downPayment, rehabCost = 0, closingCosts = 0, holdingLength, sellingCosts, exitCapRate, preferredReturn, promoteHurdle, promoteSplit } = watchedValues;
       const totalCashInvested = downPayment + (purchasePrice * (closingCosts / 100)) + rehabCost;
       const proForma = calculateProForma(watchedValues);
       
@@ -362,7 +371,11 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
       let equityMultiple = 0;
       let netSaleProceeds = 0;
 
+      let lpCashFlows: number[] = [-totalCashInvested];
+      let gpCashFlows: number[] = [0]; // GP has 0 initial investment in this simple model
+
       if (proForma.length >= holdingLength) {
+          // --- Overall Deal Returns ---
           const exitYearEntry = proForma[holdingLength - 1];
           const exitNOI = exitYearEntry.noi * (1 + watchedValues.annualIncomeGrowth/100);
           
@@ -381,6 +394,38 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
 
           const totalCashReturned = proForma.slice(0, holdingLength).reduce((sum, entry) => sum + entry.cashFlowBeforeTax, 0) + netSaleProceeds;
           equityMultiple = totalCashInvested > 0 ? totalCashReturned / totalCashInvested : 0;
+
+          // --- Waterfall Calculation ---
+          let lpCapitalAccount = totalCashInvested;
+          for (let i = 0; i < holdingLength; i++) {
+              const yearCF = proForma[i].cashFlowBeforeTax + (i === holdingLength - 1 ? netSaleProceeds : 0);
+              
+              const prefPayment = Math.min(yearCF, lpCapitalAccount * (preferredReturn / 100));
+              let lpPref = prefPayment;
+              let gpPref = 0;
+
+              const remainingCfAfterPref = yearCF - prefPayment;
+              
+              const returnOfCapital = Math.min(remainingCfAfterPref, lpCapitalAccount);
+              lpCapitalAccount -= returnOfCapital;
+              lpPref += returnOfCapital;
+
+              const remainingCfForSplit = remainingCfAfterPref - returnOfCapital;
+
+              const dealIRRForHurdle = calculateIRR([-totalCashInvested, ...lpCashFlows.slice(1).map((cf, idx) => cf + (gpCashFlows[idx+1] || 0)), yearCF], 0.1) * 100;
+              let lpSplit, gpSplit;
+              
+              if (dealIRRForHurdle > promoteHurdle) {
+                  lpSplit = remainingCfForSplit * (1 - (promoteSplit / 100));
+                  gpSplit = remainingCfForSplit * (promoteSplit / 100);
+              } else {
+                  lpSplit = remainingCfForSplit;
+                  gpSplit = 0;
+              }
+
+              lpCashFlows.push(lpPref + lpSplit);
+              gpCashFlows.push(gpPref + gpSplit);
+          }
       }
       
         const SENSITIVITY_RANGES: Record<SensitivityVariable, number[] | ((v: number) => number[])> = {
@@ -464,6 +509,14 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
           monthlyCashFlow, cocReturn, capRate, noi, chartData: cashFlowChartData, proFormaData: proForma,
           unleveredIRR, equityMultiple, netSaleProceeds, totalCashInvested,
           sensitivityData: { tableData, var1Range, var2Range },
+          lpReturns: {
+              irr: calculateIRR(lpCashFlows) * 100,
+              equityMultiple: totalCashInvested > 0 ? lpCashFlows.reduce((a, b) => a + b, 0) / totalCashInvested : 0,
+          },
+          gpReturns: {
+              irr: gpCashFlows.reduce((a, b) => a + b, 0) > 0 ? calculateIRR(gpCashFlows) * 100 : Infinity, // Can be infinite if no GP investment
+              equityMultiple: gpCashFlows.reduce((a, b) => a + b, 0),
+          },
       };
   }, [watchedValues, sensitivityVar1, sensitivityVar2, sensitivityMetric]);
 
@@ -623,14 +676,14 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                             </CardContent>
                                         </Card>
                                         <Card className="border-primary/20">
-                                            <CardHeader><CardTitle className="font-headline text-primary">Projections & Exit</CardTitle></CardHeader>
+                                            <CardHeader>
+                                                <CardTitle className="font-headline text-primary">Partnership & Equity Structure</CardTitle>
+                                                <CardDescription>Model a 2-tier LP/GP waterfall distribution.</CardDescription>
+                                            </CardHeader>
                                             <CardContent className="grid grid-cols-3 gap-4">
-                                                <FormField name="holdingLength" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Hold (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                                <FormField name="annualIncomeGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Income Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                                <FormField name="annualExpenseGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Expense Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                                <FormField name="annualAppreciation" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Appreciation</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                                <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Selling Costs</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                                <FormField name="exitCapRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Exit Cap Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" step="0.1" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                                <FormField name="preferredReturn" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Preferred Return</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl><FormDescription className="text-xs">LP's "Pref"</FormDescription> <FormMessage /> </FormItem> )} />
+                                                <FormField name="promoteHurdle" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>IRR Hurdle</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl><FormDescription className="text-xs">IRR Hurdle</FormDescription> <FormMessage /> </FormItem> )} />
+                                                <FormField name="promoteSplit" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Promote Split</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl><FormDescription className="text-xs">GP % above hurdle</FormDescription> <FormMessage /> </FormItem> )} />
                                             </CardContent>
                                         </Card>
                                     </div>
@@ -660,6 +713,17 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                             <CardContent className="space-y-4">
                                                 <LineItemInput control={form.control} name="operatingExpenses" formLabel="Recurring Monthly Expenses" fieldLabel="Expense Item" placeholder="e.g., Property Tax, Insurance" icon={<DollarSign size={14}/>} />
                                                 <FormField name="vacancyRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Vacancy Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                            </CardContent>
+                                        </Card>
+                                         <Card className="border-primary/20">
+                                            <CardHeader><CardTitle className="font-headline text-primary">Projections & Exit</CardTitle></CardHeader>
+                                            <CardContent className="grid grid-cols-3 gap-4">
+                                                <FormField name="holdingLength" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Hold (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                                <FormField name="annualIncomeGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Income Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                                <FormField name="annualExpenseGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Expense Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                                <FormField name="annualAppreciation" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Appreciation</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                                <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Selling Costs</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                                <FormField name="exitCapRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Exit Cap Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" step="0.1" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                             </CardContent>
                                         </Card>
                                     </div>
@@ -771,61 +835,84 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                             </TabsContent>
 
                             <TabsContent value="return-analysis" className="mt-6">
-                                <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
-                                    <Card>
-                                        <CardHeader><CardTitle className="font-headline">Deal Returns & Profitability</CardTitle></CardHeader>
-                                        <CardContent className="space-y-6">
-                                            <div className="grid grid-cols-2 lg:grid-cols-2 gap-4">
-                                                <div className="p-4 rounded-lg bg-muted">
-                                                    <p className="text-sm text-muted-foreground">Unlevered IRR</p>
-                                                    <p className="text-2xl font-bold">{unleveredIRR.toFixed(2)}%</p>
-                                                    <p className="text-xs text-muted-foreground">Internal Rate of Return</p>
+                                <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+                                    <Card className='lg:col-span-1'>
+                                        <CardHeader><CardTitle className="font-headline">Overall Deal Returns</CardTitle></CardHeader>
+                                        <CardContent className="space-y-4">
+                                            <div className="p-3 rounded-lg bg-muted">
+                                                <p className="text-sm text-muted-foreground">Unlevered IRR</p>
+                                                <p className="text-xl font-bold">{unleveredIRR.toFixed(2)}%</p>
+                                            </div>
+                                            <div className="p-3 rounded-lg bg-muted">
+                                                <p className="text-sm text-muted-foreground">Equity Multiple</p>
+                                                <p className="text-xl font-bold">{equityMultiple.toFixed(2)}x</p>
+                                            </div>
+                                            <div className="p-3 rounded-lg bg-muted">
+                                                <p className="text-sm text-muted-foreground">Total Cash Invested</p>
+                                                <p className="text-lg font-bold">${totalCashInvested.toLocaleString()}</p>
+                                            </div>
+                                            <div className="p-3 rounded-lg bg-muted">
+                                                <p className="text-sm text-muted-foreground">Net Sale Proceeds</p>
+                                                <p className="text-lg font-bold">${netSaleProceeds.toLocaleString()}</p>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                     <Card className='lg:col-span-1'>
+                                        <CardHeader><CardTitle className="font-headline">Partnership Returns</CardTitle></CardHeader>
+                                        <CardContent className="space-y-4">
+                                            <div>
+                                                <p className="font-semibold">Limited Partner (LP)</p>
+                                                <div className="p-3 mt-1 rounded-lg bg-blue-500/10">
+                                                    <p className="text-sm text-blue-400">IRR</p>
+                                                    <p className="text-xl font-bold text-blue-300">{lpReturns.irr.toFixed(2)}%</p>
                                                 </div>
-                                                <div className="p-4 rounded-lg bg-muted">
-                                                    <p className="text-sm text-muted-foreground">Equity Multiple</p>
-                                                    <p className="text-2xl font-bold">{equityMultiple.toFixed(2)}x</p>
-                                                    <p className="text-xs text-muted-foreground">Cash Invested vs. Returned</p>
+                                                 <div className="p-3 mt-2 rounded-lg bg-blue-500/10">
+                                                    <p className="text-sm text-blue-400">Equity Multiple</p>
+                                                    <p className="text-xl font-bold text-blue-300">{lpReturns.equityMultiple.toFixed(2)}x</p>
                                                 </div>
-                                                <div className="p-4 rounded-lg bg-muted">
-                                                    <p className="text-sm text-muted-foreground">Total Cash Invested</p>
-                                                    <p className="text-xl font-bold">${totalCashInvested.toLocaleString()}</p>
+                                            </div>
+                                             <div>
+                                                <p className="font-semibold">General Partner (GP)</p>
+                                                <div className="p-3 mt-1 rounded-lg bg-green-500/10">
+                                                    <p className="text-sm text-green-400">IRR</p>
+                                                    <p className="text-xl font-bold text-green-300">{isFinite(gpReturns.irr) ? `${gpReturns.irr.toFixed(2)}%` : 'N/A'}</p>
                                                 </div>
-                                                <div className="p-4 rounded-lg bg-muted">
-                                                    <p className="text-sm text-muted-foreground">Net Sale Proceeds</p>
-                                                    <p className="text-xl font-bold">${netSaleProceeds.toLocaleString()}</p>
+                                                 <div className="p-3 mt-2 rounded-lg bg-green-500/10">
+                                                    <p className="text-sm text-green-400">Total Profit</p>
+                                                    <p className="text-xl font-bold text-green-300">${gpReturns.equityMultiple.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                                                 </div>
                                             </div>
                                         </CardContent>
                                     </Card>
-                                    <Card>
+                                    <Card className='lg:col-span-1'>
                                         <CardHeader>
                                             <CardTitle className="font-headline">Sensitivity Analysis</CardTitle>
-                                            <CardDescription>See how returns change with different market assumptions.</CardDescription>
+                                            <CardDescription>How returns change with different assumptions.</CardDescription>
                                         </CardHeader>
                                         <CardContent>
-                                            <div className="flex flex-col md:flex-row gap-4 mb-6">
-                                                <div className="flex-1 space-y-2">
-                                                    <Label>Vertical Axis (Rows)</Label>
+                                            <div className="flex flex-col gap-2 mb-4">
+                                                <div className="flex-1 space-y-1">
+                                                    <Label className="text-xs">Vertical Axis (Rows)</Label>
                                                     <Select value={sensitivityVar1} onValueChange={(v) => setSensitivityVar1(v as SensitivityVariable)}>
-                                                        <SelectTrigger><SelectValue placeholder="Select Variable" /></SelectTrigger>
+                                                        <SelectTrigger className="h-8"><SelectValue placeholder="Select Variable" /></SelectTrigger>
                                                         <SelectContent>
                                                             {SENSITIVITY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} disabled={opt.value === sensitivityVar2}>{opt.label}</SelectItem>)}
                                                         </SelectContent>
                                                     </Select>
                                                 </div>
-                                                <div className="flex-1 space-y-2">
-                                                    <Label>Horizontal Axis (Columns)</Label>
+                                                <div className="flex-1 space-y-1">
+                                                    <Label className="text-xs">Horizontal Axis (Columns)</Label>
                                                     <Select value={sensitivityVar2} onValueChange={(v) => setSensitivityVar2(v as SensitivityVariable)}>
-                                                        <SelectTrigger><SelectValue placeholder="Select Variable" /></SelectTrigger>
+                                                        <SelectTrigger className="h-8"><SelectValue placeholder="Select Variable" /></SelectTrigger>
                                                         <SelectContent>
                                                             {SENSITIVITY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} disabled={opt.value === sensitivityVar1}>{opt.label}</SelectItem>)}
                                                         </SelectContent>
                                                     </Select>
                                                 </div>
-                                                <div className="flex-1 space-y-2">
-                                                    <Label>Output Metric</Label>
+                                                <div className="flex-1 space-y-1">
+                                                    <Label className="text-xs">Output Metric</Label>
                                                     <Select value={sensitivityMetric} onValueChange={(v) => setSensitivityMetric(v as SensitivityMetric)}>
-                                                        <SelectTrigger><SelectValue placeholder="Select Metric" /></SelectTrigger>
+                                                        <SelectTrigger className="h-8"><SelectValue placeholder="Select Metric" /></SelectTrigger>
                                                         <SelectContent>
                                                             {METRIC_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                                                         </SelectContent>
@@ -837,20 +924,20 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
-                                                        <TableHead className="w-[150px] font-bold">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar1)?.label}</TableHead>
+                                                        <TableHead className="w-[100px] text-xs font-bold">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar1)?.label}</TableHead>
                                                         {sensitivityData.var2Range.map((val, i) => (
-                                                            <TableHead key={i} className="text-center font-bold">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar2)?.format(val)}</TableHead>
+                                                            <TableHead key={i} className="text-center text-xs font-bold">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar2)?.format(val)}</TableHead>
                                                         ))}
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
                                                     {sensitivityData.tableData.map((row, rowIndex) => (
                                                         <TableRow key={rowIndex}>
-                                                            <TableCell className="font-medium">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar1)?.format(row.label)}</TableCell>
+                                                            <TableCell className="font-mono text-xs">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar1)?.format(row.label)}</TableCell>
                                                             {Object.keys(row).filter(k => k !== 'label').map((key, colIndex) => {
                                                                 const isCenter = rowIndex === 2 && colIndex === 2;
                                                                 return (
-                                                                    <TableCell key={colIndex} className={cn("text-center font-mono text-xs", getColor(row[key]), isCenter && 'ring-2 ring-primary ring-inset')}>
+                                                                    <TableCell key={colIndex} className={cn("text-center font-mono text-xs p-1", getColor(row[key]), isCenter && 'ring-2 ring-primary ring-inset')}>
                                                                         {selectedMetric ? selectedMetric.format(row[key]) : 'N/A'}
                                                                     </TableCell>
                                                                 );
