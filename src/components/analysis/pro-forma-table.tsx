@@ -27,17 +27,17 @@ function formatCurrency(value: number) {
     }).format(value);
 }
 
-const METRIC_LABELS: { key: keyof ProFormaEntry; label: string, isSubtle?: boolean }[] = [
+const METRIC_LABELS: { key: keyof ProFormaEntry; label: string, isSubtle?: boolean, isBold?: boolean }[] = [
     { key: 'grossPotentialRent', label: 'Gross Potential Rent' },
     { key: 'vacancyLoss', label: 'Vacancy Loss (-)', isSubtle: true },
-    { key: 'effectiveGrossIncome', label: 'Effective Gross Income' },
+    { key: 'effectiveGrossIncome', label: 'Effective Gross Income', isBold: true },
     { key: 'operatingExpenses', label: 'Operating Expenses (-)', isSubtle: true },
-    { key: 'noi', label: 'Net Operating Income (NOI)' },
+    { key: 'noi', label: 'Net Operating Income (NOI)', isBold: true },
     { key: 'debtService', label: 'Debt Service (-)', isSubtle: true },
-    { key: 'cashFlowBeforeTax', label: 'Cash Flow (Pre-Tax)' },
+    { key: 'cashFlowBeforeTax', label: 'Cash Flow (Pre-Tax)', isBold: true },
     { key: 'propertyValue', label: 'End of Year Value', isSubtle: true },
     { key: 'loanBalance', label: 'Loan Balance', isSubtle: true },
-    { key: 'equity', label: 'Total Equity' },
+    { key: 'equity', label: 'Total Equity', isBold: true },
 ];
 
 
@@ -71,8 +71,8 @@ export function ProFormaTable({ data }: { data: ProFormaEntry[] }) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {METRIC_LABELS.map(({ key, label, isSubtle }) => (
-                                <TableRow key={key} className={key === 'noi' || key === 'cashFlowBeforeTax' || key === 'equity' ? 'font-bold bg-muted/20' : ''}>
+                            {METRIC_LABELS.map(({ key, label, isSubtle, isBold }) => (
+                                <TableRow key={key} className={isBold ? 'font-bold bg-muted/20' : ''}>
                                     <TableCell className={`font-medium sticky left-0 bg-card z-10 ${isSubtle ? 'text-muted-foreground pl-6' : ''}`}>{label}</TableCell>
                                     {displayData.map((entry) => (
                                         <TableCell key={`${entry.year}-${key}`} className="text-center">

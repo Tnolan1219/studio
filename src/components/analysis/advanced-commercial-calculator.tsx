@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building, DollarSign, BarChart2, TrendingUp, Handshake, Bot, TestTube2, Percent, Trash2, Plus, Info, Sparkles, SlidersHorizontal, Loader2 } from 'lucide-react';
+import { Building, DollarSign, BarChart2, TrendingUp, Handshake, Bot, TestTube2, Percent, Trash2, Plus, Info, Sparkles, SlidersHorizontal, Loader2, PiggyBank, Scale, FileText, Banknote } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
 import { InputWithIcon } from '../ui/input-with-icon';
@@ -46,10 +46,15 @@ import type { ProFormaEntry, Deal, UserProfile } from '@/lib/types';
 import {
   ResponsiveContainer,
   BarChart as RechartsBarChart,
+  AreaChart,
+  Area,
+  Line,
+  LineChart,
   Bar as RechartsBar,
   XAxis,
   YAxis,
   Tooltip,
+  Legend,
   CartesianGrid
 } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
@@ -235,14 +240,24 @@ interface AdvancedCommercialCalculatorProps {
     dealCount?: number;
 }
 
+const ANALYSIS_TABS = [
+    { value: 'overview', label: 'Overview', icon: FileText },
+    { value: 'income', label: 'Income', icon: Banknote },
+    { value: 'expenses', label: 'Expenses', icon: PiggyBank },
+    { value: 'financing', label: 'Financing', icon: Scale },
+    { value: 'returns', label: 'Return Analysis', icon: Handshake },
+];
+
+const formatCurrency = (value: number) => {
+    if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
+    if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(1)}k`;
+    return `$${value.toFixed(0)}`;
+};
+
+
 export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, dealCount = 0 }: AdvancedCommercialCalculatorProps) {
     
-  const tabs = [
-    { value: 'assumptions', label: 'Assumptions', icon: TestTube2 },
-    { value: 'overview', label: 'Overview', icon: Building },
-    { value: 'returns', label: 'Returns', icon: Handshake },
-    { value: 'sensitivity', label: 'Sensitivity', icon: SlidersHorizontal },
-  ];
+  const [activeTab, setActiveTab] = useState('assumptions');
 
   const [isAIPending, startAITransition] = useTransition();
   const [aiResult, setAiResult] = useState<{message: string, assessment: string | null} | null>(null);
@@ -550,6 +565,10 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
         return 'bg-red-500/20 text-red-200';
     };
 
+    const firstYearProForma = proFormaData[0] || {};
+    const dscr = firstYearProForma.debtService > 0 ? (firstYearProForma.noi / firstYearProForma.debtService) : Infinity;
+
+
     return (
         <CardContent>
             <Form {...form}>
@@ -560,10 +579,14 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                         <div className="text-center"> <p className="text-sm text-primary/80 font-headline">Cap Rate (Y1)</p> <p className="text-2xl font-bold text-primary">{capRate.toFixed(2)}%</p></div>
                         <div className="text-center"> <p className="text-sm text-primary/80 font-headline">NOI (Y1)</p> <p className="text-2xl font-bold text-primary">${noi.toLocaleString(undefined, {maximumFractionDigits: 0})}</p></div>
                     </div>
-                    <Tabs defaultValue="assumptions" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-4 h-auto">
-                            {tabs.map(tab => (
-                                <TabsTrigger key={tab.value} value={tab.value} className={cn("flex-col h-14")}>
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                        <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 lg:grid-cols-6 h-auto">
+                           <TabsTrigger value="assumptions" className={cn("flex-col h-14")}>
+                                <TestTube2 className="w-5 h-5 mb-1" />
+                                <span>Assumptions</span>
+                           </TabsTrigger>
+                           {ANALYSIS_TABS.map(tab => (
+                                <TabsTrigger key={tab.value} value={tab.value} className={cn("flex-col h-14")} disabled={proFormaData.length === 0}>
                                     <tab.icon className="w-5 h-5 mb-1" />
                                     <span>{tab.label}</span>
                                 </TabsTrigger>
@@ -639,108 +662,203 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                         </TabsContent>
                         
                         <TabsContent value="overview" className="mt-6">
-                            <ProFormaTable data={proFormaData} />
+                             {proFormaData.length > 0 ? (
+                                <ProFormaTable data={proFormaData} />
+                            ) : (
+                                <p className="text-center text-muted-foreground p-8">Run an analysis from the Assumptions tab to see the pro forma.</p>
+                            )}
+                        </TabsContent>
+
+                        <TabsContent value="income" className="mt-6">
+                             {proFormaData.length > 0 ? (
+                               <Card>
+                                    <CardHeader>
+                                        <CardTitle className='font-headline'>Income Analysis</CardTitle>
+                                        <CardDescription>Visualizing revenue streams and growth over the holding period.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className='h-[350px] w-full'>
+                                             <ResponsiveContainer width="100%" height="100%">
+                                                <AreaChart data={proFormaData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
+                                                    <CartesianGrid strokeDasharray="3 3" />
+                                                    <XAxis dataKey="year" tickFormatter={(v) => `Year ${v}`} />
+                                                    <YAxis tickFormatter={formatCurrency}/>
+                                                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))' }} formatter={formatCurrency} />
+                                                    <Legend />
+                                                    <Area type="monotone" dataKey="grossPotentialRent" stackId="1" name="Gross Rent" stroke="hsl(var(--chart-2))" fill="hsl(var(--chart-2), 0.5)" />
+                                                    <Area type="monotone" dataKey="vacancyLoss" stackId="1" name="Vacancy Loss" stroke="hsl(var(--destructive))" fill="hsl(var(--destructive), 0.5)" />
+                                                    <Area type="monotone" dataKey="effectiveGrossIncome" name="Effective Gross Income" stroke="hsl(var(--primary))" fill="hsl(var(--primary), 0.3)" />
+                                                </AreaChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </CardContent>
+                               </Card>
+                            ) : null}
+                        </TabsContent>
+
+                        <TabsContent value="expenses" className="mt-6">
+                             {proFormaData.length > 0 ? (
+                               <Card>
+                                    <CardHeader>
+                                        <CardTitle className='font-headline'>Expense Analysis</CardTitle>
+                                        <CardDescription>Breakdown of operating expenses and debt service over time.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className='h-[350px] w-full'>
+                                             <ResponsiveContainer width="100%" height="100%">
+                                                <RechartsBarChart data={proFormaData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
+                                                    <CartesianGrid strokeDasharray="3 3" />
+                                                    <XAxis dataKey="year" tickFormatter={(v) => `Year ${v}`} />
+                                                    <YAxis tickFormatter={formatCurrency} />
+                                                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))' }} formatter={formatCurrency} />
+                                                    <Legend />
+                                                    <RechartsBar dataKey="operatingExpenses" stackId="a" name="Operating Expenses" fill="hsl(var(--chart-3))" />
+                                                    <RechartsBar dataKey="debtService" stackId="a" name="Debt Service" fill="hsl(var(--chart-5))" />
+                                                </RechartsBarChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </CardContent>
+                               </Card>
+                            ) : null}
+                        </TabsContent>
+                        
+                        <TabsContent value="financing" className="mt-6">
+                             {proFormaData.length > 0 ? (
+                               <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className='font-headline'>Amortization & Equity</CardTitle>
+                                        <CardDescription>Growth of equity versus the loan balance over time.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className='h-[350px] w-full'>
+                                             <ResponsiveContainer width="100%" height="100%">
+                                                <LineChart data={proFormaData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
+                                                    <CartesianGrid strokeDasharray="3 3" />
+                                                    <XAxis dataKey="year" tickFormatter={(v) => `Year ${v}`} />
+                                                    <YAxis tickFormatter={formatCurrency} />
+                                                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))' }} formatter={formatCurrency} />
+                                                    <Legend />
+                                                    <Line type="monotone" dataKey="equity" name="Total Equity" stroke="hsl(var(--primary))" strokeWidth={2} />
+                                                    <Line type="monotone" dataKey="loanBalance" name="Loan Balance" stroke="hsl(var(--destructive))" strokeWidth={2} />
+                                                </LineChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                                 <Card>
+                                    <CardHeader>
+                                        <CardTitle className='font-headline'>Debt Service Coverage Ratio (DSCR)</CardTitle>
+                                        <CardDescription>A key metric for lenders, showing the ability to cover debt payments.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className='text-center p-4 rounded-lg bg-muted'>
+                                            <p className="text-sm text-muted-foreground">Year 1 DSCR</p>
+                                            <p className="text-4xl font-bold">{dscr.toFixed(2)}x</p>
+                                             <p className="text-xs text-muted-foreground mt-1">
+                                                (Lenders typically require {'>'} 1.25x)
+                                            </p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                               </div>
+                            ) : null}
                         </TabsContent>
 
                         <TabsContent value="returns" className="mt-6">
-                            <Card>
-                                <CardHeader><CardTitle className="font-headline">Deal Returns & Profitability</CardTitle></CardHeader>
-                                <CardContent className="space-y-6">
-                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                        <div className="p-4 rounded-lg bg-muted">
-                                            <p className="text-sm text-muted-foreground">Unlevered IRR</p>
-                                            <p className="text-2xl font-bold">{unleveredIRR.toFixed(2)}%</p>
-                                            <p className="text-xs text-muted-foreground">Internal Rate of Return</p>
+                            <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
+                                <Card>
+                                    <CardHeader><CardTitle className="font-headline">Deal Returns & Profitability</CardTitle></CardHeader>
+                                    <CardContent className="space-y-6">
+                                        <div className="grid grid-cols-2 lg:grid-cols-2 gap-4">
+                                            <div className="p-4 rounded-lg bg-muted">
+                                                <p className="text-sm text-muted-foreground">Unlevered IRR</p>
+                                                <p className="text-2xl font-bold">{unleveredIRR.toFixed(2)}%</p>
+                                                <p className="text-xs text-muted-foreground">Internal Rate of Return</p>
+                                            </div>
+                                            <div className="p-4 rounded-lg bg-muted">
+                                                <p className="text-sm text-muted-foreground">Equity Multiple</p>
+                                                <p className="text-2xl font-bold">{equityMultiple.toFixed(2)}x</p>
+                                                <p className="text-xs text-muted-foreground">Cash Invested vs. Returned</p>
+                                            </div>
+                                            <div className="p-4 rounded-lg bg-muted">
+                                                <p className="text-sm text-muted-foreground">Total Cash Invested</p>
+                                                <p className="text-xl font-bold">${totalCashInvested.toLocaleString()}</p>
+                                            </div>
+                                            <div className="p-4 rounded-lg bg-muted">
+                                                <p className="text-sm text-muted-foreground">Net Sale Proceeds</p>
+                                                <p className="text-xl font-bold">${netSaleProceeds.toLocaleString()}</p>
+                                            </div>
                                         </div>
-                                        <div className="p-4 rounded-lg bg-muted">
-                                            <p className="text-sm text-muted-foreground">Equity Multiple</p>
-                                            <p className="text-2xl font-bold">{equityMultiple.toFixed(2)}x</p>
-                                            <p className="text-xs text-muted-foreground">Cash Invested vs. Returned</p>
+                                    </CardContent>
+                                </Card>
+                                 <Card>
+                                    <CardHeader>
+                                        <CardTitle className="font-headline">Sensitivity Analysis</CardTitle>
+                                        <CardDescription>See how returns change with different market assumptions.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="flex flex-col md:flex-row gap-4 mb-6">
+                                            <div className="flex-1 space-y-2">
+                                                <Label>Vertical Axis (Rows)</Label>
+                                                <Select value={sensitivityVar1} onValueChange={(v) => setSensitivityVar1(v as SensitivityVariable)}>
+                                                    <SelectTrigger><SelectValue placeholder="Select Variable" /></SelectTrigger>
+                                                    <SelectContent>
+                                                        {SENSITIVITY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} disabled={opt.value === sensitivityVar2}>{opt.label}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="flex-1 space-y-2">
+                                                <Label>Horizontal Axis (Columns)</Label>
+                                                <Select value={sensitivityVar2} onValueChange={(v) => setSensitivityVar2(v as SensitivityVariable)}>
+                                                    <SelectTrigger><SelectValue placeholder="Select Variable" /></SelectTrigger>
+                                                    <SelectContent>
+                                                        {SENSITIVITY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} disabled={opt.value === sensitivityVar1}>{opt.label}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="flex-1 space-y-2">
+                                                <Label>Output Metric</Label>
+                                                <Select value={sensitivityMetric} onValueChange={(v) => setSensitivityMetric(v as SensitivityMetric)}>
+                                                    <SelectTrigger><SelectValue placeholder="Select Metric" /></SelectTrigger>
+                                                    <SelectContent>
+                                                        {METRIC_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
                                         </div>
-                                        <div className="p-4 rounded-lg bg-muted">
-                                            <p className="text-sm text-muted-foreground">Total Cash Invested</p>
-                                            <p className="text-xl font-bold">${totalCashInvested.toLocaleString()}</p>
-                                        </div>
-                                        <div className="p-4 rounded-lg bg-muted">
-                                            <p className="text-sm text-muted-foreground">Net Sale Proceeds</p>
-                                            <p className="text-xl font-bold">${netSaleProceeds.toLocaleString()}</p>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <h4 className="font-semibold mb-2">Investor Waterfall</h4>
-                                        <p className="text-sm text-muted-foreground text-center p-4 border-2 border-dashed rounded-lg bg-muted/20">Investor waterfall modeling coming soon.</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-                        <TabsContent value="sensitivity" className="mt-6">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="font-headline">Sensitivity Analysis</CardTitle>
-                                    <CardDescription>See how your returns change with different market assumptions.</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="flex flex-col md:flex-row gap-4 mb-6">
-                                        <div className="flex-1 space-y-2">
-                                            <Label>Vertical Axis (Rows)</Label>
-                                            <Select value={sensitivityVar1} onValueChange={(v) => setSensitivityVar1(v as SensitivityVariable)}>
-                                                <SelectTrigger><SelectValue placeholder="Select Variable" /></SelectTrigger>
-                                                <SelectContent>
-                                                    {SENSITIVITY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} disabled={opt.value === sensitivityVar2}>{opt.label}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="flex-1 space-y-2">
-                                            <Label>Horizontal Axis (Columns)</Label>
-                                            <Select value={sensitivityVar2} onValueChange={(v) => setSensitivityVar2(v as SensitivityVariable)}>
-                                                <SelectTrigger><SelectValue placeholder="Select Variable" /></SelectTrigger>
-                                                <SelectContent>
-                                                    {SENSITIVITY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} disabled={opt.value === sensitivityVar1}>{opt.label}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="flex-1 space-y-2">
-                                            <Label>Output Metric</Label>
-                                            <Select value={sensitivityMetric} onValueChange={(v) => setSensitivityMetric(v as SensitivityMetric)}>
-                                                <SelectTrigger><SelectValue placeholder="Select Metric" /></SelectTrigger>
-                                                <SelectContent>
-                                                    {METRIC_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </div>
 
-                                    <div className="border rounded-lg overflow-x-auto">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead className="w-[150px] font-bold">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar1)?.label}</TableHead>
-                                                {sensitivityData.var2Range.map((val, i) => (
-                                                    <TableHead key={i} className="text-center font-bold">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar2)?.format(val)}</TableHead>
-                                                ))}
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {sensitivityData.tableData.map((row, rowIndex) => (
-                                                <TableRow key={rowIndex}>
-                                                    <TableCell className="font-medium">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar1)?.format(row.label)}</TableCell>
-                                                    {Object.keys(row).filter(k => k !== 'label').map((key, colIndex) => {
-                                                        const isCenter = rowIndex === 2 && colIndex === 2;
-                                                        return (
-                                                            <TableCell key={colIndex} className={cn("text-center font-mono text-xs", getColor(row[key]), isCenter && 'ring-2 ring-primary ring-inset')}>
-                                                                {selectedMetric ? selectedMetric.format(row[key]) : 'N/A'}
-                                                            </TableCell>
-                                                        );
-                                                    })}
+                                        <div className="border rounded-lg overflow-x-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead className="w-[150px] font-bold">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar1)?.label}</TableHead>
+                                                    {sensitivityData.var2Range.map((val, i) => (
+                                                        <TableHead key={i} className="text-center font-bold">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar2)?.format(val)}</TableHead>
+                                                    ))}
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {sensitivityData.tableData.map((row, rowIndex) => (
+                                                    <TableRow key={rowIndex}>
+                                                        <TableCell className="font-medium">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar1)?.format(row.label)}</TableCell>
+                                                        {Object.keys(row).filter(k => k !== 'label').map((key, colIndex) => {
+                                                            const isCenter = rowIndex === 2 && colIndex === 2;
+                                                            return (
+                                                                <TableCell key={colIndex} className={cn("text-center font-mono text-xs", getColor(row[key]), isCenter && 'ring-2 ring-primary ring-inset')}>
+                                                                    {selectedMetric ? selectedMetric.format(row[key]) : 'N/A'}
+                                                                </TableCell>
+                                                            );
+                                                        })}
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
                         </TabsContent>
-
                     </Tabs>
                     <CardFooter className="flex justify-end gap-2 mt-6">
                         {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
