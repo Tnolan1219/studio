@@ -95,6 +95,8 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
       cocReturn: number;
       capRate: number;
       noi: number;
+      dscr: number;
+      totalInvestment: number;
       chartData: any[];
   } | null>(null);
    const userProfileRef = useMemoFirebase(() => {
@@ -164,6 +166,8 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
     
     const capRateOnARV = data.arv > 0 ? (noi / data.arv) * 100 : 0;
     
+    const dscr = debtService > 0 ? (noi / debtService) : Infinity;
+
     const breakdownChartData = [
         { name: 'Income', value: grossMonthlyIncome, fill: 'hsl(var(--primary))' },
         { name: 'OpEx', value: totalMonthlyOpEx, fill: 'hsl(var(--chart-5))' },
@@ -172,7 +176,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
     ];
 
 
-    setAnalysisResult({ monthlyCashFlow, cocReturn, capRate: capRateOnARV, noi, chartData: breakdownChartData });
+    setAnalysisResult({ monthlyCashFlow, cocReturn, capRate: capRateOnARV, noi, chartData: breakdownChartData, dscr, totalInvestment });
   };
   
    const handleSaveDeal = async () => {
@@ -287,14 +291,16 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                             <CardHeader><CardTitle className="text-lg font-headline">Key Metrics & Breakdown</CardTitle></CardHeader>
                             <CardContent className="grid md:grid-cols-2 gap-6">
                                 <div className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                         <div> <p className="text-sm text-muted-foreground">Cap Rate (ARV)</p> <p className="text-2xl font-bold">{analysisResult.capRate.toFixed(2)}%</p> </div>
                                         <div> <p className="text-sm text-muted-foreground">CoC Return (Y1)</p> <p className="text-2xl font-bold">{analysisResult.cocReturn.toFixed(2)}%</p> </div>
-                                        <div> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className="text-xl font-bold">${analysisResult.monthlyCashFlow.toFixed(2)}</p> </div>
-                                        <div> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="font-bold">${analysisResult.noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
+                                        <div> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className="text-2xl font-bold">${analysisResult.monthlyCashFlow.toFixed(2)}</p> </div>
+                                        <div> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="text-xl font-bold">${analysisResult.noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
+                                        <div> <p className="text-sm text-muted-foreground">DSCR</p> <p className="text-2xl font-bold">{isFinite(analysisResult.dscr) ? `${analysisResult.dscr.toFixed(2)}x` : 'N/A'}</p> </div>
+                                        <div> <p className="text-sm text-muted-foreground">Total Investment</p> <p className="text-xl font-bold">${analysisResult.totalInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
                                     </div>
                                 </div>
-                                <div className="h-[200px] w-full pt-4">
+                                <div className="h-[250px] w-full pt-4">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart data={analysisResult.chartData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                                             <CartesianGrid strokeDasharray="3 3" />
