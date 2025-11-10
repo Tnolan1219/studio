@@ -1,3 +1,4 @@
+
 'use client';
 import { useUser } from '@/firebase/auth/use-user';
 import { Logo } from '@/components/logo';
@@ -15,11 +16,13 @@ import {
 import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import { useDashboardTab } from '@/hooks/use-dashboard-tab';
 
 export function Header() {
   const { user } = useUser();
   const auth = useAuth();
   const router = useRouter();
+  const { setActiveTab } = useDashboardTab();
 
   const handleSignOut = async () => {
     try {
@@ -31,6 +34,11 @@ export function Header() {
       console.error('Error signing out:', error);
     }
   };
+
+  const navigateToTab = (tab: string) => {
+    setActiveTab(tab);
+    router.push('/dashboard');
+  }
 
   const getInitials = () => {
     if (!user) return "?";
@@ -62,11 +70,15 @@ export function Header() {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>{user.isAnonymous ? "Guest" : (user.displayName || user.email)}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push('/dashboard')}>
+                <DropdownMenuItem onClick={() => navigateToTab('home')}>
                   Dashboard
                 </DropdownMenuItem>
-                <DropdownMenuItem disabled>Profile</DropdownMenuItem>
-                <DropdownMenuItem disabled>Settings</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigateToTab('profile')}>
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigateToTab('settings')}>
+                  Settings
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   Sign Out

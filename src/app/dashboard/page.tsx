@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, FirebaseClientProvider } from '@/firebase';
 import { Header } from '@/components/header';
-import { Home as HomeIcon, BarChart2, Briefcase, User, Users } from 'lucide-react';
+import { Home as HomeIcon, BarChart2, Briefcase, User, Users, Settings } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -77,6 +77,7 @@ function DashboardView() {
               <TabButton value="deals" label="Deals" icon={Briefcase} />
               <TabButton value="community" label="Community" icon={Users} />
               <TabButton value="profile" label="Profile" icon={User} />
+              <TabButton value="settings" label="Settings" icon={Settings} />
             </div>
           </div>
       </footer>

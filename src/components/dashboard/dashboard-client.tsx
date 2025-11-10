@@ -7,6 +7,7 @@ import DealsTab from '@/components/dashboard/deals-tab';
 import ProfileTab from '@/components/dashboard/profile-tab';
 import { useDashboardTab } from '@/hooks/use-dashboard-tab';
 import CommunityTab from './community-tab';
+import SettingsTab from './settings-tab';
 
 export default function DashboardClient() {
     const { activeTab } = useDashboardTab();
@@ -18,6 +19,7 @@ export default function DashboardClient() {
             {activeTab === 'deals' && <DealsTab />}
             {activeTab === 'community' && <CommunityTab />}
             {activeTab === 'profile' && <ProfileTab />}
+            {activeTab === 'settings' && <SettingsTab />}
         </>
     )
 }
