@@ -85,7 +85,6 @@ interface CommercialCalculatorProps {
 }
 
 export default function CommercialCalculator({ deal, onSave, onCancel, dealCount = 0 }: CommercialCalculatorProps) {
-  const [isAdvancedMode, setIsAdvancedMode] = useState(false);
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -124,33 +123,6 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
       otherExpenses: 2,
     },
   });
-
-  useEffect(() => {
-    // Set mode based on deal prop on initial load
-    if (isEditMode && deal?.isAdvanced) {
-      setIsAdvancedMode(true);
-    }
-  }, [isEditMode, deal]);
-
-  if (isAdvancedMode) {
-    return (
-        <Card className="bg-card/60 backdrop-blur-sm">
-            <CardHeader>
-                 <div className="flex justify-between items-center">
-                    <div>
-                        <CardTitle className="font-headline">{isEditMode ? `Editing: ${deal.dealName}` : 'Advanced Commercial Analyzer'}</CardTitle>
-                        <CardDescription>A professional underwriting suite for institutional-grade analysis.</CardDescription>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <Label htmlFor="advanced-mode-toggle">Advanced Mode</Label>
-                        <Switch id="advanced-mode-toggle" checked={true} onCheckedChange={() => setIsAdvancedMode(false)} />
-                    </div>
-                </div>
-            </CardHeader>
-            <AdvancedCommercialCalculator deal={deal} onSave={onSave} onCancel={onCancel} dealCount={dealCount} />
-        </Card>
-    );
-  }
 
   const handleAnalysis = (data: FormData) => {
     const annualGrossIncome = data.grossMonthlyIncome * 12;
@@ -241,10 +213,6 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                  <CardTitle className="font-headline">{isEditMode ? `Editing: ${deal.dealName}` : 'Commercial Multifamily Analyzer'}</CardTitle>
                  <CardDescription>A quick analysis tool for commercial properties. Use percentages for expense estimations.</CardDescription>
             </div>
-            <div className="flex items-center space-x-2">
-                <Label htmlFor="advanced-mode-toggle">Advanced Mode</Label>
-                <Switch id="advanced-mode-toggle" onCheckedChange={() => setIsAdvancedMode(true)} />
-            </div>
         </div>
       </CardHeader>
        <Form {...form}>
@@ -298,5 +266,3 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
     </Card>
   );
 }
-
-    
