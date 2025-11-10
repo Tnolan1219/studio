@@ -245,7 +245,7 @@ const ANALYSIS_TABS = [
     { value: 'income', label: 'Income', icon: Banknote },
     { value: 'expenses', label: 'Expenses', icon: PiggyBank },
     { value: 'financing', label: 'Financing', icon: Scale },
-    { value: 'returns', label: 'Return Analysis', icon: Handshake },
+    { value: 'return-analysis', label: 'Return Analysis', icon: Handshake },
 ];
 
 const formatCurrency = (value: number) => {
@@ -765,7 +765,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                             ) : null}
                         </TabsContent>
 
-                        <TabsContent value="returns" className="mt-6">
+                        <TabsContent value="return-analysis" className="mt-6">
                             <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
                                 <Card>
                                     <CardHeader><CardTitle className="font-headline">Deal Returns & Profitability</CardTitle></CardHeader>
