@@ -35,6 +35,7 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  Cell,
   CartesianGrid
 } from 'recharts';
 import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
@@ -69,7 +70,7 @@ const formSchema = z.object({
   annualAppreciation: z.coerce.number().min(0).max(100),
   holdingLength: z.coerce.number().int().min(1).max(30),
   sellingCosts: z.coerce.number().min(0).max(100),
-  marketConditions: z.string().min(10, 'Please describe market conditions.'),
+  marketConditions: z.string().optional(),
   unitMix: z.array(z.object({ type: z.string(), count: z.coerce.number(), rent: z.coerce.number() })).optional(),
   otherIncomes: z.array(z.object({ name: z.string(), amount: z.coerce.number() })).optional(),
   operatingExpenses: z.array(z.object({ name: z.string(), amount: z.coerce.number() })).optional(),
@@ -96,6 +97,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
       cocReturn: number;
       capRate: number;
       noi: number;
+      chartData: any[];
   } | null>(null);
    const userProfileRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -106,11 +108,12 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: isEditMode && deal ? deal : {
+    defaultValues: isEditMode && deal && !deal.isAdvanced ? deal : {
       dealName: 'My Commercial Deal',
       purchasePrice: 1000000,
       closingCosts: 3,
       rehabCost: 50000,
+      arv: 1200000,
       downPayment: 250000,
       interestRate: 7,
       loanTerm: 30,
@@ -147,9 +150,17 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
     const totalInvestment = data.downPayment + (data.purchasePrice * (data.closingCosts / 100)) + data.rehabCost;
     const cocReturn = totalInvestment > 0 ? (cashFlowBeforeTax / totalInvestment) * 100 : 0;
     
-    const capRate = data.purchasePrice > 0 ? (noi / data.purchasePrice) * 100 : 0;
+    const capRateOnARV = data.arv > 0 ? (noi / data.arv) * 100 : 0;
+    
+    const breakdownChartData = [
+        { name: 'Income', value: data.grossMonthlyIncome, fill: 'hsl(var(--primary))' },
+        { name: 'Expenses', value: totalOpEx / 12, fill: 'hsl(var(--chart-5))' },
+        { name: 'Mortgage', value: debtService / 12, fill: 'hsl(var(--chart-3))' },
+        { name: 'Cash Flow', value: monthlyCashFlow > 0 ? monthlyCashFlow : 0, fill: 'hsl(var(--success))' },
+    ];
 
-    setAnalysisResult({ monthlyCashFlow, cocReturn, capRate, noi });
+
+    setAnalysisResult({ monthlyCashFlow, cocReturn, capRate: capRateOnARV, noi, chartData: breakdownChartData });
   };
   
    const handleSaveDeal = async () => {
@@ -227,6 +238,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                           <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.1" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Rehab Costs</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                          <FormField name="arv" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>After-Repair Value</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.01" {...field}/></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan Term (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                       </CardContent>
@@ -245,12 +257,29 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                   </Card>
                   {analysisResult && (
                     <Card>
-                        <CardHeader><CardTitle className="text-lg font-headline">Key Metrics (Year 1)</CardTitle></CardHeader>
-                        <CardContent className="grid grid-cols-2 gap-4">
-                            <div> <p className="text-sm text-muted-foreground">Cap Rate</p> <p className="text-2xl font-bold">{analysisResult.capRate.toFixed(2)}%</p> </div>
-                             <div> <p className="text-sm text-muted-foreground">CoC Return</p> <p className="text-2xl font-bold">{analysisResult.cocReturn.toFixed(2)}%</p> </div>
-                            <div> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className="text-xl font-bold">${analysisResult.monthlyCashFlow.toFixed(2)}</p> </div>
-                            <div> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="font-bold">${analysisResult.noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
+                        <CardHeader><CardTitle className="text-lg font-headline">Key Metrics & Breakdown</CardTitle></CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div> <p className="text-sm text-muted-foreground">Cap Rate (ARV)</p> <p className="text-2xl font-bold">{analysisResult.capRate.toFixed(2)}%</p> </div>
+                                <div> <p className="text-sm text-muted-foreground">CoC Return (Y1)</p> <p className="text-2xl font-bold">{analysisResult.cocReturn.toFixed(2)}%</p> </div>
+                                <div> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className="text-xl font-bold">${analysisResult.monthlyCashFlow.toFixed(2)}</p> </div>
+                                <div> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="font-bold">${analysisResult.noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
+                            </div>
+                             <div className="h-[200px] w-full pt-4">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={analysisResult.chartData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis type="number" tickFormatter={(val) => `$${(val/1000).toFixed(0)}k`} />
+                                        <YAxis type="category" dataKey="name" width={60} />
+                                        <Tooltip formatter={(val: number) => val.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} />
+                                        <Bar dataKey="value">
+                                            {analysisResult.chartData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.fill} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
                         </CardContent>
                     </Card>
                   )}
