@@ -37,7 +37,8 @@ import {
   CartesianGrid,
   LineChart,
   Line,
-  Legend
+  Legend,
+  Cell
 } from 'recharts';
 import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, serverTimestamp, doc } from 'firebase/firestore';
@@ -428,7 +429,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
                                         />
                                         <Bar dataKey="cashFlow">
                                             {analysisResult.cashFlowChartData.map((entry, index) => (
-                                                <Bar key={`cell-${index}`} fill={entry.cashFlow >= 0 ? 'hsl(var(--primary))' : 'hsl(var(--destructive))'} />
+                                                <Cell key={`cell-${index}`} fill={entry.cashFlow >= 0 ? 'hsl(var(--primary))' : 'hsl(var(--destructive))'} />
                                             ))}
                                         </Bar>
                                     </BarChart>
