@@ -786,18 +786,17 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                             <CardDescription>Visualizing revenue streams and growth over the holding period.</CardDescription>
                                         </CardHeader>
                                         <CardContent>
-                                            <div className='h-[350px] w-full'>
+                                            <div className='h-[400px] w-full'>
                                                 <ResponsiveContainer width="100%" height="100%">
-                                                    <AreaChart data={proFormaData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
+                                                    <LineChart data={proFormaData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
                                                         <CartesianGrid strokeDasharray="3 3" />
                                                         <XAxis dataKey="year" tickFormatter={(v) => `Year ${v}`} />
                                                         <YAxis tickFormatter={formatCurrency}/>
                                                         <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))' }} formatter={formatCurrency} />
                                                         <Legend />
-                                                        <Area type="monotone" dataKey="grossPotentialRent" stackId="1" name="Gross Rent" stroke="hsl(var(--chart-2))" fill="hsl(var(--chart-2), 0.5)" />
-                                                        <Area type="monotone" dataKey="vacancyLoss" stackId="1" name="Vacancy Loss" stroke="hsl(var(--destructive))" fill="hsl(var(--destructive), 0.5)" />
-                                                        <Area type="monotone" dataKey="effectiveGrossIncome" name="Effective Gross Income" stroke="hsl(var(--primary))" fill="hsl(var(--primary), 0.3)" />
-                                                    </AreaChart>
+                                                        <Line type="monotone" dataKey="grossPotentialRent" name="Gross Potential Rent" stroke="hsl(var(--chart-2))" strokeWidth={2} />
+                                                        <Line type="monotone" dataKey="effectiveGrossIncome" name="Effective Gross Income" stroke="hsl(var(--primary))" strokeWidth={2} />
+                                                    </LineChart>
                                                 </ResponsiveContainer>
                                             </div>
                                         </CardContent>
@@ -808,10 +807,10 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                         <CardDescription>Sources of gross monthly income.</CardDescription>
                                     </CardHeader>
                                     <CardContent>
-                                        <div className='h-[350px] w-full'>
+                                        <div className='h-[400px] w-full'>
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <PieChart>
-                                                    <Pie data={incomeBreakdownData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                                                    <Pie data={incomeBreakdownData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={120} label>
                                                         {incomeBreakdownData.map((entry, index) => (
                                                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                                         ))}
