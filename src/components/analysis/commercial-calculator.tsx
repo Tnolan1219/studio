@@ -246,7 +246,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
        <Form {...form}>
         <form onSubmit={form.handleSubmit(handleAnalysis)}>
             <CardContent className="space-y-6">
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid md:grid-cols-2 gap-6">
                      <Card>
                       <CardHeader><CardTitle className="text-lg font-headline">Purchase & Loan</CardTitle></CardHeader>
                       <CardContent className="space-y-4">
@@ -280,35 +280,39 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                            <FormField name="vacancy" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Vacancy</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                       </CardContent>
                   </Card>
-                  {analysisResult && (
-                    <Card>
-                        <CardHeader><CardTitle className="text-lg font-headline">Key Metrics & Breakdown</CardTitle></CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div> <p className="text-sm text-muted-foreground">Cap Rate (ARV)</p> <p className="text-2xl font-bold">{analysisResult.capRate.toFixed(2)}%</p> </div>
-                                <div> <p className="text-sm text-muted-foreground">CoC Return (Y1)</p> <p className="text-2xl font-bold">{analysisResult.cocReturn.toFixed(2)}%</p> </div>
-                                <div> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className="text-xl font-bold">${analysisResult.monthlyCashFlow.toFixed(2)}</p> </div>
-                                <div> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="font-bold">${analysisResult.noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
-                            </div>
-                             <div className="h-[200px] w-full pt-4">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={analysisResult.chartData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis type="number" tickFormatter={(val) => `$${(val/1000).toFixed(0)}k`} />
-                                        <YAxis type="category" dataKey="name" width={60} />
-                                        <Tooltip formatter={(val: number) => val.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} />
-                                        <Bar dataKey="value">
-                                            {analysisResult.chartData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.fill} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </CardContent>
-                    </Card>
-                  )}
                 </div>
+                {analysisResult && (
+                    <div className="mt-6">
+                        <Card>
+                            <CardHeader><CardTitle className="text-lg font-headline">Key Metrics & Breakdown</CardTitle></CardHeader>
+                            <CardContent className="grid md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div> <p className="text-sm text-muted-foreground">Cap Rate (ARV)</p> <p className="text-2xl font-bold">{analysisResult.capRate.toFixed(2)}%</p> </div>
+                                        <div> <p className="text-sm text-muted-foreground">CoC Return (Y1)</p> <p className="text-2xl font-bold">{analysisResult.cocReturn.toFixed(2)}%</p> </div>
+                                        <div> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className="text-xl font-bold">${analysisResult.monthlyCashFlow.toFixed(2)}</p> </div>
+                                        <div> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="font-bold">${analysisResult.noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
+                                    </div>
+                                </div>
+                                <div className="h-[200px] w-full pt-4">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={analysisResult.chartData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis type="number" tickFormatter={(val) => `$${(val/1000).toFixed(0)}k`} />
+                                            <YAxis type="category" dataKey="name" width={60} />
+                                            <Tooltip formatter={(val: number) => val.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} />
+                                            <Bar dataKey="value">
+                                                {analysisResult.chartData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                  )}
             </CardContent>
              <CardFooter className="flex justify-end gap-2">
                 {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
