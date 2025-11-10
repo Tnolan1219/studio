@@ -225,14 +225,10 @@ interface AdvancedCommercialCalculatorProps {
 export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, dealCount = 0 }: AdvancedCommercialCalculatorProps) {
     
   const tabs = [
+    { value: 'assumptions', label: 'Assumptions', icon: TestTube2 },
     { value: 'overview', label: 'Overview', icon: Building },
-    { value: 'income', label: 'Income', icon: DollarSign },
-    { value: 'expenses', label: 'Expenses', icon: Percent },
-    { value: 'financing', label: 'Financing', icon: BarChart2 },
-    { value: 'projections', label: 'Projections', icon: TrendingUp },
     { value: 'returns', label: 'Returns', icon: Handshake },
     { value: 'sensitivity', label: 'Sensitivity', icon: SlidersHorizontal },
-    { value: 'detailed_analysis', label: 'AI Analysis', icon: Sparkles },
   ];
 
   const [isAIPending, startAITransition] = useTransition();
@@ -536,13 +532,16 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
 
   return (
     <CardContent>
-        <p className="text-center text-sm text-muted-foreground mb-4">
-            This multi-tab interface supports detailed, year-by-year cash flow analysis, value-add projects, complex financing, and more.
-        </p>
         <Form {...form}>
             <form>
-                <Tabs defaultValue="overview" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-8 h-auto">
+                <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 shadow-[0_0_15px_hsl(var(--primary)/0.5)]">
+                    <div className="text-center"> <p className="text-sm text-primary/80 font-headline">IRR</p> <p className="text-2xl font-bold text-primary">{unleveredIRR.toFixed(2)}%</p></div>
+                    <div className="text-center"> <p className="text-sm text-primary/80 font-headline">Equity Multiple</p> <p className="text-2xl font-bold text-primary">{equityMultiple.toFixed(2)}x</p></div>
+                    <div className="text-center"> <p className="text-sm text-primary/80 font-headline">Cap Rate (Y1)</p> <p className="text-2xl font-bold text-primary">{capRate.toFixed(2)}%</p></div>
+                    <div className="text-center"> <p className="text-sm text-primary/80 font-headline">NOI (Y1)</p> <p className="text-2xl font-bold text-primary">${noi.toLocaleString(undefined, {maximumFractionDigits: 0})}</p></div>
+                </div>
+                <Tabs defaultValue="assumptions" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-4 h-auto">
                         {tabs.map(tab => (
                             <TabsTrigger key={tab.value} value={tab.value} className={cn("flex-col h-14")}>
                                 <tab.icon className="w-5 h-5 mb-1" />
@@ -550,107 +549,74 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                             </TabsTrigger>
                         ))}
                     </TabsList>
+
+                     <TabsContent value="assumptions" className="mt-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="space-y-6">
+                                <Card>
+                                    <CardHeader><CardTitle>Acquisition & Rehab</CardTitle></CardHeader>
+                                    <CardContent className="grid grid-cols-2 gap-4">
+                                        <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                        <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                        <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                        <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Rehab & Initial Costs</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                    </CardContent>
+                                </Card>
+                                <Card>
+                                    <CardHeader><CardTitle>Financing</CardTitle></CardHeader>
+                                    <CardContent className="grid grid-cols-3 gap-4">
+                                        <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                        <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                        <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan Term (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                    </CardContent>
+                                </Card>
+                                 <Card>
+                                    <CardHeader><CardTitle>Projections & Exit</CardTitle></CardHeader>
+                                    <CardContent className="grid grid-cols-3 gap-4">
+                                        <FormField name="holdingLength" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Hold (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                        <FormField name="annualIncomeGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Income Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                        <FormField name="annualExpenseGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Expense Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                        <FormField name="annualAppreciation" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Appreciation</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                        <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Selling Costs</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                        <FormField name="exitCapRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Exit Cap Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" step="0.1" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                    </CardContent>
+                                </Card>
+                            </div>
+                            <div className="space-y-6">
+                                <Card>
+                                    <CardHeader><CardTitle>Income</CardTitle></CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <div>
+                                            <FormLabel>Unit Mix</FormLabel>
+                                            <FormDescription className="text-xs">Define the number of units and average rent for each type.</FormDescription>
+                                            {unitMixFields.map((field, index) => (
+                                                <div key={field.id} className="grid grid-cols-[1fr,1fr,1fr,auto] gap-2 items-end mt-2">
+                                                <FormField control={form.control} name={`unitMix.${index}.type`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Type</FormLabel><FormControl><Input placeholder="e.g., 2BR" {...field} /></FormControl> </FormItem> )} />
+                                                <FormField control={form.control} name={`unitMix.${index}.count`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs"># Units</FormLabel><FormControl><Input type="number" {...field} /></FormControl> </FormItem> )} />
+                                                <FormField control={form.control} name={`unitMix.${index}.rent`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Avg. Rent</FormLabel><FormControl><InputWithIcon icon={<DollarSign size={14}/>} type="number" {...field} /></FormControl> </FormItem> )} />
+                                                <Button type="button" variant="ghost" size="icon" onClick={() => removeUnit(index)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
+                                                </div>
+                                            ))}
+                                            <Button type="button" size="sm" variant="outline" onClick={() => appendUnit({type: '', count: 0, rent: 0})} className="mt-2 flex items-center gap-1"><Plus size={16}/> Add Unit Type</Button>
+                                        </div>
+                                        <LineItemInput control={form.control} name="otherIncomes" formLabel="Other Income" fieldLabel="Income Source" placeholder="e.g., Laundry, Parking" icon={<DollarSign size={14}/>} />
+                                    </CardContent>
+                                </Card>
+                                <Card>
+                                    <CardHeader><CardTitle>Operating Expenses</CardTitle></CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <LineItemInput control={form.control} name="operatingExpenses" formLabel="Recurring Monthly Expenses" fieldLabel="Expense Item" placeholder="e.g., Property Tax, Insurance" icon={<DollarSign size={14}/>} />
+                                        <FormField name="vacancyRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Vacancy Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </div>
+                    </TabsContent>
                     
                     <TabsContent value="overview" className="mt-6">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <Card>
-                                <CardHeader><CardTitle className="font-headline">Key Metrics (Year 1)</CardTitle></CardHeader>
-                                <CardContent className="grid grid-cols-2 gap-4">
-                                    <div><p className="text-sm text-muted-foreground">Cap Rate</p><p className="text-2xl font-bold">{capRate.toFixed(2)}%</p></div>
-                                    <div><p className="text-sm text-muted-foreground">CoC Return</p><p className="text-2xl font-bold">{cocReturn.toFixed(2)}%</p></div>
-                                    <div><p className="text-sm text-muted-foreground">NOI (Annual)</p><p className="font-bold text-lg">${noi.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p></div>
-                                    <div><p className="text-sm text-muted-foreground">Monthly Cash Flow</p><p className="font-bold text-lg">${monthlyCashFlow.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p></div>
-                                </CardContent>
-                            </Card>
-                             <Card>
-                                <CardHeader> <CardTitle className="font-headline flex items-center gap-2"> <BarChart2 size={20} /> 10-Year Cash Flow </CardTitle> </CardHeader>
-                                <CardContent className="h-[200px] -ml-4 pr-4">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <RechartsBarChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                        <XAxis dataKey="year" stroke="hsl(var(--foreground))" fontSize={12} />
-                                        <YAxis stroke="hsl(var(--foreground))" fontSize={12} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
-                                        <Tooltip
-                                            cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
-                                            contentStyle={{
-                                                backgroundColor: 'hsl(var(--background))',
-                                                border: '1px solid hsl(var(--border))',
-                                                color: 'hsl(var(--foreground))'
-                                            }}
-                                        />
-                                        <RechartsBar dataKey="cashFlow" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                                    </RechartsBarChart>
-                                </ResponsiveContainer>
-                                </CardContent>
-                            </Card>
-                        </div>
-                        <div className="mt-6">
-                            <ProFormaTable data={proFormaData} />
-                        </div>
+                        <ProFormaTable data={proFormaData} />
                     </TabsContent>
 
-                     <TabsContent value="income" className="mt-6">
-                        <Card>
-                            <CardHeader><CardTitle className="font-headline">Income Sources</CardTitle></CardHeader>
-                            <CardContent className="space-y-6">
-                               <div>
-                                    <FormLabel>Unit Mix</FormLabel>
-                                    <FormDescription className="text-xs">Define the number of units and average rent for each type.</FormDescription>
-                                    {unitMixFields.map((field, index) => (
-                                        <div key={field.id} className="grid grid-cols-[1fr,1fr,1fr,auto] gap-2 items-end mt-2">
-                                        <FormField control={form.control} name={`unitMix.${index}.type`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Type</FormLabel><FormControl><Input placeholder="e.g., 2BR" {...field} /></FormControl> </FormItem> )} />
-                                        <FormField control={form.control} name={`unitMix.${index}.count`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs"># Units</FormLabel><FormControl><Input type="number" {...field} /></FormControl> </FormItem> )} />
-                                        <FormField control={form.control} name={`unitMix.${index}.rent`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Avg. Rent</FormLabel><FormControl><InputWithIcon icon={<DollarSign size={14}/>} type="number" {...field} /></FormControl> </FormItem> )} />
-                                        <Button type="button" variant="ghost" size="icon" onClick={() => removeUnit(index)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
-                                        </div>
-                                    ))}
-                                    <Button type="button" size="sm" variant="outline" onClick={() => appendUnit({type: '', count: 0, rent: 0})} className="mt-2 flex items-center gap-1"><Plus size={16}/> Add Unit Type</Button>
-                                </div>
-                                <LineItemInput control={form.control} name="otherIncomes" formLabel="Other Income" fieldLabel="Income Source" placeholder="e.g., Laundry, Parking" icon={<DollarSign size={14}/>} />
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-
-                    <TabsContent value="expenses" className="mt-6">
-                         <Card>
-                            <CardHeader><CardTitle className="font-headline">Acquisition & Operating Expenses</CardTitle></CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                    <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                    <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Rehab & Initial Costs</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                    <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                </div>
-                                <LineItemInput control={form.control} name="operatingExpenses" formLabel="Recurring Monthly Expenses" fieldLabel="Expense Item" placeholder="e.g., Property Tax, Insurance" icon={<DollarSign size={14}/>} />
-                                <FormField name="vacancyRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Vacancy Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-
-                    <TabsContent value="financing" className="mt-6">
-                        <Card>
-                            <CardHeader><CardTitle className="font-headline">Financing Details</CardTitle></CardHeader>
-                            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Amortization (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                    
-                    <TabsContent value="projections" className="mt-6">
-                        <Card>
-                            <CardHeader><CardTitle className="font-headline">Growth & Exit Assumptions</CardTitle></CardHeader>
-                             <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                <FormField name="holdingLength" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Holding Length (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                <FormField name="annualIncomeGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Income Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                <FormField name="annualExpenseGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Expense Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                <FormField name="annualAppreciation" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Appreciation</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Selling Costs</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                <FormField name="exitCapRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Exit Cap Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" step="0.1" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
                     <TabsContent value="returns" className="mt-6">
                         <Card>
                             <CardHeader><CardTitle className="font-headline">Deal Returns & Profitability</CardTitle></CardHeader>
@@ -749,19 +715,6 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                 </Table>
                                 </div>
                             </CardContent>
-                        </Card>
-                    </TabsContent>
-                    <TabsContent value="detailed_analysis" className="mt-6">
-                        <Card>
-                            <CardHeader> <CardTitle className="font-headline flex items-center gap-2"> <Sparkles size={20} className="text-primary" /> AI Deal Assessment </CardTitle> </CardHeader>
-                            <CardContent>
-                                <p className="text-sm text-muted-foreground text-center p-4">AI Analysis is currently under construction. Check back soon!</p>
-                            </CardContent>
-                             <CardFooter>
-                                <Button disabled className="w-full">
-                                    Generate AI Insights
-                                </Button>
-                            </CardFooter>
                         </Card>
                     </TabsContent>
 
