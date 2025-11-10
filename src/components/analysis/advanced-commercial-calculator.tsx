@@ -55,7 +55,10 @@ import {
   YAxis,
   Tooltip,
   Legend,
-  CartesianGrid
+  CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Label } from '../ui/label';
@@ -259,6 +262,8 @@ const formatCurrency = (value: number) => {
     return `$${value.toFixed(0)}`;
 };
 
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d"];
+
 
 export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, dealCount = 0 }: AdvancedCommercialCalculatorProps) {
     
@@ -349,9 +354,10 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
   const {
     monthlyCashFlow, cocReturn, capRate, noi, chartData, proFormaData,
     unleveredIRR, equityMultiple, netSaleProceeds, totalCashInvested,
-    sensitivityData, lpReturns, gpReturns
+    sensitivityData, lpReturns, gpReturns,
+    incomeBreakdownData, expenseBreakdownData
   } = useMemo(() => {
-      const { purchasePrice, downPayment, rehabCost = 0, closingCosts = 0, holdingLength, sellingCosts, exitCapRate, preferredReturn, promoteHurdle, promoteSplit } = watchedValues;
+      const { purchasePrice, downPayment, rehabCost = 0, closingCosts = 0, holdingLength, sellingCosts, exitCapRate, preferredReturn, promoteHurdle, promoteSplit, unitMix, otherIncomes, operatingExpenses } = watchedValues;
       const totalCashInvested = downPayment + (purchasePrice * (closingCosts / 100)) + rehabCost;
       const proForma = calculateProForma(watchedValues);
       
@@ -365,6 +371,14 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
           year: `Year ${entry.year}`,
           cashFlow: parseFloat(entry.cashFlowBeforeTax.toFixed(2))
       }));
+      
+      const incomeBreakdownData = [
+          ...unitMix.map(u => ({ name: `${u.type} Rent`, value: u.count * u.rent })),
+          ...otherIncomes.map(i => ({ name: i.name, value: i.amount }))
+      ].filter(item => item.value > 0);
+
+      const expenseBreakdownData = [...operatingExpenses.map(e => ({ name: e.name, value: e.amount }))].filter(item => item.value > 0);
+
 
       // Advanced metrics calculation
       let unleveredIRR = NaN;
@@ -517,6 +531,8 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
               irr: gpCashFlows.reduce((a, b) => a + b, 0) > 0 ? calculateIRR(gpCashFlows) * 100 : Infinity, // Can be infinite if no GP investment
               equityMultiple: gpCashFlows.reduce((a, b) => a + b, 0),
           },
+          incomeBreakdownData,
+          expenseBreakdownData,
       };
   }, [watchedValues, sensitivityVar1, sensitivityVar2, sensitivityMetric]);
 
@@ -730,9 +746,32 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                 </div>
                             </TabsContent>
                             
-                            <TabsContent value="overview" className="mt-6">
+                            <TabsContent value="overview" className="mt-6 space-y-6">
                                 {proFormaData.length > 0 ? (
-                                    <ProFormaTable data={proFormaData} />
+                                    <>
+                                        <ProFormaTable data={proFormaData} />
+                                        <Card>
+                                            <CardHeader>
+                                                <CardTitle className='font-headline'>Amortization & Equity Growth</CardTitle>
+                                                <CardDescription>Growth of equity versus the loan balance over time.</CardDescription>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className='h-[350px] w-full'>
+                                                    <ResponsiveContainer width="100%" height="100%">
+                                                        <LineChart data={proFormaData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
+                                                            <CartesianGrid strokeDasharray="3 3" />
+                                                            <XAxis dataKey="year" tickFormatter={(v) => `Year ${v}`} />
+                                                            <YAxis tickFormatter={formatCurrency} />
+                                                            <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))' }} formatter={formatCurrency} />
+                                                            <Legend />
+                                                            <Line type="monotone" dataKey="equity" name="Total Equity" stroke="hsl(var(--primary))" strokeWidth={2} />
+                                                            <Line type="monotone" dataKey="loanBalance" name="Loan Balance" stroke="hsl(var(--destructive))" strokeWidth={2} />
+                                                        </LineChart>
+                                                    </ResponsiveContainer>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </>
                                 ) : (
                                     <p className="text-center text-muted-foreground p-8">Run an analysis from the Assumptions tab to see the pro forma.</p>
                                 )}
@@ -740,9 +779,10 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
 
                             <TabsContent value="income" className="mt-6">
                                 {proFormaData.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <Card>
                                         <CardHeader>
-                                            <CardTitle className='font-headline'>Income Analysis</CardTitle>
+                                            <CardTitle className='font-headline'>Income Growth Analysis</CardTitle>
                                             <CardDescription>Visualizing revenue streams and growth over the holding period.</CardDescription>
                                         </CardHeader>
                                         <CardContent>
@@ -762,14 +802,37 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                             </div>
                                         </CardContent>
                                 </Card>
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className='font-headline'>Monthly Income Breakdown (Year 1)</CardTitle>
+                                        <CardDescription>Sources of gross monthly income.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className='h-[350px] w-full'>
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <PieChart>
+                                                    <Pie data={incomeBreakdownData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                                                        {incomeBreakdownData.map((entry, index) => (
+                                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                        ))}
+                                                    </Pie>
+                                                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))' }} formatter={formatCurrency} />
+                                                    <Legend />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                                </div>
                                 ) : null}
                             </TabsContent>
 
                             <TabsContent value="expenses" className="mt-6">
                                 {proFormaData.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <Card>
                                         <CardHeader>
-                                            <CardTitle className='font-headline'>Expense Analysis</CardTitle>
+                                            <CardTitle className='font-headline'>Expense Growth Analysis</CardTitle>
                                             <CardDescription>Breakdown of operating expenses and debt service over time.</CardDescription>
                                         </CardHeader>
                                         <CardContent>
@@ -788,6 +851,28 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                             </div>
                                         </CardContent>
                                 </Card>
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className='font-headline'>Monthly Expense Breakdown (Year 1)</CardTitle>
+                                        <CardDescription>Composition of monthly operating expenses.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className='h-[350px] w-full'>
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <PieChart>
+                                                    <Pie data={expenseBreakdownData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                                                         {expenseBreakdownData.map((entry, index) => (
+                                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                        ))}
+                                                    </Pie>
+                                                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))' }} formatter={formatCurrency} />
+                                                    <Legend />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                                </div>
                                 ) : null}
                             </TabsContent>
                             
