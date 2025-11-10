@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -26,23 +27,23 @@ function formatCurrency(value: number) {
     }).format(value);
 }
 
-const METRIC_LABELS: { key: keyof ProFormaEntry; label: string }[] = [
+const METRIC_LABELS: { key: keyof ProFormaEntry; label: string, isSubtle?: boolean }[] = [
     { key: 'grossPotentialRent', label: 'Gross Potential Rent' },
-    { key: 'vacancyLoss', label: 'Vacancy Loss (-)' },
+    { key: 'vacancyLoss', label: 'Vacancy Loss (-)', isSubtle: true },
     { key: 'effectiveGrossIncome', label: 'Effective Gross Income' },
-    { key: 'operatingExpenses', label: 'Operating Expenses (-)' },
+    { key: 'operatingExpenses', label: 'Operating Expenses (-)', isSubtle: true },
     { key: 'noi', label: 'Net Operating Income (NOI)' },
-    { key: 'debtService', label: 'Debt Service (-)' },
+    { key: 'debtService', label: 'Debt Service (-)', isSubtle: true },
     { key: 'cashFlowBeforeTax', label: 'Cash Flow (Pre-Tax)' },
-    { key: 'propertyValue', label: 'End of Year Value' },
-    { key: 'loanBalance', label: 'Loan Balance' },
+    { key: 'propertyValue', label: 'End of Year Value', isSubtle: true },
+    { key: 'loanBalance', label: 'Loan Balance', isSubtle: true },
     { key: 'equity', label: 'Total Equity' },
 ];
 
 
 export function ProFormaTable({ data }: { data: ProFormaEntry[] }) {
     if (!data || data.length === 0) {
-        return null;
+        return <p className="text-sm text-muted-foreground text-center p-4">Pro Forma data will be generated once you provide the deal assumptions.</p>;
     }
     
     const displayData = data.slice(0, 10);
@@ -63,16 +64,16 @@ export function ProFormaTable({ data }: { data: ProFormaEntry[] }) {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="font-bold min-w-[200px]">Metric</TableHead>
+                                <TableHead className="font-bold min-w-[200px] sticky left-0 bg-card z-10">Metric</TableHead>
                                 {displayData.map((entry) => (
                                     <TableHead key={entry.year} className="text-center font-bold">Year {entry.year}</TableHead>
                                 ))}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {METRIC_LABELS.map(({ key, label }) => (
+                            {METRIC_LABELS.map(({ key, label, isSubtle }) => (
                                 <TableRow key={key} className={key === 'noi' || key === 'cashFlowBeforeTax' || key === 'equity' ? 'font-bold bg-muted/20' : ''}>
-                                    <TableCell className="font-medium">{label}</TableCell>
+                                    <TableCell className={`font-medium sticky left-0 bg-card z-10 ${isSubtle ? 'text-muted-foreground pl-6' : ''}`}>{label}</TableCell>
                                     {displayData.map((entry) => (
                                         <TableCell key={`${entry.year}-${key}`} className="text-center">
                                             {formatCurrency(entry[key] as number)}
