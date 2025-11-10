@@ -91,52 +91,8 @@ export function AIChatBox() {
                                 </Button>
                             </CardHeader>
                             <CardContent className="flex-1 overflow-hidden p-0">
-                                <ScrollArea className="h-full p-6">
-                                    <div className="space-y-4">
-                                        {messages.length === 0 && (
-                                            <div className="text-center text-sm text-muted-foreground p-8">
-                                                <p className='font-bold text-lg mb-2'>Hi {getWelcomeName()}!</p>
-                                                <p>Ask me anything about real estate investing.</p>
-                                                <div className="flex flex-wrap gap-2 mt-4 justify-center">
-                                                    {SAMPLE_QUESTIONS.map((q, i) => (
-                                                        <Button key={i} variant="outline" size="sm" onClick={() => handleSend(q)}>
-                                                        {q}
-                                                        </Button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                        {messages.map((msg, index) => (
-                                            <div key={index} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                                <div className={`rounded-lg px-4 py-2 max-w-[80%] ${msg.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                                                   <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: msg.text }} />
-                                                </div>
-                                            </div>
-                                        ))}
-                                         {isLoading && (
-                                            <div className="flex justify-start">
-                                                <div className="rounded-lg px-4 py-2 bg-muted flex items-center">
-                                                    <Loader2 className="w-5 h-5 animate-spin"/>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </ScrollArea>
+                               <p className="text-sm text-muted-foreground text-center p-4">AI Chat is currently under construction. Check back soon!</p>
                             </CardContent>
-                             <CardFooter>
-                                <div className="flex w-full items-center gap-2">
-                                    <Input
-                                        value={input}
-                                        onChange={(e) => setInput(e.target.value)}
-                                        placeholder="Ask about financing, market trends, etc."
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                                        disabled={isLoading}
-                                    />
-                                    <Button size="icon" onClick={() => handleSend()} disabled={isLoading}>
-                                        <Send className="w-4 h-4" />
-                                    </Button>
-                                </div>
-                            </CardFooter>
                         </Card>
                     </motion.div>
                 )}

@@ -42,7 +42,7 @@ export default function AnalyzeTab() {
             <Building className="mr-2 h-4 w-4" />
             Commercial
           </TabsTrigger>
-           <TabsTrigger value="commercial-advanced" className={cn("px-4 py-2 rounded-full")}>
+           <TabsTrigger value="commercial-advanced" className={cn("px-4 py-2 rounded-full plan-elite")}>
             <TestTube2 className="mr-2 h-4 w-4" />
             Advanced Commercial
           </TabsTrigger>

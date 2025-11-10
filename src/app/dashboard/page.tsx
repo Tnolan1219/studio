@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import { useDashboardTab } from '@/hooks/use-dashboard-tab';
 import DashboardClient from '@/components/dashboard/dashboard-client';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AIChatBox } from '@/components/dashboard/ai-chat-box';
 
 function DashboardView() {
   const { user, isUserLoading } = useUser();
@@ -70,7 +69,6 @@ function DashboardView() {
       <main className="flex-1 p-6 md:p-12 bg-transparent pb-28">
         <DashboardClient />
       </main>
-      <AIChatBox />
       <footer className="fixed bottom-0 left-0 right-0 z-40 h-24 pointer-events-none">
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-auto">
             <div className="flex items-center gap-2 rounded-full bg-card/60 p-1 shadow-lg backdrop-blur-lg border border-border/20">
