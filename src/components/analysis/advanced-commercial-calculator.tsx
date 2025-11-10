@@ -81,19 +81,24 @@ const formSchema = z.object({
   // Acquisition
   purchasePrice: z.coerce.number().min(1),
   closingCosts: z.coerce.number().min(0),
+  acquisitionFee: z.coerce.number().min(0).optional().default(1),
   rehabCost: z.coerce.number().optional().default(0),
 
   // Income
   unitMix: z.array(unitMixSchema).min(1, 'At least one unit type is required.'),
   otherIncomes: z.array(lineItemSchema),
+  lossToLease: z.coerce.number().min(0).max(100).optional().default(0),
   
   // Expenses
   operatingExpenses: z.array(lineItemSchema),
   vacancyRate: z.coerce.number().min(0).max(100),
+  replacementReserves: z.coerce.number().min(0).optional().default(250),
   
   // Financing
+  loanToValue: z.coerce.number().min(0).max(100).optional().default(75),
   downPayment: z.coerce.number().min(0),
   interestRate: z.coerce.number().min(0).max(100),
+  originationFee: z.coerce.number().min(0).max(100).optional().default(0.5),
   loanTerm: z.coerce.number().int().min(1),
   amortizationPeriod: z.coerce.number().int().min(1),
   interestOnlyPeriod: z.coerce.number().int().min(0),
@@ -103,6 +108,7 @@ const formSchema = z.object({
   annualIncomeGrowth: z.coerce.number().min(0).max(100),
   annualExpenseGrowth: z.coerce.number().min(0).max(100),
   annualAppreciation: z.coerce.number().min(0).max(100),
+  dispositionFee: z.coerce.number().min(0).max(100).optional().default(1),
   sellingCosts: z.coerce.number().min(0).max(100),
   holdingLength: z.coerce.number().int().min(1).max(30),
   exitCapRate: z.coerce.number().min(0).max(100),
@@ -152,7 +158,7 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
     const combinedValues = { ...values, ...sensitivityOverrides };
     const {
         purchasePrice, rehabCost = 0, closingCosts = 0, downPayment, interestRate, loanTerm, amortizationPeriod, interestOnlyPeriod,
-        unitMix, otherIncomes, operatingExpenses, vacancyRate,
+        unitMix, otherIncomes, operatingExpenses, vacancyRate, lossToLease = 0, replacementReserves = 0,
         annualIncomeGrowth, annualExpenseGrowth, annualAppreciation
     } = combinedValues;
 
@@ -161,6 +167,7 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
     const loanAmount = purchasePrice - downPayment;
     const monthlyInterestRate = interestRate / 100 / 12;
     const numberOfPayments = amortizationPeriod * 12;
+    const totalUnits = unitMix.reduce((acc, unit) => acc + unit.count, 0);
     
     // Calculate P&I payment based on amortization period
     const principalAndInterestPayment = numberOfPayments > 0 && monthlyInterestRate > 0 ?
@@ -171,7 +178,7 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
     const monthlyOtherIncome = otherIncomes.reduce((acc: number, item: { amount: number; }) => acc + item.amount, 0);
     let currentOtherIncome = monthlyOtherIncome * 12;
 
-    let currentOpEx = operatingExpenses.reduce((acc, item) => acc + item.amount, 0) * 12;
+    let currentManualOpEx = operatingExpenses.reduce((acc, item) => acc + item.amount, 0) * 12;
 
     let currentPropertyValue = purchasePrice + rehabCost;
     let currentLoanBalance = loanAmount;
@@ -195,8 +202,14 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
         }
         
         const grossPotentialRent = currentGrossRent + currentOtherIncome;
-        const vacancyLoss = grossPotentialRent * (vacancyRate / 100);
-        const effectiveGrossIncome = grossPotentialRent - vacancyLoss;
+        const lossToLeaseAmount = grossPotentialRent * (lossToLease / 100);
+        const scheduledGrossIncome = grossPotentialRent - lossToLeaseAmount;
+        const vacancyLoss = scheduledGrossIncome * (vacancyRate / 100);
+        const effectiveGrossIncome = scheduledGrossIncome - vacancyLoss;
+
+        const reservesAmount = totalUnits * replacementReserves;
+        const currentOpEx = currentManualOpEx + reservesAmount;
+        
         const noi = effectiveGrossIncome - currentOpEx;
 
         proForma.push({
@@ -215,7 +228,7 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
         
         currentGrossRent *= (1 + annualIncomeGrowth / 100);
         currentOtherIncome *= (1 + annualIncomeGrowth / 100);
-        currentOpEx *= (1 + annualExpenseGrowth / 100);
+        currentManualOpEx *= (1 + annualExpenseGrowth / 100);
         currentPropertyValue *= (1 + annualAppreciation / 100);
         currentLoanBalance = yearEndLoanBalance;
     }
@@ -295,6 +308,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
       // Acquisition
       purchasePrice: 5000000,
       closingCosts: 2,
+      acquisitionFee: 1,
       rehabCost: 250000,
       // Income
       unitMix: [
@@ -304,6 +318,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
       ],
       otherIncomes: [{name: 'Laundry', amount: 500}],
       vacancyRate: 5,
+      lossToLease: 3,
       // Expenses
       operatingExpenses: [
         {name: 'Property Taxes', amount: 4000},
@@ -311,9 +326,12 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
         {name: 'Repairs & Maintenance', amount: 2500},
         {name: 'Management Fee', amount: 3500},
       ],
+      replacementReserves: 250,
       // Financing
+      loanToValue: 75,
       downPayment: 1250000,
       interestRate: 7.5,
+      originationFee: 0.5,
       loanTerm: 10,
       amortizationPeriod: 30,
       interestOnlyPeriod: 2,
@@ -323,6 +341,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
       annualAppreciation: 4,
       holdingLength: 10,
       sellingCosts: 5,
+      dispositionFee: 1,
       exitCapRate: 5.5,
        // Partnership
       preferredReturn: 8,
@@ -333,6 +352,20 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
       isAdvanced: true,
     },
   });
+
+    useEffect(() => {
+        const subscription = form.watch((values, { name, type }) => {
+            if (name === 'purchasePrice' || name === 'loanToValue') {
+                const { purchasePrice = 0, loanToValue = 0 } = values;
+                const loanAmount = purchasePrice * (loanToValue / 100);
+                const newDownPayment = purchasePrice - loanAmount;
+                if (newDownPayment !== values.downPayment) {
+                    form.setValue('downPayment', newDownPayment, { shouldValidate: true });
+                }
+            }
+        });
+        return () => subscription.unsubscribe();
+    }, [form]);
 
   useEffect(() => {
     if (isEditMode && deal?.isAdvanced) {
@@ -357,8 +390,16 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
     sensitivityData, lpReturns, gpReturns,
     incomeBreakdownData, expenseBreakdownData
   } = useMemo(() => {
-      const { purchasePrice, downPayment, rehabCost = 0, closingCosts = 0, holdingLength, sellingCosts, exitCapRate, preferredReturn, promoteHurdle, promoteSplit, unitMix, otherIncomes, operatingExpenses } = watchedValues;
-      const totalCashInvested = downPayment + (purchasePrice * (closingCosts / 100)) + rehabCost;
+      const { 
+          purchasePrice, downPayment, rehabCost = 0, closingCosts = 0, acquisitionFee = 0, originationFee = 0,
+          holdingLength, sellingCosts, exitCapRate, preferredReturn, promoteHurdle, promoteSplit, unitMix, otherIncomes, operatingExpenses, dispositionFee = 0,
+      } = watchedValues;
+
+      const loanAmount = purchasePrice - downPayment;
+      const acqFeeAmount = purchasePrice * (acquisitionFee / 100);
+      const originationFeeAmount = loanAmount * (originationFee / 100);
+
+      const totalCashInvested = downPayment + (purchasePrice * (closingCosts / 100)) + rehabCost + acqFeeAmount + originationFeeAmount;
       const proForma = calculateProForma(watchedValues);
       
       const year1 = proForma[0] || {};
@@ -394,7 +435,9 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
           const exitNOI = exitYearEntry.noi * (1 + watchedValues.annualIncomeGrowth/100);
           
           const salePrice = exitCapRate > 0 ? exitNOI / (exitCapRate / 100) : 0;
-          const saleCosts = salePrice * (sellingCosts / 100);
+          const sellingCostsAmount = salePrice * (sellingCosts / 100);
+          const dispositionFeeAmount = salePrice * (dispositionFee / 100);
+          const saleCosts = sellingCostsAmount + dispositionFeeAmount;
           const loanPayoff = exitYearEntry.loanBalance;
           netSaleProceeds = salePrice - saleCosts - loanPayoff;
 
@@ -693,14 +736,19 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                                     <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                                     <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                                 </div>
-                                                <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Rehab & Initial Costs</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <FormField name="acquisitionFee" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Acquisition Fee (%)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                                    <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Rehab & Initial Costs</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                                </div>
                                             </CardContent>
                                         </Card>
                                         <Card className="border-primary/20">
                                             <CardHeader><CardTitle className="font-headline text-primary">Financing</CardTitle></CardHeader>
                                             <CardContent className="grid grid-cols-2 gap-4">
-                                                <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                                <FormField name="loanToValue" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan-to-Value (LTV)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                                <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} disabled /></FormControl> <FormMessage /> </FormItem> )} />
                                                 <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                                <FormField name="originationFee" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Origination Fee (%)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                                 <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan Term (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                                 <FormField name="amortizationPeriod" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Amortization (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                                 <FormField name="interestOnlyPeriod" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Interest-Only Period (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -737,13 +785,18 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                                     <Button type="button" size="sm" variant="outline" onClick={() => appendUnit({type: '', count: 0, rent: 0, sqft: 0})} className="mt-2 flex items-center gap-1"><Plus size={16}/> Add Unit Type</Button>
                                                 </div>
                                                 <LineItemInput control={form.control} name="otherIncomes" formLabel="Other Income" fieldLabel="Income Source" placeholder="e.g., Laundry, Parking" icon={<DollarSign size={14}/>} />
+                                                <FormField name="lossToLease" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loss to Lease</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl><FormDescription className="text-xs">Difference between market and actual rent.</FormDescription> <FormMessage /> </FormItem> )} />
+
                                             </CardContent>
                                         </Card>
                                         <Card className="border-primary/20">
                                             <CardHeader><CardTitle className="font-headline text-primary">Operating Expenses</CardTitle></CardHeader>
                                             <CardContent className="space-y-4">
                                                 <LineItemInput control={form.control} name="operatingExpenses" formLabel="Recurring Monthly Expenses" fieldLabel="Expense Item" placeholder="e.g., Property Tax, Insurance" icon={<DollarSign size={14}/>} />
-                                                <FormField name="vacancyRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Vacancy Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                                <div className='grid grid-cols-2 gap-4'>
+                                                    <FormField name="vacancyRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Physical Vacancy</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                                    <FormField name="replacementReserves" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Replacement Reserves</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={14}/>} type="number" {...field} /></FormControl> <FormDescription className="text-xs">Per unit / per year amount.</FormDescription><FormMessage /> </FormItem> )} />
+                                                </div>
                                             </CardContent>
                                         </Card>
                                          <Card className="border-primary/20">
@@ -753,8 +806,9 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                                 <FormField name="annualIncomeGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Income Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                                 <FormField name="annualExpenseGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Expense Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                                 <FormField name="annualAppreciation" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Appreciation</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                                <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Selling Costs</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                                <FormField name="exitCapRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Exit Cap Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" step="0.1" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                                <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Selling Costs</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl><FormDescription className="text-xs">Broker, legal, etc.</FormDescription> <FormMessage /> </FormItem> )} />
+                                                <FormField name="dispositionFee" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Disposition Fee</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl><FormDescription className="text-xs">Fee to sponsor at sale.</FormDescription> <FormMessage /> </FormItem> )} />
+                                                <FormField name="exitCapRate" control={form.control} render={({ field }) => ( <FormItem className="col-span-3"> <FormLabel>Exit Cap Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" step="0.1" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                             </CardContent>
                                         </Card>
                                     </div>
@@ -1042,5 +1096,3 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
         </Card>
     );
 }
-
-    
