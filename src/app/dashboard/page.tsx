@@ -77,7 +77,6 @@ function DashboardView() {
               <TabButton value="deals" label="Deals" icon={Briefcase} />
               <TabButton value="community" label="Community" icon={Users} />
               <TabButton value="profile" label="Profile" icon={User} />
-              <TabButton value="settings" label="Settings" icon={Settings} />
             </div>
           </div>
       </footer>
