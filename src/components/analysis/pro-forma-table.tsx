@@ -43,7 +43,7 @@ const METRIC_LABELS: { key: keyof ProFormaEntry; label: string, isSubtle?: boole
 
 export function ProFormaTable({ data }: { data: ProFormaEntry[] }) {
     if (!data || data.length === 0) {
-        return <p className="text-sm text-muted-foreground text-center p-4">Pro Forma data will be generated once you provide the deal assumptions.</p>;
+        return null;
     }
     
     const displayData = data.slice(0, 10);

@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Sparkles, BarChart2, DollarSign, Percent, Trash2, Plus, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Loader2 } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -38,9 +38,17 @@ import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, 
 import { collection, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
-import type { Deal, UserProfile, LineItem, UnitMixItem } from '@/lib/types';
+import type { Deal, UserProfile, UnitMixItem, ProFormaEntry } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { ProFormaTable } from './pro-forma-table';
 
+
+const lineItemSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    amount: z.coerce.number().min(0),
+    type: z.enum(['percent', 'fixed']).default('percent'),
+});
 
 const formSchema = z.object({
   dealName: z.string().min(3, 'Please enter a name for the deal.'),
@@ -50,15 +58,95 @@ const formSchema = z.object({
   downPayment: z.coerce.number().min(0),
   interestRate: z.coerce.number().min(0).max(100),
   loanTerm: z.coerce.number().int().min(1),
-  vacancy: z.coerce.number().min(0).max(100),
   unitMix: z.array(z.object({ type: z.string().min(1), count: z.coerce.number().min(0), rent: z.coerce.number().min(0) })).min(1, 'At least one unit type is required.'),
-  otherIncomes: z.array(z.object({ name: z.string().min(1), amount: z.coerce.number().min(0) })).optional(),
-  operatingExpenses: z.array(z.object({ name: z.string().min(1), amount: z.coerce.number().min(0) })).optional(),
-  capitalExpenditures: z.array(z.object({ name: z.string().min(1), amount: z.coerce.number().min(0) })).optional(),
-  marketConditions: z.string().optional(),
+  otherIncomes: z.array(lineItemSchema).optional(),
+  operatingExpenses: z.array(lineItemSchema).optional(),
+  capitalExpenditures: z.array(lineItemSchema).optional(),
+  annualIncomeGrowth: z.coerce.number().min(0).max(100),
+  annualExpenseGrowth: z.coerce.number().min(0).max(100),
+  annualAppreciation: z.coerce.number().min(0).max(100),
+  vacancy: z.coerce.number().min(0).max(100),
 });
 
 type FormData = z.infer<typeof formSchema>;
+
+const calculateProForma = (values: FormData): ProFormaEntry[] => {
+    const proForma: ProFormaEntry[] = [];
+    const {
+        purchasePrice, downPayment, interestRate, loanTerm,
+        unitMix, otherIncomes, operatingExpenses, capitalExpenditures, vacancy,
+        annualIncomeGrowth, annualExpenseGrowth, annualAppreciation
+    } = values;
+
+    if (!purchasePrice || !loanTerm) return [];
+
+    const loanAmount = purchasePrice - downPayment;
+    const monthlyInterestRate = interestRate / 100 / 12;
+    const numberOfPayments = loanTerm * 12;
+    const debtService = numberOfPayments > 0 && monthlyInterestRate > 0 ?
+        (loanAmount * (monthlyInterestRate * Math.pow(1 + monthlyInterestRate, numberOfPayments))) / (Math.pow(1 + monthlyInterestRate, numberOfPayments) - 1) * 12
+        : 0;
+
+    let currentGrossRent = unitMix.reduce((acc, unit) => acc + (unit.count * unit.rent), 0) * 12;
+    let currentPropertyValue = values.arv;
+    let currentLoanBalance = loanAmount;
+    
+    for (let year = 1; year <= 10; year++) {
+        const currentOtherIncome = otherIncomes?.reduce((acc, item) => {
+            if (item.type === 'fixed') return acc + item.amount * 12;
+            return acc + (currentGrossRent * (item.amount / 100));
+        }, 0) || 0;
+        
+        const grossPotentialRent = currentGrossRent + currentOtherIncome;
+        const vacancyLoss = grossPotentialRent * (vacancy / 100);
+        const effectiveGrossIncome = grossPotentialRent - vacancyLoss;
+
+        const currentOpEx = operatingExpenses?.reduce((acc, item) => {
+            if (item.type === 'fixed') return acc + item.amount * 12;
+            return acc + (effectiveGrossIncome * (item.amount / 100));
+        }, 0) || 0;
+        
+        const currentCapEx = capitalExpenditures?.reduce((acc, item) => {
+            if (item.type === 'fixed') return acc + item.amount; // Assume annual for fixed
+            return acc + (effectiveGrossIncome * (item.amount / 100));
+        }, 0) || 0;
+        
+        const totalExpenses = currentOpEx + currentCapEx;
+        const noi = effectiveGrossIncome - totalExpenses;
+
+        let yearEndLoanBalance = currentLoanBalance;
+        if(monthlyInterestRate > 0 && yearEndLoanBalance > 0) {
+            for (let i = 0; i < 12; i++) {
+                const interestPayment = yearEndLoanBalance * monthlyInterestRate;
+                const principalPayment = (debtService / 12) - interestPayment;
+                yearEndLoanBalance -= principalPayment;
+            }
+        } else {
+            yearEndLoanBalance = 0;
+        }
+
+        proForma.push({
+            year,
+            grossPotentialRent,
+            vacancyLoss,
+            effectiveGrossIncome,
+            operatingExpenses: totalExpenses,
+            noi,
+            debtService,
+            cashFlowBeforeTax: noi - debtService,
+            propertyValue: currentPropertyValue,
+            loanBalance: yearEndLoanBalance > 0 ? yearEndLoanBalance : 0,
+            equity: currentPropertyValue - (yearEndLoanBalance > 0 ? yearEndLoanBalance : 0),
+        });
+        
+        currentGrossRent *= (1 + annualIncomeGrowth / 100);
+        currentPropertyValue *= (1 + annualAppreciation / 100);
+        currentLoanBalance = yearEndLoanBalance;
+    }
+
+    return proForma;
+};
+
 
 const LineItemInput = ({ control, name, formLabel, fieldLabel, placeholder }: { control: any, name: any, formLabel: string, fieldLabel: string, placeholder: string }) => {
     const { fields, append, remove } = useFieldArray({ control, name });
@@ -66,17 +154,17 @@ const LineItemInput = ({ control, name, formLabel, fieldLabel, placeholder }: { 
         <div>
             <FormLabel>{formLabel}</FormLabel>
             {fields.map((field, index) => (
-                <div key={field.id} className="grid grid-cols-[2fr,1fr,auto] gap-2 items-end mt-2">
+                <div key={field.id} className="grid grid-cols-[2fr,1fr,1fr,auto] gap-2 items-end mt-2">
                     <FormField control={control} name={`${name}.${index}.name`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">{fieldLabel}</FormLabel><FormControl><Input placeholder={placeholder} {...field} /></FormControl> </FormItem> )} />
-                    <FormField control={control} name={`${name}.${index}.amount`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Amount ($/mo)</FormLabel><FormControl><Input type="number" {...field} /></FormControl> </FormItem> )} />
+                    <FormField control={control} name={`${name}.${index}.amount`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Amount</FormLabel><FormControl><Input type="number" {...field} /></FormControl> </FormItem> )} />
+                    <FormField control={control} name={`${name}.${index}.type`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Type</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="fixed">$</SelectItem><SelectItem value="percent">%</SelectItem></SelectContent></Select></FormItem> )} />
                     <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
                 </div>
             ))}
-            <Button type="button" size="sm" variant="outline" onClick={() => append({ name: '', amount: 0 })} className="mt-2 flex items-center gap-1"> <Plus size={16} /> Add Item </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => append({ name: '', amount: 0, type: 'percent' })} className="mt-2 flex items-center gap-1"> <Plus size={16} /> Add Item </Button>
         </div>
     );
 };
-
 
 interface CommercialCalculatorProps {
     deal?: Deal;
@@ -99,7 +187,9 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
       dscr: number;
       totalInvestment: number;
       chartData: any[];
+      proFormaData: ProFormaEntry[];
   } | null>(null);
+
    const userProfileRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(firestore, 'users', user.uid);
@@ -113,8 +203,11 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
         ...deal,
         unitMix: deal.unitMix || [{type: 'Unit', count: 1, rent: deal.grossMonthlyIncome || 0}],
         operatingExpenses: deal.operatingExpenses || [],
-        capitalExpenditures: [{ name: 'Rehab/CapEx', amount: deal.rehabCost || 0}],
+        capitalExpenditures: [{ name: 'CapEx Reserves', amount: 5, type: 'percent' }],
         otherIncomes: deal.otherIncomes || [],
+        annualIncomeGrowth: deal.annualIncomeGrowth || 3,
+        annualExpenseGrowth: deal.annualExpenseGrowth || 2,
+        annualAppreciation: deal.annualAppreciation || 3,
     } : {
       dealName: 'My Commercial Deal',
       purchasePrice: 1000000,
@@ -126,8 +219,16 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
       vacancy: 7,
       unitMix: [{type: 'Residential Unit', count: 10, rent: 1000}],
       otherIncomes: [],
-      operatingExpenses: [],
-      capitalExpenditures: [{name: 'Initial Rehab', amount: 50000}],
+      operatingExpenses: [
+        {name: 'Property Taxes', amount: 8, type: 'percent'},
+        {name: 'Insurance', amount: 2.5, type: 'percent'},
+        {name: 'Maintenance', amount: 4, type: 'percent'},
+        {name: 'Management Fee', amount: 5, type: 'percent'},
+      ],
+      capitalExpenditures: [{name: 'Replacement Reserves', amount: 5, type: 'percent'}],
+      annualIncomeGrowth: 3,
+      annualExpenseGrowth: 2,
+      annualAppreciation: 3,
     },
   });
   
@@ -138,46 +239,30 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
 
 
   const handleAnalysis = (data: FormData) => {
-    const totalMonthlyUnitIncome = data.unitMix.reduce((acc, unit) => acc + unit.count * unit.rent, 0);
-    const totalOtherMonthlyIncome = data.otherIncomes?.reduce((acc, item) => acc + item.amount, 0) || 0;
-    const grossMonthlyIncome = totalMonthlyUnitIncome + totalOtherMonthlyIncome;
+    const proForma = calculateProForma(data);
+    const year1 = proForma[0] || {};
     
-    const annualGrossIncome = grossMonthlyIncome * 12;
-    const vacancyLoss = annualGrossIncome * (data.vacancy / 100);
-    const effectiveGrossIncome = annualGrossIncome - vacancyLoss;
-    
-    const totalMonthlyOpEx = data.operatingExpenses?.reduce((acc, item) => acc + item.amount, 0) || 0;
-    const totalOpEx = totalMonthlyOpEx * 12;
-    
-    const noi = effectiveGrossIncome - totalOpEx;
+    const grossMonthlyIncome = data.unitMix.reduce((acc, unit) => acc + unit.count * unit.rent, 0);
 
-    const loanAmount = data.purchasePrice - data.downPayment;
-    const monthlyInterestRate = data.interestRate / 100 / 12;
-    const numberOfPayments = data.loanTerm * 12;
-    const debtService = numberOfPayments > 0 && monthlyInterestRate > 0 ?
-        (loanAmount * (monthlyInterestRate * Math.pow(1 + monthlyInterestRate, numberOfPayments))) / (Math.pow(1 + monthlyInterestRate, numberOfPayments) - 1) * 12
-        : 0;
+    const initialCapexCost = data.capitalExpenditures?.reduce((acc, item) => item.type === 'fixed' ? acc + item.amount : acc, 0) || 0;
 
-    const cashFlowBeforeTax = noi - debtService;
-    const monthlyCashFlow = cashFlowBeforeTax / 12;
+    const totalInvestment = data.downPayment + (data.purchasePrice * (data.closingCosts / 100)) + initialCapexCost;
     
-    const rehabCost = data.capitalExpenditures?.reduce((acc, item) => acc + item.amount, 0) || 0;
-    const totalInvestment = data.downPayment + (data.purchasePrice * (data.closingCosts / 100)) + rehabCost;
-    const cocReturn = totalInvestment > 0 ? (cashFlowBeforeTax / totalInvestment) * 100 : 0;
-    
-    const capRateOnARV = data.arv > 0 ? (noi / data.arv) * 100 : 0;
-    
-    const dscr = debtService > 0 ? (noi / debtService) : Infinity;
+    const noi = year1.noi || 0;
+    const monthlyCashFlow = (year1.cashFlowBeforeTax || 0) / 12;
+    const cocReturn = totalInvestment > 0 ? ((year1.cashFlowBeforeTax || 0) / totalInvestment) * 100 : 0;
+    const capRate = data.purchasePrice > 0 ? (noi / data.purchasePrice) * 100 : 0;
+    const dscr = (year1.debtService || 0) > 0 ? (noi / (year1.debtService || 1)) : Infinity;
 
     const breakdownChartData = [
         { name: 'Income', value: grossMonthlyIncome, fill: 'hsl(var(--primary))' },
-        { name: 'OpEx', value: totalMonthlyOpEx, fill: 'hsl(var(--chart-5))' },
-        { name: 'Mortgage', value: debtService / 12, fill: 'hsl(var(--chart-3))' },
+        { name: 'OpEx', value: (year1.operatingExpenses || 0) / 12, fill: 'hsl(var(--chart-5))' },
+        { name: 'Mortgage', value: (year1.debtService || 0) / 12, fill: 'hsl(var(--chart-3))' },
         { name: 'Cash Flow', value: monthlyCashFlow > 0 ? monthlyCashFlow : 0, fill: 'hsl(var(--success))' },
     ];
 
 
-    setAnalysisResult({ monthlyCashFlow, cocReturn, capRate: capRateOnARV, noi, chartData: breakdownChartData, dscr, totalInvestment });
+    setAnalysisResult({ monthlyCashFlow, cocReturn, capRate, noi, chartData: breakdownChartData, dscr, totalInvestment, proFormaData: proForma });
   };
   
    const handleSaveDeal = async () => {
@@ -209,10 +294,10 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
     const formValues = form.getValues();
     const dealId = isEditMode && deal ? deal.id : doc(collection(firestore, `users/${user.uid}/deals`)).id;
 
-    const grossMonthlyIncome = (formValues.unitMix.reduce((acc, unit) => acc + unit.count * unit.rent, 0)) + (formValues.otherIncomes?.reduce((acc, item) => acc + item.amount, 0) || 0);
-    const rehabCost = formValues.capitalExpenditures?.reduce((acc, item) => acc + item.amount, 0) || 0;
+    const grossMonthlyIncome = (formValues.unitMix.reduce((acc, unit) => acc + unit.count * unit.rent, 0));
+    const rehabCost = formValues.capitalExpenditures?.reduce((acc, item) => item.type === 'fixed' ? acc + item.amount : acc, 0) || 0;
 
-    const dealData = {
+    const dealData: Partial<Deal> = {
       ...formValues,
       id: dealId,
       dealType: 'Commercial Multifamily' as const,
@@ -274,18 +359,28 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
         <form onSubmit={form.handleSubmit(handleAnalysis)}>
             <CardContent className="space-y-6">
                 <div className="grid md:grid-cols-2 gap-6">
-                     <Card>
-                      <CardHeader><CardTitle className="text-lg font-headline">Purchase & Loan</CardTitle></CardHeader>
-                      <CardContent className="space-y-4">
-                          <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.1" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="arv" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>After-Repair Value</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.01" {...field}/></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan Term (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                      </CardContent>
-                  </Card>
+                    <div className="space-y-4">
+                        <Card>
+                            <CardHeader><CardTitle className="text-lg font-headline">Purchase & Loan</CardTitle></CardHeader>
+                            <CardContent className="space-y-4">
+                                <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.1" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                <FormField name="arv" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>After-Repair Value</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.01" {...field}/></FormControl> <FormMessage /> </FormItem> )} />
+                                <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan Term (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                            </CardContent>
+                        </Card>
+                         <Card>
+                            <CardHeader><CardTitle className="text-lg font-headline">Projections</CardTitle></CardHeader>
+                            <CardContent className="grid grid-cols-3 gap-4">
+                                <FormField name="annualIncomeGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Income Growth</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                <FormField name="annualExpenseGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Expense Growth</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                <FormField name="annualAppreciation" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Appreciation</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                            </CardContent>
+                        </Card>
+                    </div>
                    <Card>
                       <CardHeader><CardTitle className="text-lg font-headline">Income & Expenses</CardTitle></CardHeader>
                       <CardContent className="space-y-4">
@@ -302,26 +397,24 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                                 <Button type="button" size="sm" variant="outline" onClick={() => appendUnit({type: '', count: 1, rent: 0})} className="mt-2 flex items-center gap-1"><Plus size={16}/> Add Unit Type</Button>
                             </div>
                            <LineItemInput control={form.control} name="otherIncomes" formLabel="Other Income" fieldLabel="Income Source" placeholder="e.g., Laundry" />
-                           <LineItemInput control={form.control} name="operatingExpenses" formLabel="Operating Expenses (Monthly)" fieldLabel="Expense Item" placeholder="e.g., Taxes" />
-                           <LineItemInput control={form.control} name="capitalExpenditures" formLabel="Capital Expenditures (One-Time)" fieldLabel="CapEx Item" placeholder="e.g., Roof" />
+                           <LineItemInput control={form.control} name="operatingExpenses" formLabel="Operating Expenses" fieldLabel="Expense Item" placeholder="e.g., Taxes" />
+                           <LineItemInput control={form.control} name="capitalExpenditures" formLabel="Capital Expenditures" fieldLabel="CapEx Item" placeholder="e.g., Roof" />
                            <FormField name="vacancy" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Vacancy</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                       </CardContent>
                   </Card>
                 </div>
                 {analysisResult && (
-                    <div className="mt-6">
+                    <div className="mt-6 space-y-6">
                         <Card>
                             <CardHeader><CardTitle className="text-lg font-headline">Key Metrics & Breakdown</CardTitle></CardHeader>
                             <CardContent className="grid md:grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                        <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">Cap Rate (ARV)</p> <p className={cn("text-2xl font-bold", getMetricColor(analysisResult.capRate, 'cap'))}>{analysisResult.capRate.toFixed(2)}%</p> </div>
-                                        <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">CoC Return (Y1)</p> <p className={cn("text-2xl font-bold", getMetricColor(analysisResult.cocReturn, 'coc'))}>{analysisResult.cocReturn.toFixed(2)}%</p> </div>
-                                        <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className={cn("text-2xl font-bold", getMetricColor(analysisResult.monthlyCashFlow, 'cashflow'))}>${analysisResult.monthlyCashFlow.toFixed(2)}</p> </div>
-                                        <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="text-xl font-bold">${analysisResult.noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
-                                        <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">DSCR</p> <p className={cn("text-2xl font-bold", getMetricColor(analysisResult.dscr, 'dscr'))}>{isFinite(analysisResult.dscr) ? `${analysisResult.dscr.toFixed(2)}x` : 'N/A'}</p> </div>
-                                        <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">Total Investment</p> <p className="text-xl font-bold">${analysisResult.totalInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
-                                    </div>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                    <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">Cap Rate (Purchase)</p> <p className={cn("text-2xl font-bold", getMetricColor(analysisResult.capRate, 'cap'))}>{analysisResult.capRate.toFixed(2)}%</p> </div>
+                                    <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">CoC Return (Y1)</p> <p className={cn("text-2xl font-bold", getMetricColor(analysisResult.cocReturn, 'coc'))}>{analysisResult.cocReturn.toFixed(2)}%</p> </div>
+                                    <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className={cn("text-2xl font-bold", getMetricColor(analysisResult.monthlyCashFlow, 'cashflow'))}>${analysisResult.monthlyCashFlow.toFixed(2)}</p> </div>
+                                    <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="text-xl font-bold">${analysisResult.noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
+                                    <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">DSCR</p> <p className={cn("text-2xl font-bold", getMetricColor(analysisResult.dscr, 'dscr'))}>{isFinite(analysisResult.dscr) ? `${analysisResult.dscr.toFixed(2)}x` : 'N/A'}</p> </div>
+                                    <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">Total Investment</p> <p className="text-xl font-bold">${analysisResult.totalInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
                                 </div>
                                 <div className="h-[250px] w-full pt-4">
                                     <ResponsiveContainer width="100%" height="100%">
@@ -340,6 +433,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                                 </div>
                             </CardContent>
                         </Card>
+                        <ProFormaTable data={analysisResult.proFormaData} />
                     </div>
                   )}
             </CardContent>
