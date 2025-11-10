@@ -58,6 +58,7 @@ import { Label } from '../ui/label';
 const unitMixSchema = z.object({
   type: z.string().min(1, "Unit type is required"),
   count: z.coerce.number().min(0),
+  sqft: z.coerce.number().min(0).optional(),
   rent: z.coerce.number().min(0),
 });
 
@@ -68,6 +69,7 @@ const lineItemSchema = z.object({
 
 const formSchema = z.object({
   dealName: z.string().min(3, 'Please enter a name for the deal.'),
+  
   // Acquisition
   purchasePrice: z.coerce.number().min(1),
   closingCosts: z.coerce.number().min(0),
@@ -85,13 +87,16 @@ const formSchema = z.object({
   downPayment: z.coerce.number().min(0),
   interestRate: z.coerce.number().min(0).max(100),
   loanTerm: z.coerce.number().int().min(1),
+  amortizationPeriod: z.coerce.number().int().min(1),
+  interestOnlyPeriod: z.coerce.number().int().min(0),
+
 
   // Projections
   annualIncomeGrowth: z.coerce.number().min(0).max(100),
   annualExpenseGrowth: z.coerce.number().min(0).max(100),
   annualAppreciation: z.coerce.number().min(0).max(100),
   sellingCosts: z.coerce.number().min(0).max(100),
-  holdingLength: z.coerce.number().int().min(1).max(10),
+  holdingLength: z.coerce.number().int().min(1).max(30),
   exitCapRate: z.coerce.number().min(0).max(100),
 
   marketConditions: z.string().optional(),
@@ -133,18 +138,20 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
     const proForma: ProFormaEntry[] = [];
     const combinedValues = { ...values, ...sensitivityOverrides };
     const {
-        purchasePrice, rehabCost = 0, closingCosts = 0, downPayment, interestRate, loanTerm,
+        purchasePrice, rehabCost = 0, closingCosts = 0, downPayment, interestRate, loanTerm, amortizationPeriod, interestOnlyPeriod,
         unitMix, otherIncomes, operatingExpenses, vacancyRate,
         annualIncomeGrowth, annualExpenseGrowth, annualAppreciation
     } = combinedValues;
 
-    if (!purchasePrice || !downPayment || !loanTerm) return [];
+    if (!purchasePrice || !downPayment || !amortizationPeriod) return [];
 
     const loanAmount = purchasePrice - downPayment;
     const monthlyInterestRate = interestRate / 100 / 12;
-    const numberOfPayments = loanTerm * 12;
-    const debtService = numberOfPayments > 0 && monthlyInterestRate > 0 ?
-        (loanAmount * (monthlyInterestRate * Math.pow(1 + monthlyInterestRate, numberOfPayments))) / (Math.pow(1 + monthlyInterestRate, numberOfPayments) - 1) * 12
+    const numberOfPayments = amortizationPeriod * 12;
+    
+    // Calculate P&I payment based on amortization period
+    const principalAndInterestPayment = numberOfPayments > 0 && monthlyInterestRate > 0 ?
+        (loanAmount * (monthlyInterestRate * Math.pow(1 + monthlyInterestRate, numberOfPayments))) / (Math.pow(1 + monthlyInterestRate, numberOfPayments) - 1)
         : 0;
 
     let currentGrossRent = unitMix.reduce((acc: number, unit: { count: number; rent: number; }) => acc + (unit.count * unit.rent * 12), 0);
@@ -156,22 +163,28 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
     let currentPropertyValue = purchasePrice + rehabCost;
     let currentLoanBalance = loanAmount;
     
-    for (let year = 1; year <= 10; year++) {
+    for (let year = 1; year <= Math.max(values.holdingLength, 10); year++) {
+        let annualDebtService = 0;
+        let yearEndLoanBalance = currentLoanBalance;
+
+        for (let month = 1; month <= 12; month++) {
+            const currentMonthInLoan = (year - 1) * 12 + month;
+            const interestPayment = yearEndLoanBalance * monthlyInterestRate;
+
+            if (currentMonthInLoan <= interestOnlyPeriod * 12) {
+                annualDebtService += interestPayment;
+                // No principal reduction during I/O period
+            } else {
+                const principalPayment = principalAndInterestPayment - interestPayment;
+                annualDebtService += principalAndInterestPayment;
+                yearEndLoanBalance -= principalPayment;
+            }
+        }
+        
         const grossPotentialRent = currentGrossRent + currentOtherIncome;
         const vacancyLoss = grossPotentialRent * (vacancyRate / 100);
         const effectiveGrossIncome = grossPotentialRent - vacancyLoss;
         const noi = effectiveGrossIncome - currentOpEx;
-
-        let yearEndLoanBalance = currentLoanBalance;
-        if(monthlyInterestRate > 0) {
-            for (let i = 0; i < 12; i++) {
-                const interestPayment = yearEndLoanBalance * monthlyInterestRate;
-                const principalPayment = (debtService / 12) - interestPayment;
-                yearEndLoanBalance -= principalPayment;
-            }
-        } else {
-            yearEndLoanBalance = 0;
-        }
 
         proForma.push({
             year,
@@ -180,8 +193,8 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
             effectiveGrossIncome,
             operatingExpenses: currentOpEx,
             noi,
-            debtService,
-            cashFlowBeforeTax: noi - debtService,
+            debtService: annualDebtService,
+            cashFlowBeforeTax: noi - annualDebtService,
             propertyValue: currentPropertyValue,
             loanBalance: yearEndLoanBalance > 0 ? yearEndLoanBalance : 0,
             equity: currentPropertyValue - (yearEndLoanBalance > 0 ? yearEndLoanBalance : 0),
@@ -254,31 +267,39 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
     resolver: zodResolver(formSchema),
     defaultValues: isEditMode && deal?.isAdvanced ? deal : {
       dealName: 'Advanced Commercial Center',
+      // Acquisition
       purchasePrice: 5000000,
       closingCosts: 2,
       rehabCost: 250000,
+      // Income
       unitMix: [
-        { type: 'Studio', count: 10, rent: 1200 },
-        { type: '1BR', count: 20, rent: 1600 },
-        { type: '2BR', count: 10, rent: 2200 },
+        { type: 'Studio', count: 10, rent: 1200, sqft: 500 },
+        { type: '1BR', count: 20, rent: 1600, sqft: 750 },
+        { type: '2BR', count: 10, rent: 2200, sqft: 1000 },
       ],
       otherIncomes: [{name: 'Laundry', amount: 500}],
+      vacancyRate: 5,
+      // Expenses
       operatingExpenses: [
         {name: 'Property Taxes', amount: 4000},
         {name: 'Insurance', amount: 1500},
         {name: 'Repairs & Maintenance', amount: 2500},
         {name: 'Management Fee', amount: 3500},
       ],
-      vacancyRate: 5,
+      // Financing
       downPayment: 1250000,
       interestRate: 7.5,
-      loanTerm: 30,
+      loanTerm: 10,
+      amortizationPeriod: 30,
+      interestOnlyPeriod: 2,
+      // Projections
       annualIncomeGrowth: 3,
       annualExpenseGrowth: 2,
       annualAppreciation: 4,
-      sellingCosts: 5,
       holdingLength: 10,
+      sellingCosts: 5,
       exitCapRate: 5.5,
+      // Meta
       marketConditions: 'Analyze this deal using advanced metrics. Consider value-add opportunities by renovating 10 units in Year 2 for a 20% rent premium. What would the IRR and Equity Multiple be over a 10 year hold?',
       isAdvanced: true,
     },
@@ -552,25 +573,29 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                         <TabsContent value="assumptions" className="mt-6">
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 <div className="space-y-6">
-                                    <Card>
-                                        <CardHeader><CardTitle>Acquisition & Rehab</CardTitle></CardHeader>
-                                        <CardContent className="grid grid-cols-2 gap-4">
-                                            <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                            <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                            <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                            <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Rehab & Initial Costs</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                    <Card className="border-primary/20">
+                                        <CardHeader><CardTitle className="font-headline text-primary">Acquisition & Rehab</CardTitle></CardHeader>
+                                        <CardContent className="space-y-4">
+                                            <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                                <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                            </div>
+                                            <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Rehab & Initial Costs</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                         </CardContent>
                                     </Card>
-                                    <Card>
-                                        <CardHeader><CardTitle>Financing</CardTitle></CardHeader>
-                                        <CardContent className="grid grid-cols-3 gap-4">
+                                     <Card className="border-primary/20">
+                                        <CardHeader><CardTitle className="font-headline text-primary">Financing</CardTitle></CardHeader>
+                                        <CardContent className="grid grid-cols-2 gap-4">
                                             <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                             <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                             <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan Term (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                            <FormField name="amortizationPeriod" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Amortization (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                            <FormField name="interestOnlyPeriod" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Interest-Only Period (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                         </CardContent>
                                     </Card>
-                                    <Card>
-                                        <CardHeader><CardTitle>Projections & Exit</CardTitle></CardHeader>
+                                    <Card className="border-primary/20">
+                                        <CardHeader><CardTitle className="font-headline text-primary">Projections & Exit</CardTitle></CardHeader>
                                         <CardContent className="grid grid-cols-3 gap-4">
                                             <FormField name="holdingLength" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Hold (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                             <FormField name="annualIncomeGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Income Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -582,27 +607,28 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                     </Card>
                                 </div>
                                 <div className="space-y-6">
-                                    <Card>
-                                        <CardHeader><CardTitle>Income</CardTitle></CardHeader>
+                                     <Card className="border-primary/20">
+                                        <CardHeader><CardTitle className="font-headline text-primary">Income</CardTitle></CardHeader>
                                         <CardContent className="space-y-4">
                                             <div>
                                                 <FormLabel>Unit Mix</FormLabel>
                                                 <FormDescription className="text-xs">Define the number of units and average rent for each type.</FormDescription>
                                                 {unitMixFields.map((field, index) => (
-                                                    <div key={field.id} className="grid grid-cols-[1fr,1fr,1fr,auto] gap-2 items-end mt-2">
+                                                    <div key={field.id} className="grid grid-cols-[1fr,1fr,1fr,1fr,auto] gap-2 items-end mt-2">
                                                     <FormField control={form.control} name={`unitMix.${index}.type`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Type</FormLabel><FormControl><Input placeholder="e.g., 2BR" {...field} /></FormControl> </FormItem> )} />
                                                     <FormField control={form.control} name={`unitMix.${index}.count`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs"># Units</FormLabel><FormControl><Input type="number" {...field} /></FormControl> </FormItem> )} />
+                                                    <FormField control={form.control} name={`unitMix.${index}.sqft`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Sq.Ft.</FormLabel><FormControl><Input type="number" {...field} /></FormControl> </FormItem> )} />
                                                     <FormField control={form.control} name={`unitMix.${index}.rent`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Avg. Rent</FormLabel><FormControl><InputWithIcon icon={<DollarSign size={14}/>} type="number" {...field} /></FormControl> </FormItem> )} />
                                                     <Button type="button" variant="ghost" size="icon" onClick={() => removeUnit(index)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
                                                     </div>
                                                 ))}
-                                                <Button type="button" size="sm" variant="outline" onClick={() => appendUnit({type: '', count: 0, rent: 0})} className="mt-2 flex items-center gap-1"><Plus size={16}/> Add Unit Type</Button>
+                                                <Button type="button" size="sm" variant="outline" onClick={() => appendUnit({type: '', count: 0, rent: 0, sqft: 0})} className="mt-2 flex items-center gap-1"><Plus size={16}/> Add Unit Type</Button>
                                             </div>
                                             <LineItemInput control={form.control} name="otherIncomes" formLabel="Other Income" fieldLabel="Income Source" placeholder="e.g., Laundry, Parking" icon={<DollarSign size={14}/>} />
                                         </CardContent>
                                     </Card>
-                                    <Card>
-                                        <CardHeader><CardTitle>Operating Expenses</CardTitle></CardHeader>
+                                    <Card className="border-primary/20">
+                                        <CardHeader><CardTitle className="font-headline text-primary">Operating Expenses</CardTitle></CardHeader>
                                         <CardContent className="space-y-4">
                                             <LineItemInput control={form.control} name="operatingExpenses" formLabel="Recurring Monthly Expenses" fieldLabel="Expense Item" placeholder="e.g., Property Tax, Insurance" icon={<DollarSign size={14}/>} />
                                             <FormField name="vacancyRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Vacancy Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -727,6 +753,3 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
         </CardContent>
     );
 }
-
-
-    
