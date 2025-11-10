@@ -1,11 +1,10 @@
 
 'use client';
 
-import { useState, useMemo, useTransition, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { getDealAssessment } from '@/lib/actions';
 import {
   Card,
   CardContent,
@@ -17,7 +16,6 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -25,9 +23,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Sparkles, BarChart2, DollarSign, Percent, Trash2, Plus, Loader2 } from 'lucide-react';
-import { Skeleton } from '../ui/skeleton';
 import {
   ResponsiveContainer,
   BarChart,
@@ -42,41 +38,44 @@ import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, 
 import { collection, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
-import { ProFormaTable } from './pro-forma-table';
-import type { ProFormaEntry, Deal, UserProfile, LineItem, UnitMixItem } from '@/lib/types';
-import { Switch } from '@/components/ui/switch';
-import AdvancedCommercialCalculator from './advanced-commercial-calculator';
-import { Label } from '@/components/ui/label';
+import type { Deal, UserProfile, LineItem, UnitMixItem } from '@/lib/types';
+
 
 const formSchema = z.object({
   dealName: z.string().min(3, 'Please enter a name for the deal.'),
   purchasePrice: z.coerce.number().min(0),
   closingCosts: z.coerce.number().min(0),
-  rehabCost: z.coerce.number().min(0),
   arv: z.coerce.number().min(0),
   downPayment: z.coerce.number().min(0),
   interestRate: z.coerce.number().min(0).max(100),
   loanTerm: z.coerce.number().int().min(1),
-  grossMonthlyIncome: z.coerce.number().min(0),
-  propertyTaxes: z.coerce.number().min(0),
-  insurance: z.coerce.number().min(0),
-  repairsAndMaintenance: z.coerce.number().min(0),
   vacancy: z.coerce.number().min(0).max(100),
-  capitalExpenditures: z.coerce.number().min(0),
-  managementFee: z.coerce.number().min(0).max(100),
-  otherExpenses: z.coerce.number().min(0),
-  annualIncomeGrowth: z.coerce.number().min(0).max(100),
-  annualExpenseGrowth: z.coerce.number().min(0).max(100),
-  annualAppreciation: z.coerce.number().min(0).max(100),
-  holdingLength: z.coerce.number().int().min(1).max(30),
-  sellingCosts: z.coerce.number().min(0).max(100),
+  unitMix: z.array(z.object({ type: z.string().min(1), count: z.coerce.number().min(0), rent: z.coerce.number().min(0) })).min(1, 'At least one unit type is required.'),
+  otherIncomes: z.array(z.object({ name: z.string().min(1), amount: z.coerce.number().min(0) })).optional(),
+  operatingExpenses: z.array(z.object({ name: z.string().min(1), amount: z.coerce.number().min(0) })).optional(),
+  capitalExpenditures: z.array(z.object({ name: z.string().min(1), amount: z.coerce.number().min(0) })).optional(),
   marketConditions: z.string().optional(),
-  unitMix: z.array(z.object({ type: z.string(), count: z.coerce.number(), rent: z.coerce.number() })).optional(),
-  otherIncomes: z.array(z.object({ name: z.string(), amount: z.coerce.number() })).optional(),
-  operatingExpenses: z.array(z.object({ name: z.string(), amount: z.coerce.number() })).optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
+
+const LineItemInput = ({ control, name, formLabel, fieldLabel, placeholder }: { control: any, name: any, formLabel: string, fieldLabel: string, placeholder: string }) => {
+    const { fields, append, remove } = useFieldArray({ control, name });
+    return (
+        <div>
+            <FormLabel>{formLabel}</FormLabel>
+            {fields.map((field, index) => (
+                <div key={field.id} className="grid grid-cols-[2fr,1fr,auto] gap-2 items-end mt-2">
+                    <FormField control={control} name={`${name}.${index}.name`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">{fieldLabel}</FormLabel><FormControl><Input placeholder={placeholder} {...field} /></FormControl> </FormItem> )} />
+                    <FormField control={control} name={`${name}.${index}.amount`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Amount ($/mo)</FormLabel><FormControl><Input type="number" {...field} /></FormControl> </FormItem> )} />
+                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
+                </div>
+            ))}
+            <Button type="button" size="sm" variant="outline" onClick={() => append({ name: '', amount: 0 })} className="mt-2 flex items-center gap-1"> <Plus size={16} /> Add Item </Button>
+        </div>
+    );
+};
+
 
 interface CommercialCalculatorProps {
     deal?: Deal;
@@ -107,38 +106,45 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: isEditMode && deal && !deal.isAdvanced ? deal : {
+    defaultValues: isEditMode && deal && !deal.isAdvanced ? {
+        ...deal,
+        unitMix: deal.unitMix || [{type: 'Unit', count: 1, rent: deal.grossMonthlyIncome || 0}],
+        operatingExpenses: deal.operatingExpenses || [],
+        capitalExpenditures: [{ name: 'Rehab/CapEx', amount: deal.rehabCost || 0}],
+        otherIncomes: deal.otherIncomes || [],
+    } : {
       dealName: 'My Commercial Deal',
       purchasePrice: 1000000,
       closingCosts: 3,
-      rehabCost: 50000,
       arv: 1200000,
       downPayment: 250000,
       interestRate: 7,
       loanTerm: 30,
-      grossMonthlyIncome: 10000,
       vacancy: 7,
-      propertyTaxes: 15,
-      insurance: 5,
-      repairsAndMaintenance: 8,
-      managementFee: 5,
-      otherExpenses: 2,
-      capitalExpenditures: 0,
-      annualIncomeGrowth: 0,
-      annualExpenseGrowth: 0,
-      annualAppreciation: 0,
-      holdingLength: 10,
-      sellingCosts: 5,
+      unitMix: [{type: 'Residential Unit', count: 10, rent: 1000}],
+      otherIncomes: [],
+      operatingExpenses: [],
+      capitalExpenditures: [{name: 'Initial Rehab', amount: 50000}],
     },
   });
+  
+  const { fields: unitMixFields, append: appendUnit, remove: removeUnit } = useFieldArray({
+    control: form.control,
+    name: 'unitMix',
+  });
+
 
   const handleAnalysis = (data: FormData) => {
-    const annualGrossIncome = data.grossMonthlyIncome * 12;
+    const totalMonthlyUnitIncome = data.unitMix.reduce((acc, unit) => acc + unit.count * unit.rent, 0);
+    const totalOtherMonthlyIncome = data.otherIncomes?.reduce((acc, item) => acc + item.amount, 0) || 0;
+    const grossMonthlyIncome = totalMonthlyUnitIncome + totalOtherMonthlyIncome;
+    
+    const annualGrossIncome = grossMonthlyIncome * 12;
     const vacancyLoss = annualGrossIncome * (data.vacancy / 100);
     const effectiveGrossIncome = annualGrossIncome - vacancyLoss;
     
-    const totalOpExPercent = data.propertyTaxes + data.insurance + data.repairsAndMaintenance + data.managementFee + data.otherExpenses;
-    const totalOpEx = effectiveGrossIncome * (totalOpExPercent / 100);
+    const totalMonthlyOpEx = data.operatingExpenses?.reduce((acc, item) => acc + item.amount, 0) || 0;
+    const totalOpEx = totalMonthlyOpEx * 12;
     
     const noi = effectiveGrossIncome - totalOpEx;
 
@@ -152,14 +158,15 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
     const cashFlowBeforeTax = noi - debtService;
     const monthlyCashFlow = cashFlowBeforeTax / 12;
     
-    const totalInvestment = data.downPayment + (data.purchasePrice * (data.closingCosts / 100)) + data.rehabCost;
+    const rehabCost = data.capitalExpenditures?.reduce((acc, item) => acc + item.amount, 0) || 0;
+    const totalInvestment = data.downPayment + (data.purchasePrice * (data.closingCosts / 100)) + rehabCost;
     const cocReturn = totalInvestment > 0 ? (cashFlowBeforeTax / totalInvestment) * 100 : 0;
     
     const capRateOnARV = data.arv > 0 ? (noi / data.arv) * 100 : 0;
     
     const breakdownChartData = [
-        { name: 'Income', value: data.grossMonthlyIncome, fill: 'hsl(var(--primary))' },
-        { name: 'Expenses', value: totalOpEx / 12, fill: 'hsl(var(--chart-5))' },
+        { name: 'Income', value: grossMonthlyIncome, fill: 'hsl(var(--primary))' },
+        { name: 'OpEx', value: totalMonthlyOpEx, fill: 'hsl(var(--chart-5))' },
         { name: 'Mortgage', value: debtService / 12, fill: 'hsl(var(--chart-3))' },
         { name: 'Cash Flow', value: monthlyCashFlow > 0 ? monthlyCashFlow : 0, fill: 'hsl(var(--success))' },
     ];
@@ -197,10 +204,15 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
     const formValues = form.getValues();
     const dealId = isEditMode && deal ? deal.id : doc(collection(firestore, `users/${user.uid}/deals`)).id;
 
+    const grossMonthlyIncome = (formValues.unitMix.reduce((acc, unit) => acc + unit.count * unit.rent, 0)) + (formValues.otherIncomes?.reduce((acc, item) => acc + item.amount, 0) || 0);
+    const rehabCost = formValues.capitalExpenditures?.reduce((acc, item) => acc + item.amount, 0) || 0;
+
     const dealData = {
       ...formValues,
       id: dealId,
       dealType: 'Commercial Multifamily' as const,
+      grossMonthlyIncome,
+      rehabCost,
       monthlyCashFlow: parseFloat(analysisResult.monthlyCashFlow.toFixed(2)),
       cocReturn: parseFloat(analysisResult.cocReturn.toFixed(2)),
       noi: parseFloat(analysisResult.noi.toFixed(2)),
@@ -227,7 +239,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
         <div className="flex justify-between items-center">
             <div>
                  <CardTitle className="font-headline">{isEditMode ? `Editing: ${deal.dealName}` : 'Commercial Multifamily Analyzer'}</CardTitle>
-                 <CardDescription>A quick analysis tool for commercial properties. Use percentages for expense estimations.</CardDescription>
+                 <CardDescription>A quick analysis tool for commercial properties. Use monthly dollar amounts for income/expenses.</CardDescription>
             </div>
         </div>
       </CardHeader>
@@ -242,22 +254,30 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                           <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.1" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Rehab Costs</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="arv" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>After-Repair Value</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.01" {...field}/></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan Term (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                       </CardContent>
                   </Card>
                    <Card>
-                      <CardHeader><CardTitle className="text-lg font-headline">Income & Expenses (% of GMI)</CardTitle></CardHeader>
+                      <CardHeader><CardTitle className="text-lg font-headline">Income & Expenses</CardTitle></CardHeader>
                       <CardContent className="space-y-4">
-                           <FormField name="grossMonthlyIncome" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Gross Monthly Income</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                            <div>
+                                <FormLabel>Unit Mix</FormLabel>
+                                {unitMixFields.map((field, index) => (
+                                    <div key={field.id} className="grid grid-cols-[1fr,1fr,1fr,auto] gap-2 items-end mt-2">
+                                    <FormField control={form.control} name={`unitMix.${index}.type`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Type</FormLabel><FormControl><Input placeholder="e.g., 2BR" {...field} /></FormControl> </FormItem> )} />
+                                    <FormField control={form.control} name={`unitMix.${index}.count`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs"># Units</FormLabel><FormControl><Input type="number" {...field} /></FormControl> </FormItem> )} />
+                                    <FormField control={form.control} name={`unitMix.${index}.rent`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Rent/Mo</FormLabel><FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> </FormItem> )} />
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeUnit(index)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
+                                    </div>
+                                ))}
+                                <Button type="button" size="sm" variant="outline" onClick={() => appendUnit({type: '', count: 1, rent: 0})} className="mt-2 flex items-center gap-1"><Plus size={16}/> Add Unit Type</Button>
+                            </div>
+                           <LineItemInput control={form.control} name="otherIncomes" formLabel="Other Income" fieldLabel="Income Source" placeholder="e.g., Laundry" />
+                           <LineItemInput control={form.control} name="operatingExpenses" formLabel="Operating Expenses (Monthly)" fieldLabel="Expense Item" placeholder="e.g., Taxes" />
+                           <LineItemInput control={form.control} name="capitalExpenditures" formLabel="Capital Expenditures (One-Time)" fieldLabel="CapEx Item" placeholder="e.g., Roof" />
                            <FormField name="vacancy" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Vacancy</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="propertyTaxes" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Taxes</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="insurance" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Insurance</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="repairsAndMaintenance" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Maintenance</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="managementFee" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Management</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="otherExpenses" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Other Expenses</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                       </CardContent>
                   </Card>
                   {analysisResult && (
@@ -300,5 +320,3 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
     </Card>
   );
 }
-
-    
