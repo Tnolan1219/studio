@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building, DollarSign, BarChart2, TrendingUp, Handshake, Bot, TestTube2, Percent, Trash2, Plus, Info, Sparkles, SlidersHorizontal, Loader2, PiggyBank, Scale, FileText, Banknote } from 'lucide-react';
+import { Building, DollarSign, BarChart2, TrendingUp, Handshake, Bot, TestTube2, Percent, Trash2, Plus, Info, Sparkles, SlidersHorizontal, Loader2, PiggyBank, Scale, FileText, Banknote, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
 import { InputWithIcon } from '../ui/input-with-icon';
@@ -91,6 +91,7 @@ const formSchema = z.object({
   
   // Expenses
   operatingExpenses: z.array(lineItemSchema),
+  capitalExpenditures: z.array(lineItemSchema),
   vacancyRate: z.coerce.number().min(0).max(100),
   replacementReserves: z.coerce.number().min(0).optional().default(250),
   
@@ -237,15 +238,16 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
 };
 
 
-const LineItemInput = ({ control, name, formLabel, fieldLabel, placeholder, icon }: { control: any, name: any, formLabel: string, fieldLabel: string, placeholder: string, icon: React.ReactNode }) => {
+const LineItemInput = ({ control, name, formLabel, fieldLabel, placeholder, icon, description }: { control: any, name: any, formLabel: string, fieldLabel: string, placeholder: string, icon: React.ReactNode, description?: string }) => {
     const { fields, append, remove } = useFieldArray({ control, name });
     return (
         <div>
             <FormLabel>{formLabel}</FormLabel>
+            {description && <FormDescription className="text-xs">{description}</FormDescription>}
             {fields.map((field, index) => (
                 <div key={field.id} className="grid grid-cols-[1fr,1fr,auto] gap-2 items-end mt-2">
                     <FormField control={control} name={`${name}.${index}.name`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">{fieldLabel}</FormLabel><FormControl><Input placeholder={placeholder} {...field} /></FormControl> </FormItem> )} />
-                    <FormField control={control} name={`${name}.${index}.amount`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Amount (Monthly)</FormLabel><FormControl><InputWithIcon icon={icon} type="number" {...field} /></FormControl> </FormItem> )} />
+                    <FormField control={control} name={`${name}.${index}.amount`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Amount (Total)</FormLabel><FormControl><InputWithIcon icon={icon} type="number" {...field} /></FormControl> </FormItem> )} />
                     <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
                 </div>
             ))}
@@ -309,7 +311,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
       purchasePrice: 5000000,
       closingCosts: 2,
       acquisitionFee: 1,
-      rehabCost: 250000,
+      rehabCost: 0, // Will be calculated from CapEx
       // Income
       unitMix: [
         { type: 'Studio', count: 10, rent: 1200, sqft: 500 },
@@ -325,6 +327,10 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
         {name: 'Insurance', amount: 1500},
         {name: 'Repairs & Maintenance', amount: 2500},
         {name: 'Management Fee', amount: 3500},
+      ],
+      capitalExpenditures: [
+          {name: 'Interior Renovations', amount: 200000},
+          {name: 'Exterior Painting', amount: 50000},
       ],
       replacementReserves: 250,
       // Financing
@@ -361,6 +367,12 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                 const newDownPayment = purchasePrice - loanAmount;
                 if (newDownPayment !== values.downPayment) {
                     form.setValue('downPayment', newDownPayment, { shouldValidate: true });
+                }
+            }
+            if (name?.startsWith('capitalExpenditures')) {
+                const capexTotal = values.capitalExpenditures?.reduce((acc, item) => acc + item.amount, 0) || 0;
+                if (capexTotal !== values.rehabCost) {
+                    form.setValue('rehabCost', capexTotal, { shouldValidate: true });
                 }
             }
         });
@@ -736,10 +748,19 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                                     <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                                     <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <FormField name="acquisitionFee" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Acquisition Fee (%)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                                    <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Rehab & Initial Costs</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                                </div>
+                                                <FormField name="acquisitionFee" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Acquisition Fee (%)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                                <Card>
+                                                    <CardHeader className="p-4">
+                                                        <CardTitle className="text-base flex items-center gap-2"><Wrench size={16} /> Capital Expenditures</CardTitle>
+                                                    </CardHeader>
+                                                    <CardContent className="p-4 pt-0 space-y-4">
+                                                         <LineItemInput control={form.control} name="capitalExpenditures" formLabel="" fieldLabel="CapEx Item" placeholder="e.g., Roof Replacement" icon={<DollarSign size={14}/>} />
+                                                        <div className="flex justify-between items-center pt-2 border-t">
+                                                            <Label className="font-bold">Total CapEx Budget</Label>
+                                                            <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} disabled className="font-bold text-lg" /></FormControl> <FormMessage /> </FormItem> )} />
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
                                             </CardContent>
                                         </Card>
                                         <Card className="border-primary/20">
@@ -784,7 +805,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                                     ))}
                                                     <Button type="button" size="sm" variant="outline" onClick={() => appendUnit({type: '', count: 0, rent: 0, sqft: 0})} className="mt-2 flex items-center gap-1"><Plus size={16}/> Add Unit Type</Button>
                                                 </div>
-                                                <LineItemInput control={form.control} name="otherIncomes" formLabel="Other Income" fieldLabel="Income Source" placeholder="e.g., Laundry, Parking" icon={<DollarSign size={14}/>} />
+                                                <LineItemInput control={form.control} name="otherIncomes" formLabel="Other Income" fieldLabel="Income Source" placeholder="e.g., Laundry, Parking" icon={<DollarSign size={14}/>} description="Enter amounts as monthly totals." />
                                                 <FormField name="lossToLease" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loss to Lease</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl><FormDescription className="text-xs">Difference between market and actual rent.</FormDescription> <FormMessage /> </FormItem> )} />
 
                                             </CardContent>
@@ -792,7 +813,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                         <Card className="border-primary/20">
                                             <CardHeader><CardTitle className="font-headline text-primary">Operating Expenses</CardTitle></CardHeader>
                                             <CardContent className="space-y-4">
-                                                <LineItemInput control={form.control} name="operatingExpenses" formLabel="Recurring Monthly Expenses" fieldLabel="Expense Item" placeholder="e.g., Property Tax, Insurance" icon={<DollarSign size={14}/>} />
+                                                <LineItemInput control={form.control} name="operatingExpenses" formLabel="Recurring Monthly Expenses" fieldLabel="Expense Item" placeholder="e.g., Property Tax, Insurance" icon={<DollarSign size={14}/>} description="Enter amounts as monthly totals."/>
                                                 <div className='grid grid-cols-2 gap-4'>
                                                     <FormField name="vacancyRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Physical Vacancy</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                                     <FormField name="replacementReserves" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Replacement Reserves</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={14}/>} type="number" {...field} /></FormControl> <FormDescription className="text-xs">Per unit / per year amount.</FormDescription><FormMessage /> </FormItem> )} />
