@@ -637,6 +637,21 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
     const firstYearProForma = proFormaData[0] || {};
     const dscr = firstYearProForma.debtService > 0 ? (firstYearProForma.noi / firstYearProForma.debtService) : Infinity;
 
+    const getReturnColor = (value: number, type: 'irr' | 'em') => {
+        if (isNaN(value)) return 'text-muted-foreground';
+        if (type === 'irr') {
+            if (value >= 15) return 'text-success';
+            if (value >= 8) return 'text-yellow-500';
+            return 'text-destructive';
+        }
+        if (type === 'em') {
+            if (value >= 2.2) return 'text-success';
+            if (value >= 1.8) return 'text-yellow-500';
+            return 'text-destructive';
+        }
+        return 'text-foreground';
+    };
+
 
     return (
         <Card className="bg-card/60 backdrop-blur-sm">
@@ -750,27 +765,6 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                 {proFormaData.length > 0 ? (
                                     <>
                                         <ProFormaTable data={proFormaData} />
-                                        <Card>
-                                            <CardHeader>
-                                                <CardTitle className='font-headline'>Amortization & Equity Growth</CardTitle>
-                                                <CardDescription>Growth of equity versus the loan balance over time.</CardDescription>
-                                            </CardHeader>
-                                            <CardContent>
-                                                <div className='h-[350px] w-full'>
-                                                    <ResponsiveContainer width="100%" height="100%">
-                                                        <LineChart data={proFormaData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
-                                                            <CartesianGrid strokeDasharray="3 3" />
-                                                            <XAxis dataKey="year" tickFormatter={(v) => `Year ${v}`} />
-                                                            <YAxis tickFormatter={formatCurrency} />
-                                                            <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))' }} formatter={formatCurrency} />
-                                                            <Legend />
-                                                            <Line type="monotone" dataKey="equity" name="Total Equity" stroke="hsl(var(--primary))" strokeWidth={2} />
-                                                            <Line type="monotone" dataKey="loanBalance" name="Loan Balance" stroke="hsl(var(--destructive))" strokeWidth={2} />
-                                                        </LineChart>
-                                                    </ResponsiveContainer>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
                                     </>
                                 ) : (
                                     <p className="text-center text-muted-foreground p-8">Run an analysis from the Assumptions tab to see the pro forma.</p>
@@ -925,11 +919,11 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                         <CardContent className="space-y-4">
                                             <div className="p-3 rounded-lg bg-muted">
                                                 <p className="text-sm text-muted-foreground">Unlevered IRR</p>
-                                                <p className="text-xl font-bold">{unleveredIRR.toFixed(2)}%</p>
+                                                <p className={cn("text-xl font-bold", getReturnColor(unleveredIRR, 'irr'))}>{unleveredIRR.toFixed(2)}%</p>
                                             </div>
                                             <div className="p-3 rounded-lg bg-muted">
                                                 <p className="text-sm text-muted-foreground">Equity Multiple</p>
-                                                <p className="text-xl font-bold">{equityMultiple.toFixed(2)}x</p>
+                                                <p className={cn("text-xl font-bold", getReturnColor(equityMultiple, 'em'))}>{equityMultiple.toFixed(2)}x</p>
                                             </div>
                                             <div className="p-3 rounded-lg bg-muted">
                                                 <p className="text-sm text-muted-foreground">Total Cash Invested</p>
@@ -948,18 +942,18 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                                 <p className="font-semibold">Limited Partner (LP)</p>
                                                 <div className="p-3 mt-1 rounded-lg bg-blue-500/10">
                                                     <p className="text-sm text-blue-400">IRR</p>
-                                                    <p className="text-xl font-bold text-blue-300">{lpReturns.irr.toFixed(2)}%</p>
+                                                    <p className={cn("text-xl font-bold", getReturnColor(lpReturns.irr, 'irr'))}>{lpReturns.irr.toFixed(2)}%</p>
                                                 </div>
                                                  <div className="p-3 mt-2 rounded-lg bg-blue-500/10">
                                                     <p className="text-sm text-blue-400">Equity Multiple</p>
-                                                    <p className="text-xl font-bold text-blue-300">{lpReturns.equityMultiple.toFixed(2)}x</p>
+                                                    <p className={cn("text-xl font-bold", getReturnColor(lpReturns.equityMultiple, 'em'))}>{lpReturns.equityMultiple.toFixed(2)}x</p>
                                                 </div>
                                             </div>
                                              <div>
                                                 <p className="font-semibold">General Partner (GP)</p>
                                                 <div className="p-3 mt-1 rounded-lg bg-green-500/10">
                                                     <p className="text-sm text-green-400">IRR</p>
-                                                    <p className="text-xl font-bold text-green-300">{isFinite(gpReturns.irr) ? `${gpReturns.irr.toFixed(2)}%` : 'N/A'}</p>
+                                                    <p className={cn("text-xl font-bold", getReturnColor(gpReturns.irr, 'irr'))}>{isFinite(gpReturns.irr) ? `${gpReturns.irr.toFixed(2)}%` : 'N/A'}</p>
                                                 </div>
                                                  <div className="p-3 mt-2 rounded-lg bg-green-500/10">
                                                     <p className="text-sm text-green-400">Total Profit</p>
@@ -1048,3 +1042,5 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
         </Card>
     );
 }
+
+    
