@@ -152,28 +152,19 @@
     .plan-executive {
       animation: pulse-executive 2.5s infinite;
     }
-    .plan-elite {
-      position: relative;
-      overflow: hidden;
+    .plan-elite[data-state="active"] {
+      animation: pulse-elite 2.5s infinite;
     }
-    .plan-elite::before {
-      content: '';
-      position: absolute;
-      top: -50%; left: -50%;
-      width: 200%; height: 200%;
-      background: conic-gradient(
-        from 0deg,
-        hsl(var(--primary)),
-        hsl(var(--chart-2)),
-        hsl(var(--chart-4)),
-        hsl(var(--primary))
-      );
-      animation: rotate-glow 4s linear infinite;
+    
+    @keyframes pulse-elite {
+      0%, 100% {
+        box-shadow: 0 0 0 0px hsl(var(--secondary) / 0.7);
+      }
+      50% {
+        box-shadow: 0 0 8px 3px hsl(var(--secondary) / 0.3);
+      }
     }
-    .plan-elite > * {
-      position: relative;
-      z-index: 1;
-    }
+
 
     /* Marquee animation for Quick Tips */
     .marquee-content {
