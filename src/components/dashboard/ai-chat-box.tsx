@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Send, Sparkles, X, ChevronsUpDown } from "lucide-react";
-import { Skeleton } from '../ui/skeleton';
 import { getDealAssessment } from '@/lib/actions';
 import { ScrollArea } from '../ui/scroll-area';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -145,7 +144,7 @@ export function AIChatBox() {
 
              <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="fixed bottom-28 right-4 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="fixed bottom-4 right-4 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             >
                 {isOpen ? <ChevronsUpDown className="w-6 h-6"/> : <Sparkles className="w-6 h-6"/>}
             </button>
