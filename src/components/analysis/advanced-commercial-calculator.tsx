@@ -94,7 +94,7 @@ const formSchema = z.object({
   holdingLength: z.coerce.number().int().min(1).max(10),
   exitCapRate: z.coerce.number().min(0).max(100),
 
-  marketConditions: z.string().min(10, 'Please describe market conditions.'),
+  marketConditions: z.string().optional(),
   isAdvanced: z.boolean().optional(),
 });
 
@@ -252,7 +252,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
 
    const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: isEditMode ? deal : {
+    defaultValues: isEditMode && deal?.isAdvanced ? deal : {
       dealName: 'Advanced Commercial Center',
       purchasePrice: 5000000,
       closingCosts: 2,
@@ -285,7 +285,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
   });
 
   useEffect(() => {
-    if (isEditMode) {
+    if (isEditMode && deal?.isAdvanced) {
       form.reset(deal);
     }
   }, [deal, isEditMode, form]);
@@ -475,8 +475,8 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
       roi: parseFloat(unleveredIRR.toFixed(2)),
       netProfit: parseFloat(netSaleProceeds.toFixed(2)),
       userId: user.uid,
-      createdAt: isEditMode ? deal.createdAt : serverTimestamp(),
-      status: isEditMode ? deal.status : 'In Works',
+      createdAt: isEditMode && deal.createdAt ? deal.createdAt : serverTimestamp(),
+      status: isEditMode && deal.status ? deal.status : 'In Works',
       isPublished: isEditMode ? deal.isPublished : false,
       isAdvanced: true,
     };
@@ -529,202 +529,203 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
         return 'bg-red-500/20 text-red-200';
     };
 
+    return (
+        <CardContent>
+            <Form {...form}>
+                <form>
+                    <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 shadow-[0_0_15px_hsl(var(--primary)/0.5)]">
+                        <div className="text-center"> <p className="text-sm text-primary/80 font-headline">IRR</p> <p className="text-2xl font-bold text-primary">{unleveredIRR.toFixed(2)}%</p></div>
+                        <div className="text-center"> <p className="text-sm text-primary/80 font-headline">Equity Multiple</p> <p className="text-2xl font-bold text-primary">{equityMultiple.toFixed(2)}x</p></div>
+                        <div className="text-center"> <p className="text-sm text-primary/80 font-headline">Cap Rate (Y1)</p> <p className="text-2xl font-bold text-primary">{capRate.toFixed(2)}%</p></div>
+                        <div className="text-center"> <p className="text-sm text-primary/80 font-headline">NOI (Y1)</p> <p className="text-2xl font-bold text-primary">${noi.toLocaleString(undefined, {maximumFractionDigits: 0})}</p></div>
+                    </div>
+                    <Tabs defaultValue="assumptions" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-4 h-auto">
+                            {tabs.map(tab => (
+                                <TabsTrigger key={tab.value} value={tab.value} className={cn("flex-col h-14")}>
+                                    <tab.icon className="w-5 h-5 mb-1" />
+                                    <span>{tab.label}</span>
+                                </TabsTrigger>
+                            ))}
+                        </TabsList>
 
-  return (
-    <CardContent>
-        <Form {...form}>
-            <form>
-                <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 shadow-[0_0_15px_hsl(var(--primary)/0.5)]">
-                    <div className="text-center"> <p className="text-sm text-primary/80 font-headline">IRR</p> <p className="text-2xl font-bold text-primary">{unleveredIRR.toFixed(2)}%</p></div>
-                    <div className="text-center"> <p className="text-sm text-primary/80 font-headline">Equity Multiple</p> <p className="text-2xl font-bold text-primary">{equityMultiple.toFixed(2)}x</p></div>
-                    <div className="text-center"> <p className="text-sm text-primary/80 font-headline">Cap Rate (Y1)</p> <p className="text-2xl font-bold text-primary">{capRate.toFixed(2)}%</p></div>
-                    <div className="text-center"> <p className="text-sm text-primary/80 font-headline">NOI (Y1)</p> <p className="text-2xl font-bold text-primary">${noi.toLocaleString(undefined, {maximumFractionDigits: 0})}</p></div>
-                </div>
-                <Tabs defaultValue="assumptions" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-4 h-auto">
-                        {tabs.map(tab => (
-                            <TabsTrigger key={tab.value} value={tab.value} className={cn("flex-col h-14")}>
-                                <tab.icon className="w-5 h-5 mb-1" />
-                                <span>{tab.label}</span>
-                            </TabsTrigger>
-                        ))}
-                    </TabsList>
-
-                     <TabsContent value="assumptions" className="mt-6">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div className="space-y-6">
-                                <Card>
-                                    <CardHeader><CardTitle>Acquisition & Rehab</CardTitle></CardHeader>
-                                    <CardContent className="grid grid-cols-2 gap-4">
-                                        <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                        <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                        <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                        <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Rehab & Initial Costs</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                    </CardContent>
-                                </Card>
-                                <Card>
-                                    <CardHeader><CardTitle>Financing</CardTitle></CardHeader>
-                                    <CardContent className="grid grid-cols-3 gap-4">
-                                        <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                        <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                        <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan Term (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                    </CardContent>
-                                </Card>
-                                 <Card>
-                                    <CardHeader><CardTitle>Projections & Exit</CardTitle></CardHeader>
-                                    <CardContent className="grid grid-cols-3 gap-4">
-                                        <FormField name="holdingLength" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Hold (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                        <FormField name="annualIncomeGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Income Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                        <FormField name="annualExpenseGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Expense Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                        <FormField name="annualAppreciation" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Appreciation</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                        <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Selling Costs</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                        <FormField name="exitCapRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Exit Cap Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" step="0.1" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                    </CardContent>
-                                </Card>
+                        <TabsContent value="assumptions" className="mt-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div className="space-y-6">
+                                    <Card>
+                                        <CardHeader><CardTitle>Acquisition & Rehab</CardTitle></CardHeader>
+                                        <CardContent className="grid grid-cols-2 gap-4">
+                                            <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                            <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                            <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                            <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Rehab & Initial Costs</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                        </CardContent>
+                                    </Card>
+                                    <Card>
+                                        <CardHeader><CardTitle>Financing</CardTitle></CardHeader>
+                                        <CardContent className="grid grid-cols-3 gap-4">
+                                            <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                            <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                            <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan Term (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                        </CardContent>
+                                    </Card>
+                                    <Card>
+                                        <CardHeader><CardTitle>Projections & Exit</CardTitle></CardHeader>
+                                        <CardContent className="grid grid-cols-3 gap-4">
+                                            <FormField name="holdingLength" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Hold (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                            <FormField name="annualIncomeGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Income Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                            <FormField name="annualExpenseGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Expense Growth</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                            <FormField name="annualAppreciation" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Appreciation</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                            <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Selling Costs</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                            <FormField name="exitCapRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Exit Cap Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" step="0.1" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                                <div className="space-y-6">
+                                    <Card>
+                                        <CardHeader><CardTitle>Income</CardTitle></CardHeader>
+                                        <CardContent className="space-y-4">
+                                            <div>
+                                                <FormLabel>Unit Mix</FormLabel>
+                                                <FormDescription className="text-xs">Define the number of units and average rent for each type.</FormDescription>
+                                                {unitMixFields.map((field, index) => (
+                                                    <div key={field.id} className="grid grid-cols-[1fr,1fr,1fr,auto] gap-2 items-end mt-2">
+                                                    <FormField control={form.control} name={`unitMix.${index}.type`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Type</FormLabel><FormControl><Input placeholder="e.g., 2BR" {...field} /></FormControl> </FormItem> )} />
+                                                    <FormField control={form.control} name={`unitMix.${index}.count`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs"># Units</FormLabel><FormControl><Input type="number" {...field} /></FormControl> </FormItem> )} />
+                                                    <FormField control={form.control} name={`unitMix.${index}.rent`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Avg. Rent</FormLabel><FormControl><InputWithIcon icon={<DollarSign size={14}/>} type="number" {...field} /></FormControl> </FormItem> )} />
+                                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeUnit(index)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
+                                                    </div>
+                                                ))}
+                                                <Button type="button" size="sm" variant="outline" onClick={() => appendUnit({type: '', count: 0, rent: 0})} className="mt-2 flex items-center gap-1"><Plus size={16}/> Add Unit Type</Button>
+                                            </div>
+                                            <LineItemInput control={form.control} name="otherIncomes" formLabel="Other Income" fieldLabel="Income Source" placeholder="e.g., Laundry, Parking" icon={<DollarSign size={14}/>} />
+                                        </CardContent>
+                                    </Card>
+                                    <Card>
+                                        <CardHeader><CardTitle>Operating Expenses</CardTitle></CardHeader>
+                                        <CardContent className="space-y-4">
+                                            <LineItemInput control={form.control} name="operatingExpenses" formLabel="Recurring Monthly Expenses" fieldLabel="Expense Item" placeholder="e.g., Property Tax, Insurance" icon={<DollarSign size={14}/>} />
+                                            <FormField name="vacancyRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Vacancy Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                        </CardContent>
+                                    </Card>
+                                </div>
                             </div>
-                            <div className="space-y-6">
-                                <Card>
-                                    <CardHeader><CardTitle>Income</CardTitle></CardHeader>
-                                    <CardContent className="space-y-4">
-                                        <div>
-                                            <FormLabel>Unit Mix</FormLabel>
-                                            <FormDescription className="text-xs">Define the number of units and average rent for each type.</FormDescription>
-                                            {unitMixFields.map((field, index) => (
-                                                <div key={field.id} className="grid grid-cols-[1fr,1fr,1fr,auto] gap-2 items-end mt-2">
-                                                <FormField control={form.control} name={`unitMix.${index}.type`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Type</FormLabel><FormControl><Input placeholder="e.g., 2BR" {...field} /></FormControl> </FormItem> )} />
-                                                <FormField control={form.control} name={`unitMix.${index}.count`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs"># Units</FormLabel><FormControl><Input type="number" {...field} /></FormControl> </FormItem> )} />
-                                                <FormField control={form.control} name={`unitMix.${index}.rent`} render={({ field }) => ( <FormItem> <FormLabel className="text-xs">Avg. Rent</FormLabel><FormControl><InputWithIcon icon={<DollarSign size={14}/>} type="number" {...field} /></FormControl> </FormItem> )} />
-                                                <Button type="button" variant="ghost" size="icon" onClick={() => removeUnit(index)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
-                                                </div>
-                                            ))}
-                                            <Button type="button" size="sm" variant="outline" onClick={() => appendUnit({type: '', count: 0, rent: 0})} className="mt-2 flex items-center gap-1"><Plus size={16}/> Add Unit Type</Button>
+                        </TabsContent>
+                        
+                        <TabsContent value="overview" className="mt-6">
+                            <ProFormaTable data={proFormaData} />
+                        </TabsContent>
+
+                        <TabsContent value="returns" className="mt-6">
+                            <Card>
+                                <CardHeader><CardTitle className="font-headline">Deal Returns & Profitability</CardTitle></CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                        <div className="p-4 rounded-lg bg-muted">
+                                            <p className="text-sm text-muted-foreground">Unlevered IRR</p>
+                                            <p className="text-2xl font-bold">{unleveredIRR.toFixed(2)}%</p>
+                                            <p className="text-xs text-muted-foreground">Internal Rate of Return</p>
                                         </div>
-                                        <LineItemInput control={form.control} name="otherIncomes" formLabel="Other Income" fieldLabel="Income Source" placeholder="e.g., Laundry, Parking" icon={<DollarSign size={14}/>} />
-                                    </CardContent>
-                                </Card>
-                                <Card>
-                                    <CardHeader><CardTitle>Operating Expenses</CardTitle></CardHeader>
-                                    <CardContent className="space-y-4">
-                                        <LineItemInput control={form.control} name="operatingExpenses" formLabel="Recurring Monthly Expenses" fieldLabel="Expense Item" placeholder="e.g., Property Tax, Insurance" icon={<DollarSign size={14}/>} />
-                                        <FormField name="vacancyRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Vacancy Rate</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        </div>
-                    </TabsContent>
-                    
-                    <TabsContent value="overview" className="mt-6">
-                        <ProFormaTable data={proFormaData} />
-                    </TabsContent>
+                                        <div className="p-4 rounded-lg bg-muted">
+                                            <p className="text-sm text-muted-foreground">Equity Multiple</p>
+                                            <p className="text-2xl font-bold">{equityMultiple.toFixed(2)}x</p>
+                                            <p className="text-xs text-muted-foreground">Cash Invested vs. Returned</p>
+                                        </div>
+                                        <div className="p-4 rounded-lg bg-muted">
+                                            <p className="text-sm text-muted-foreground">Total Cash Invested</p>
+                                            <p className="text-xl font-bold">${totalCashInvested.toLocaleString()}</p>
+                                        </div>
+                                        <div className="p-4 rounded-lg bg-muted">
+                                            <p className="text-sm text-muted-foreground">Net Sale Proceeds</p>
+                                            <p className="text-xl font-bold">${netSaleProceeds.toLocaleString()}</p>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-semibold mb-2">Investor Waterfall</h4>
+                                        <p className="text-sm text-muted-foreground text-center p-4 border-2 border-dashed rounded-lg bg-muted/20">Investor waterfall modeling coming soon.</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                        <TabsContent value="sensitivity" className="mt-6">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="font-headline">Sensitivity Analysis</CardTitle>
+                                    <CardDescription>See how your returns change with different market assumptions.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="flex flex-col md:flex-row gap-4 mb-6">
+                                        <div className="flex-1 space-y-2">
+                                            <Label>Vertical Axis (Rows)</Label>
+                                            <Select value={sensitivityVar1} onValueChange={(v) => setSensitivityVar1(v as SensitivityVariable)}>
+                                                <SelectTrigger><SelectValue placeholder="Select Variable" /></SelectTrigger>
+                                                <SelectContent>
+                                                    {SENSITIVITY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} disabled={opt.value === sensitivityVar2}>{opt.label}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="flex-1 space-y-2">
+                                            <Label>Horizontal Axis (Columns)</Label>
+                                            <Select value={sensitivityVar2} onValueChange={(v) => setSensitivityVar2(v as SensitivityVariable)}>
+                                                <SelectTrigger><SelectValue placeholder="Select Variable" /></SelectTrigger>
+                                                <SelectContent>
+                                                    {SENSITIVITY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} disabled={opt.value === sensitivityVar1}>{opt.label}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="flex-1 space-y-2">
+                                            <Label>Output Metric</Label>
+                                            <Select value={sensitivityMetric} onValueChange={(v) => setSensitivityMetric(v as SensitivityMetric)}>
+                                                <SelectTrigger><SelectValue placeholder="Select Metric" /></SelectTrigger>
+                                                <SelectContent>
+                                                    {METRIC_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
 
-                    <TabsContent value="returns" className="mt-6">
-                        <Card>
-                            <CardHeader><CardTitle className="font-headline">Deal Returns & Profitability</CardTitle></CardHeader>
-                            <CardContent className="space-y-6">
-                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <div className="p-4 rounded-lg bg-muted">
-                                        <p className="text-sm text-muted-foreground">Unlevered IRR</p>
-                                        <p className="text-2xl font-bold">{unleveredIRR.toFixed(2)}%</p>
-                                        <p className="text-xs text-muted-foreground">Internal Rate of Return</p>
-                                    </div>
-                                    <div className="p-4 rounded-lg bg-muted">
-                                        <p className="text-sm text-muted-foreground">Equity Multiple</p>
-                                        <p className="text-2xl font-bold">{equityMultiple.toFixed(2)}x</p>
-                                        <p className="text-xs text-muted-foreground">Cash Invested vs. Returned</p>
-                                    </div>
-                                     <div className="p-4 rounded-lg bg-muted">
-                                        <p className="text-sm text-muted-foreground">Total Cash Invested</p>
-                                        <p className="text-xl font-bold">${totalCashInvested.toLocaleString()}</p>
-                                    </div>
-                                     <div className="p-4 rounded-lg bg-muted">
-                                        <p className="text-sm text-muted-foreground">Net Sale Proceeds</p>
-                                        <p className="text-xl font-bold">${netSaleProceeds.toLocaleString()}</p>
-                                    </div>
-                                </div>
-                                <div>
-                                    <h4 className="font-semibold mb-2">Investor Waterfall</h4>
-                                    <p className="text-sm text-muted-foreground text-center p-4 border-2 border-dashed rounded-lg bg-muted/20">Investor waterfall modeling coming soon.</p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                    <TabsContent value="sensitivity" className="mt-6">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="font-headline">Sensitivity Analysis</CardTitle>
-                                <CardDescription>See how your returns change with different market assumptions.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex flex-col md:flex-row gap-4 mb-6">
-                                    <div className="flex-1 space-y-2">
-                                        <Label>Vertical Axis (Rows)</Label>
-                                        <Select value={sensitivityVar1} onValueChange={(v) => setSensitivityVar1(v as SensitivityVariable)}>
-                                            <SelectTrigger><SelectValue placeholder="Select Variable" /></SelectTrigger>
-                                            <SelectContent>
-                                                {SENSITIVITY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} disabled={opt.value === sensitivityVar2}>{opt.label}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                     <div className="flex-1 space-y-2">
-                                        <Label>Horizontal Axis (Columns)</Label>
-                                        <Select value={sensitivityVar2} onValueChange={(v) => setSensitivityVar2(v as SensitivityVariable)}>
-                                            <SelectTrigger><SelectValue placeholder="Select Variable" /></SelectTrigger>
-                                            <SelectContent>
-                                                {SENSITIVITY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} disabled={opt.value === sensitivityVar1}>{opt.label}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="flex-1 space-y-2">
-                                        <Label>Output Metric</Label>
-                                        <Select value={sensitivityMetric} onValueChange={(v) => setSensitivityMetric(v as SensitivityMetric)}>
-                                            <SelectTrigger><SelectValue placeholder="Select Metric" /></SelectTrigger>
-                                            <SelectContent>
-                                                {METRIC_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-
-                                <div className="border rounded-lg overflow-x-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="w-[150px] font-bold">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar1)?.label}</TableHead>
-                                            {sensitivityData.var2Range.map((val, i) => (
-                                                <TableHead key={i} className="text-center font-bold">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar2)?.format(val)}</TableHead>
-                                            ))}
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {sensitivityData.tableData.map((row, rowIndex) => (
-                                            <TableRow key={rowIndex}>
-                                                <TableCell className="font-medium">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar1)?.format(row.label)}</TableCell>
-                                                {Object.keys(row).filter(k => k !== 'label').map((key, colIndex) => {
-                                                    const isCenter = rowIndex === 2 && colIndex === 2;
-                                                    return (
-                                                        <TableCell key={colIndex} className={cn("text-center font-mono text-xs", getColor(row[key]), isCenter && 'ring-2 ring-primary ring-inset')}>
-                                                            {selectedMetric ? selectedMetric.format(row[key]) : 'N/A'}
-                                                        </TableCell>
-                                                    );
-                                                })}
+                                    <div className="border rounded-lg overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="w-[150px] font-bold">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar1)?.label}</TableHead>
+                                                {sensitivityData.var2Range.map((val, i) => (
+                                                    <TableHead key={i} className="text-center font-bold">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar2)?.format(val)}</TableHead>
+                                                ))}
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {sensitivityData.tableData.map((row, rowIndex) => (
+                                                <TableRow key={rowIndex}>
+                                                    <TableCell className="font-medium">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar1)?.format(row.label)}</TableCell>
+                                                    {Object.keys(row).filter(k => k !== 'label').map((key, colIndex) => {
+                                                        const isCenter = rowIndex === 2 && colIndex === 2;
+                                                        return (
+                                                            <TableCell key={colIndex} className={cn("text-center font-mono text-xs", getColor(row[key]), isCenter && 'ring-2 ring-primary ring-inset')}>
+                                                                {selectedMetric ? selectedMetric.format(row[key]) : 'N/A'}
+                                                            </TableCell>
+                                                        );
+                                                    })}
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
 
-                </Tabs>
-                <CardFooter className="flex justify-end gap-2 mt-6">
-                    {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
-                    <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isAIPending || isSaving}> 
-                        {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} 
-                    </Button>
-                </CardFooter>
-            </form>
-        </Form>
-    </CardContent>
-  );
+                    </Tabs>
+                    <CardFooter className="flex justify-end gap-2 mt-6">
+                        {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
+                        <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isSaving}> 
+                            {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} 
+                        </Button>
+                    </CardFooter>
+                </form>
+            </Form>
+        </CardContent>
+    );
 }
+
+    
