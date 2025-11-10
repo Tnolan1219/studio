@@ -87,23 +87,22 @@ interface CommercialCalculatorProps {
 export default function CommercialCalculator({ deal, onSave, onCancel, dealCount = 0 }: CommercialCalculatorProps) {
   const [isAdvancedMode, setIsAdvancedMode] = useState(false);
   const { user } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
   const isEditMode = !!deal;
+  
+  // Hooks for Basic Mode
   const [analysisResult, setAnalysisResult] = useState<{
       monthlyCashFlow: number;
       cocReturn: number;
       capRate: number;
       noi: number;
   } | null>(null);
-
-  const firestore = useFirestore();
-  const { toast } = useToast();
-
    const userProfileRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
   const { data: profileData } = useDoc<UserProfile>(userProfileRef);
-
   const [isSaving, setIsSaving] = useState(false);
 
   const form = useForm<FormData>({
@@ -126,7 +125,14 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
     },
   });
 
-  if (isAdvancedMode || (isEditMode && deal.isAdvanced)) {
+  useEffect(() => {
+    // Set mode based on deal prop on initial load
+    if (isEditMode && deal?.isAdvanced) {
+      setIsAdvancedMode(true);
+    }
+  }, [isEditMode, deal]);
+
+  if (isAdvancedMode) {
     return (
         <Card className="bg-card/60 backdrop-blur-sm">
             <CardHeader>
