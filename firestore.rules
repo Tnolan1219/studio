@@ -9,6 +9,11 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Plans are read-only for all authenticated users
+    match /plans/{planId} {
+      allow get, list: if request.auth != null;
+    }
+
     // Published deals are readable by any authenticated user.
     match /publishedDeals/{dealId} {
       allow get, list: if request.auth != null;
