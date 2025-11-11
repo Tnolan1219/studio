@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useEffect } from 'react';
@@ -7,7 +8,7 @@ import RentalCalculator from "@/components/analysis/rental-calculator";
 import FlipCalculator from "@/components/analysis/flip-calculator";
 import CommercialCalculator from "@/components/analysis/commercial-calculator";
 import { cn } from "@/lib/utils";
-import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, doc } from 'firebase/firestore';
 import type { Deal, UserProfile } from '@/lib/types';
 import AdvancedCommercialCalculator from '../analysis/advanced-commercial-calculator';
@@ -19,17 +20,19 @@ export default function AnalyzeTab() {
   const { user } = useUser();
   const firestore = useFirestore();
 
+  // Zustand store for client-side state
+  const { profileData, setProfileData, hasHydrated } = useProfileStore();
+
   const userProfileRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
   
   // Fetch from DB once to initialize the store
-  const { data: remoteProfileData, isLoading } = useDoc<UserProfile>(userProfileRef);
-  const { profileData, setProfileData, hasHydrated } = useProfileStore();
+  const { data: remoteProfileData } = useDoc<UserProfile>(userProfileRef);
 
+  // Effect to hydrate the store from Firestore once
   useEffect(() => {
-    // Only set initial data if it's not already in the store and has been loaded
     if (remoteProfileData && !profileData.email) {
       setProfileData(remoteProfileData);
     }

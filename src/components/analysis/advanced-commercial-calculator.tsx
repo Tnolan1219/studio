@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -61,6 +62,8 @@ import {
 } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Label } from '../ui/label';
+import { useProfileStore } from '@/hooks/use-profile-store';
+
 
 const unitMixSchema = z.object({
   type: z.string().min(1, "Unit type is required"),
@@ -305,17 +308,19 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
   const firestore = useFirestore();
   const { toast } = useToast();
 
+  const { profileData, hasHydrated } = useProfileStore();
+
+  const planRef = useMemoFirebase(() => {
+    if (!profileData?.plan) return null;
+    return doc(firestore, 'plans', profileData.plan.toLowerCase());
+  }, [firestore, profileData?.plan]);
+  const { data: planData } = useDoc<Plan>(planRef);
+  
   const userProfileRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
-  const { data: profileData } = useDoc<UserProfile>(userProfileRef);
-  
-  const planRef = useMemoFirebase(() => {
-    if (!profileData) return null;
-    return doc(firestore, 'plans', profileData.plan?.toLowerCase() || 'free');
-  }, [firestore, profileData]);
-  const { data: planData } = useDoc<Plan>(planRef);
+
 
   const [isSaving, setIsSaving] = useState(false);
   const [sensitivityVar1, setSensitivityVar1] = useState<SensitivityVariable>('exitCapRate');
@@ -1162,12 +1167,12 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                             </TabsContent>
                         </Tabs>
                         <CardFooter className="flex justify-between items-center mt-6">
-                            <Button type="button" onClick={handleAnalysisClick}>
+                             <Button type="button" onClick={handleAnalysisClick} disabled={!hasHydrated}>
                                 Run Analysis
                             </Button>
                             <div className="flex justify-end gap-2">
                                 {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
-                                <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isSaving}> 
+                                <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isSaving || !hasHydrated}> 
                                     {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} 
                                 </Button>
                             </div>
@@ -1178,3 +1183,4 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
         </Card>
     );
 }
+
