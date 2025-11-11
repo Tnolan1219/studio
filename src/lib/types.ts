@@ -11,6 +11,9 @@ export type UserProfile = {
     state?: string;
     financialGoal?: string;
     plan?: 'Free' | 'Pro' | 'Executive' | 'Elite';
+    savedDeals?: number;
+    calculatorUses?: number;
+    lastUpgradeDate?: string;
 };
 
 export type DealStatus = 'In Works' | 'Negotiating' | 'Bought' | 'Owned & Operating' | 'Sold';

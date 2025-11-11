@@ -16,9 +16,25 @@
         "dutyStation": { "type": "string", "description": "User's duty station if applicable." },
         "rank": { "type": "string", "description": "User's rank if applicable." },
         "branch": { "type": "string", "description": "User's branch of service if applicable." },
-        "financialGoal": { "type": "string", "description": "User's stated financial goal." }
+        "financialGoal": { "type": "string", "description": "User's stated financial goal." },
+        "savedDeals": { "type": "number", "description": "Count of deals saved by the user." },
+        "calculatorUses": { "type": "number", "description": "Count of calculator uses by the user this billing period." },
+        "lastUpgradeDate": { "type": "string", "format": "date-time", "description": "The date the user's plan was last changed." }
       },
-      "required": ["id", "name", "email", "country", "state", "plan"]
+      "required": ["id", "name", "email", "country", "state", "plan", "savedDeals", "calculatorUses"]
+    },
+    "Plan": {
+        "title": "Plan",
+        "type": "object",
+        "description": "Defines the limits and features for a subscription plan.",
+        "properties": {
+            "name": { "type": "string", "enum": ["Free", "Pro", "Executive", "Elite"] },
+            "maxSavedDeals": { "type": "number" },
+            "maxCalculatorUses": { "type": "number" },
+            "accessAdvancedCRE": { "type": "boolean" },
+            "accessNewsletter": { "type": "boolean" }
+        },
+        "required": ["name", "maxSavedDeals", "maxCalculatorUses", "accessAdvancedCRE", "accessNewsletter"]
     },
     "Deal": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -68,6 +84,14 @@
         }
       },
       {
+        "path": "/plans/{planId}",
+        "definition": {
+            "entityName": "Plan",
+            "schema": { "$ref": "#/backend/entities/Plan" },
+            "description": "Stores metadata and limits for each subscription plan. Generally read-only for clients."
+        }
+      },
+      {
         "path": "/users/{userId}/deals/{dealId}",
         "definition": {
           "entityName": "Deal",
@@ -95,5 +119,3 @@
     "reasoning": "The Firestore structure is designed for security and scalability. User-specific data (profiles, private deals) is nested under `/users/{userId}` for strict, path-based security rules. A new root-level collection, `/publishedDeals`, is introduced to support the 'Community Deals' feature. When a user publishes a deal, a copy is placed in this collection, which has read-only access for all authenticated users. The `comments` subcollection is added to `publishedDeals` to allow community interaction on public deals, with rules allowing authenticated users to read and write comments."
   }
 }
-
-    

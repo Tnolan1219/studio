@@ -404,37 +404,39 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
                   </Card>
                 </div>
                 {analysisResult && (
-                    <div className="mt-6 space-y-6">
-                        <Card>
-                            <CardHeader><CardTitle className="text-lg font-headline">Key Metrics & Breakdown</CardTitle></CardHeader>
-                            <CardContent className="grid md:grid-cols-2 gap-6">
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                    <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">Cap Rate (Purchase)</p> <p className={cn("text-xl font-bold", getMetricColor(analysisResult.capRate, 'cap'))}>{analysisResult.capRate.toFixed(2)}%</p> </div>
-                                    <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">CoC Return (Y1)</p> <p className={cn("text-xl font-bold", getMetricColor(analysisResult.cocReturn, 'coc'))}>{analysisResult.cocReturn.toFixed(2)}%</p> </div>
-                                    <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className={cn("text-xl font-bold", getMetricColor(analysisResult.monthlyCashFlow, 'cashflow'))}>${analysisResult.monthlyCashFlow.toFixed(2)}</p> </div>
-                                    <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="text-lg font-bold">${analysisResult.noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
-                                    <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">DSCR</p> <p className={cn("text-xl font-bold", getMetricColor(analysisResult.dscr, 'dscr'))}>{isFinite(analysisResult.dscr) ? `${analysisResult.dscr.toFixed(2)}x` : 'N/A'}</p> </div>
-                                    <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">Total Investment</p> <p className="text-lg font-bold">${analysisResult.totalInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
-                                </div>
-                                <div className="h-[250px] w-full pt-4">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={analysisResult.chartData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                            <CartesianGrid strokeDasharray="3 3" />
-                                            <XAxis type="number" tickFormatter={(val) => `$${(val/1000).toFixed(0)}k`} />
-                                            <YAxis type="category" dataKey="name" width={60} />
-                                            <Tooltip formatter={(val: number) => val.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} />
-                                            <Bar dataKey="value">
-                                                {analysisResult.chartData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                                                ))}
-                                            </Bar>
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </CardContent>
-                        </Card>
-                        <ProFormaTable data={analysisResult.proFormaData} />
-                    </div>
+                    <Card className="mt-6">
+                        <CardHeader>
+                            <CardTitle className="text-lg font-headline">Key Metrics & Breakdown</CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">Cap Rate</p> <p className={cn("text-xl font-bold", getMetricColor(analysisResult.capRate, 'cap'))}>{analysisResult.capRate.toFixed(2)}%</p> </div>
+                                <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">CoC Return (Y1)</p> <p className={cn("text-xl font-bold", getMetricColor(analysisResult.cocReturn, 'coc'))}>{analysisResult.cocReturn.toFixed(2)}%</p> </div>
+                                <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className={cn("text-xl font-bold", getMetricColor(analysisResult.monthlyCashFlow, 'cashflow'))}>${analysisResult.monthlyCashFlow.toFixed(2)}</p> </div>
+                                <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="text-lg font-bold">${analysisResult.noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
+                                <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">DSCR</p> <p className={cn("text-xl font-bold", getMetricColor(analysisResult.dscr, 'dscr'))}>{isFinite(analysisResult.dscr) ? `${analysisResult.dscr.toFixed(2)}x` : 'N/A'}</p> </div>
+                                <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">Total Investment</p> <p className="text-lg font-bold">${analysisResult.totalInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
+                            </div>
+                            <div className="h-[250px] w-full pt-4">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={analysisResult.chartData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis type="number" tickFormatter={(val) => `$${(val/1000).toFixed(0)}k`} />
+                                        <YAxis type="category" dataKey="name" width={60} />
+                                        <Tooltip formatter={(val: number) => val.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} />
+                                        <Bar dataKey="value">
+                                            {analysisResult.chartData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.fill} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </CardContent>
+                        <CardFooter>
+                            <ProFormaTable data={analysisResult.proFormaData} />
+                        </CardFooter>
+                    </Card>
                   )}
             </CardContent>
              <CardFooter className="flex justify-end gap-2">

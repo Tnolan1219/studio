@@ -138,7 +138,10 @@ function OnboardingView() {
         email: user.email,
         photoURL: user.photoURL,
         isOnboardingComplete: true,
-        plan: 'Free'
+        plan: 'Free', // Default to Free plan
+        savedDeals: 0,
+        calculatorUses: 0,
+        lastUpgradeDate: new Date().toISOString()
     };
     
     // Non-blocking write with contextual error handling

@@ -52,6 +52,8 @@ const profileSchema = z.object({
   state: z.string().optional(),
   financialGoal: z.string().min(10, "Financial goal must be at least 10 characters.").optional(),
   plan: z.enum(['Free', 'Pro', 'Executive', 'Elite']).optional(),
+  savedDeals: z.number().optional(),
+  calculatorUses: z.number().optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -80,7 +82,9 @@ export default function ProfileTab() {
       country: '',
       state: '',
       financialGoal: '',
-      plan: 'Free'
+      plan: 'Free',
+      savedDeals: 0,
+      calculatorUses: 0,
     }
   });
 
@@ -93,7 +97,9 @@ export default function ProfileTab() {
         country: profileData.country || '',
         state: profileData.state || '',
         financialGoal: profileData.financialGoal || '',
-        plan: profileData.plan || 'Free'
+        plan: profileData.plan || 'Free',
+        savedDeals: profileData.savedDeals || 0,
+        calculatorUses: profileData.calculatorUses || 0,
       });
     } else if (user && !isProfileLoading) {
        form.reset({
@@ -103,7 +109,9 @@ export default function ProfileTab() {
         country: '',
         state: '',
         financialGoal: '',
-        plan: 'Free'
+        plan: 'Free',
+        savedDeals: 0,
+        calculatorUses: 0,
        });
     }
   }, [profileData, user, form, isProfileLoading]);
@@ -160,6 +168,8 @@ export default function ProfileTab() {
   const currentPhotoURL = form.watch('photoURL');
   const currentPlan = form.watch('plan') || 'Free';
   const isLoading = isUserLoading || (user && !user.isAnonymous && isProfileLoading);
+  const savedDealsCount = form.watch('savedDeals') ?? 0;
+  const calculatorUsesCount = form.watch('calculatorUses') ?? 0;
 
   const planStyles = {
     'Free': '',
@@ -234,36 +244,34 @@ export default function ProfileTab() {
                   <FormField name="state" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>State</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
                   </div>
                   <FormField name="financialGoal" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Financial Goal</FormLabel> <FormControl><Textarea {...field} disabled={user.isAnonymous} /></FormControl> <FormDescription>This helps us tailor your experience and AI insights.</FormDescription> <FormMessage /> </FormItem> )} />
-              </CardContent>
-              <CardFooter className="flex justify-between items-center">
-                  <div className="text-sm text-muted-foreground">
-                      {user.isAnonymous ? (
-                          <p>Plan: <span className="font-semibold text-primary">Guest</span></p>
-                      ) : (
-                        <FormField
-                            control={form.control}
-                            name="plan"
-                            render={({ field }) => (
-                                <FormItem className="flex items-center gap-2 space-y-0">
-                                <Crown className="w-4 h-4 text-primary" />
-                                <FormLabel className="whitespace-nowrap pt-1">Current Plan:</FormLabel>
+                   <Separator />
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <FormField
+                          control={form.control}
+                          name="plan"
+                          render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="flex items-center gap-2"><Crown className="w-4 h-4 text-primary" /> Subscription Plan</FormLabel>
                                 <Select onValueChange={(value: 'Free' | 'Pro' | 'Executive' | 'Elite') => handlePlanChange(value)} value={field.value} disabled={user.isAnonymous}>
-                                    <FormControl>
-                                    <SelectTrigger className="w-[150px]">
+                                <FormControl>
+                                    <SelectTrigger>
                                         <SelectValue placeholder="Select Plan" />
                                     </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {PLAN_OPTIONS.map(plan => (
-                                            <SelectItem key={plan} value={plan}>{plan}</SelectItem>
-                                        ))}
-                                    </SelectContent>
+                                </FormControl>
+                                <SelectContent>
+                                    {PLAN_OPTIONS.map(plan => (
+                                        <SelectItem key={plan} value={plan}>{plan}</SelectItem>
+                                    ))}
+                                </SelectContent>
                                 </Select>
-                                </FormItem>
-                            )}
-                        />
-                      )}
-                  </div>
+                            </FormItem>
+                          )}
+                      />
+                      <FormField name="savedDeals" control={form.control} render={({ field }) => (<FormItem><FormLabel>Deals Saved</FormLabel><FormControl><Input {...field} disabled /></FormControl></FormItem>)} />
+                      <FormField name="calculatorUses" control={form.control} render={({ field }) => (<FormItem><FormLabel>Calculator Uses</FormLabel><FormControl><Input {...field} disabled /></FormControl></FormItem>)} />
+                    </div>
+              </CardContent>
+              <CardFooter className="flex justify-end">
                   {user.isAnonymous ? (
                     <TooltipProvider>
                       <Tooltip>
@@ -319,5 +327,3 @@ export default function ProfileTab() {
     </div>
   );
 }
-
-    
