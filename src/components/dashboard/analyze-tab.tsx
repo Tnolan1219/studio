@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building, Home, Repeat, TestTube2 } from "lucide-react";
 import RentalCalculator from "@/components/analysis/rental-calculator";
@@ -12,6 +12,7 @@ import { collection, query, doc } from 'firebase/firestore';
 import type { Deal, UserProfile } from '@/lib/types';
 import AdvancedCommercialCalculator from '../analysis/advanced-commercial-calculator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import { useProfileStore } from '@/hooks/use-profile-store';
 
 
 export default function AnalyzeTab() {
@@ -22,7 +23,18 @@ export default function AnalyzeTab() {
     if (!user) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
-  const { data: profileData } = useDoc<UserProfile>(userProfileRef);
+  
+  // Fetch from DB once to initialize the store
+  const { data: remoteProfileData, isLoading } = useDoc<UserProfile>(userProfileRef);
+  const { profileData, setProfileData, hasHydrated } = useProfileStore();
+
+  useEffect(() => {
+    // Only set initial data if it's not already in the store and has been loaded
+    if (remoteProfileData && !profileData.email) {
+      setProfileData(remoteProfileData);
+    }
+  }, [remoteProfileData, profileData.email, setProfileData]);
+
 
   const dealsQuery = useMemoFirebase(() => {
     if (!user || user.isAnonymous) return null;
@@ -32,8 +44,16 @@ export default function AnalyzeTab() {
   const { data: deals } = useCollection<Deal>(dealsQuery);
   const dealCount = useMemo(() => deals?.length ?? 0, [deals]);
   
-  const hasAdvancedAccess = profileData?.plan === 'Pro' || profileData?.plan === 'Executive' || profileData?.plan === 'Elite';
+  // Read from the Zustand store for immediate UI updates
+  const hasAdvancedAccess = useMemo(() => {
+    const plan = profileData?.plan;
+    return plan === 'Pro' || plan === 'Executive' || plan === 'Elite';
+  }, [profileData?.plan]);
 
+  // Wait for the store to be hydrated from either Firestore or local state
+  if (!hasHydrated) {
+    return null; // Or a loading skeleton
+  }
 
   return (
     <div className="flex flex-col items-center animate-fade-in">

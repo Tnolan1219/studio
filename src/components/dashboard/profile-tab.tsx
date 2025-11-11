@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import {
@@ -43,6 +43,7 @@ import { Loader2, Crown } from "lucide-react";
 import { Separator } from "../ui/separator";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useProfileStore } from "@/hooks/use-profile-store";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters.").optional(),
@@ -65,13 +66,17 @@ export default function ProfileTab() {
   const firestore = useFirestore();
   const [isSaving, setIsSaving] = useState(false);
 
+  // Zustand store for client-side state
+  const { profileData, setProfileData, hasHydrated } = useProfileStore();
+
   const userProfileRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
 
-  const { data: profileData, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
-  
+  // Fetch from DB to initialize the store
+  const { data: remoteProfileData, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
+
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     mode: "onChange",
@@ -88,8 +93,16 @@ export default function ProfileTab() {
     }
   });
 
+  // Effect 1: Hydrate the store from Firestore once
   useEffect(() => {
-    if (profileData) {
+    if (remoteProfileData && !profileData.email) { // Only set if store is empty
+      setProfileData(remoteProfileData);
+    }
+  }, [remoteProfileData, profileData.email, setProfileData]);
+
+  // Effect 2: Sync form with the Zustand store
+  useEffect(() => {
+    if (hasHydrated) {
       form.reset({
         name: profileData.name || user?.displayName || '',
         email: profileData.email || user?.email || '',
@@ -101,20 +114,9 @@ export default function ProfileTab() {
         savedDeals: profileData.savedDeals || 0,
         calculatorUses: profileData.calculatorUses || 0,
       });
-    } else if (user && !isProfileLoading) {
-       form.reset({
-        name: user.displayName || "",
-        email: user.email || "",
-        photoURL: user.photoURL || "",
-        country: '',
-        state: '',
-        financialGoal: '',
-        plan: 'Free',
-        savedDeals: 0,
-        calculatorUses: 0,
-       });
     }
-  }, [profileData, user, form, isProfileLoading]);
+  }, [profileData, user, form, hasHydrated]);
+
 
   async function onSubmit(data: ProfileFormValues) {
     if (!userProfileRef || !user || user.isAnonymous) return;
@@ -122,17 +124,20 @@ export default function ProfileTab() {
     setIsSaving(true);
     try {
       const dataToSave = {
-        id: user.uid,
-        ...data
+        ...profileData, // Start with current store data
+        ...data // Override with form data
       };
 
-      setDocumentNonBlocking(userProfileRef, dataToSave, { merge: true });
+      await setDocumentNonBlocking(userProfileRef, dataToSave, { merge: true });
+      
+      // Update the store with the saved data
+      setProfileData(dataToSave);
       
       toast({
         title: "Changes saved successfully",
       });
       
-      form.reset(data, { keepIsDirty: false });
+      form.reset(dataToSave, { keepIsDirty: false });
     } catch (error) {
       console.error("Profile update failed:", error);
       toast({
@@ -157,10 +162,8 @@ export default function ProfileTab() {
 
   const currentPhotoURL = form.watch('photoURL');
   const currentPlan = form.watch('plan') || 'Free';
-  const isLoading = isUserLoading || (user && !user.isAnonymous && isProfileLoading);
-  const savedDealsCount = form.watch('savedDeals') ?? 0;
-  const calculatorUsesCount = form.watch('calculatorUses') ?? 0;
-
+  const isLoading = isUserLoading || isProfileLoading || !hasHydrated;
+  
   const planStyles = {
     'Free': '',
     'Pro': 'plan-pro shadow-primary/40',
@@ -223,26 +226,32 @@ export default function ProfileTab() {
                 </div>
             </div>
         </CardHeader>
-        {!isLoading && (profileData || user.isAnonymous) && (
-          <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)}>
-              <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField name="name" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Full Name</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
-                  <FormField name="email" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Email</FormLabel> <FormControl><Input type="email" {...field} disabled /></FormControl> <FormMessage /> </FormItem> )} />
-                  <FormField name="country" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Country</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
-                  <FormField name="state" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>State</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
-                  </div>
-                  <FormField name="financialGoal" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Financial Goal</FormLabel> <FormControl><Textarea {...field} disabled={user.isAnonymous} /></FormControl> <FormDescription>This helps us tailor your experience and AI insights.</FormDescription> <FormMessage /> </FormItem> )} />
-                   <Separator />
-                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <FormField
-                          control={form.control}
-                          name="plan"
-                          render={({ field }) => (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)}>
+            <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField name="name" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Full Name</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
+                <FormField name="email" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Email</FormLabel> <FormControl><Input type="email" {...field} disabled /></FormControl> <FormMessage /> </FormItem> )} />
+                <FormField name="country" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Country</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
+                <FormField name="state" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>State</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />
+                </div>
+                <FormField name="financialGoal" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Financial Goal</FormLabel> <FormControl><Textarea {...field} disabled={user.isAnonymous} /></FormControl> <FormDescription>This helps us tailor your experience and AI insights.</FormDescription> <FormMessage /> </FormItem> )} />
+                    <Separator />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Controller
+                        control={form.control}
+                        name="plan"
+                        render={({ field }) => (
                             <FormItem>
                                 <FormLabel className="flex items-center gap-2"><Crown className="w-4 h-4 text-primary" /> Subscription Plan</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value} disabled={user.isAnonymous}>
+                                <Select
+                                    onValueChange={(value) => {
+                                        field.onChange(value); // Update form state
+                                        setProfileData({ ...profileData, plan: value as UserProfile['plan'] }); // Update store state
+                                    }}
+                                    value={field.value}
+                                    disabled={user.isAnonymous}
+                                >
                                 <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select Plan" />
@@ -255,34 +264,33 @@ export default function ProfileTab() {
                                 </SelectContent>
                                 </Select>
                             </FormItem>
-                          )}
-                      />
-                      <FormField name="savedDeals" control={form.control} render={({ field }) => (<FormItem><FormLabel>Deals Saved</FormLabel><FormControl><Input {...field} disabled /></FormControl></FormItem>)} />
-                      <FormField name="calculatorUses" control={form.control} render={({ field }) => (<FormItem><FormLabel>Calculator Uses</FormLabel><FormControl><Input {...field} disabled /></FormControl></FormItem>)} />
+                        )}
+                    />
+                    <FormField name="savedDeals" control={form.control} render={({ field }) => (<FormItem><FormLabel>Deals Saved</FormLabel><FormControl><Input value={profileData.savedDeals || 0} disabled /></FormControl></FormItem>)} />
+                    <FormField name="calculatorUses" control={form.control} render={({ field }) => (<FormItem><FormLabel>Calculator Uses</FormLabel><FormControl><Input value={profileData.calculatorUses || 0} disabled /></FormControl></FormItem>)} />
                     </div>
-              </CardContent>
-              <CardFooter className="flex justify-end">
-                  {user.isAnonymous ? (
+            </CardContent>
+            <CardFooter className="flex justify-end">
+                {user.isAnonymous ? (
                     <TooltipProvider>
-                      <Tooltip>
+                        <Tooltip>
                         <TooltipTrigger>
-                          <Button type="button" disabled>Save Changes</Button>
+                            <Button type="button" disabled>Save Changes</Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Create an account to save your profile.</p>
+                            <p>Create an account to save your profile.</p>
                         </TooltipContent>
-                      </Tooltip>
+                        </Tooltip>
                     </TooltipProvider>
-                  ) : (
+                ) : (
                     <Button type="submit" disabled={isSaving || !form.formState.isDirty}>
-                      {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      {isSaving ? 'Saving...' : 'Save Changes'}
+                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isSaving ? 'Saving...' : 'Save Changes'}
                     </Button>
-                  )}
-              </CardFooter>
-              </form>
-          </Form>
-        )}
+                )}
+            </CardFooter>
+            </form>
+        </Form>
         </Card>
         
         <Card className="bg-card/60 backdrop-blur-sm max-w-4xl mx-auto">
