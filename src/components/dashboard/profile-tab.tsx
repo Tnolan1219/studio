@@ -128,7 +128,7 @@ export default function ProfileTab() {
         ...data // Override with form data
       };
 
-      await setDocumentNonBlocking(userProfileRef, dataToSave, { merge: true });
+      setDocumentNonBlocking(userProfileRef, dataToSave, { merge: true });
       
       // Update the store with the saved data
       setProfileData(dataToSave);
@@ -238,17 +238,14 @@ export default function ProfileTab() {
                 <FormField name="financialGoal" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Financial Goal</FormLabel> <FormControl><Textarea {...field} disabled={user.isAnonymous} /></FormControl> <FormDescription>This helps us tailor your experience and AI insights.</FormDescription> <FormMessage /> </FormItem> )} />
                     <Separator />
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Controller
+                    <FormField
                         control={form.control}
                         name="plan"
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel className="flex items-center gap-2"><Crown className="w-4 h-4 text-primary" /> Subscription Plan</FormLabel>
                                 <Select
-                                    onValueChange={(value) => {
-                                        field.onChange(value); // Update form state
-                                        setProfileData({ ...profileData, plan: value as UserProfile['plan'] }); // Update store state
-                                    }}
+                                    onValueChange={field.onChange}
                                     value={field.value}
                                     disabled={user.isAnonymous}
                                 >
@@ -325,5 +322,7 @@ export default function ProfileTab() {
     </div>
   );
 }
+
+    
 
     
