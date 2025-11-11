@@ -119,6 +119,7 @@ const formSchema = z.object({
   promoteHurdle: z.coerce.number().min(0).max(100),
   promoteSplit: z.coerce.number().min(0).max(100),
 
+  // Meta
   marketConditions: z.string().optional(),
   isAdvanced: z.boolean().optional(),
 });
@@ -873,7 +874,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
 
                             <TabsContent value="income" className="mt-6">
                                 {proFormaData.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-6">
                                 <Card>
                                         <CardHeader>
                                             <CardTitle className='font-headline'>Income Growth Analysis</CardTitle>
@@ -922,7 +923,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
 
                             <TabsContent value="expenses" className="mt-6">
                                 {proFormaData.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-6">
                                 <Card>
                                         <CardHeader>
                                             <CardTitle className='font-headline'>Expense Growth Analysis</CardTitle>
@@ -971,7 +972,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                             
                             <TabsContent value="financing" className="mt-6">
                                 {proFormaData.length > 0 ? (
-                                <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                                <div className='space-y-6'>
                                     <Card>
                                         <CardHeader>
                                             <CardTitle className='font-headline'>Amortization & Equity</CardTitle>
@@ -1142,3 +1143,5 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
         </Card>
     );
 }
+
+    
