@@ -115,16 +115,6 @@ export default function ProfileTab() {
        });
     }
   }, [profileData, user, form, isProfileLoading]);
-  
-  const handlePlanChange = (plan: 'Free' | 'Pro' | 'Executive' | 'Elite') => {
-    if (!userProfileRef || user?.isAnonymous) return;
-    setDocumentNonBlocking(userProfileRef, { plan }, { merge: true });
-    form.setValue('plan', plan, { shouldDirty: true });
-    toast({
-      title: "Plan Updated",
-      description: `Your plan has been set to ${plan}.`
-    });
-  }
 
   async function onSubmit(data: ProfileFormValues) {
     if (!userProfileRef || !user || user.isAnonymous) return;
@@ -132,7 +122,7 @@ export default function ProfileTab() {
     setIsSaving(true);
     try {
       const dataToSave = {
-        id: user.uid, // Add this line
+        id: user.uid,
         ...data
       };
 
@@ -252,7 +242,7 @@ export default function ProfileTab() {
                           render={({ field }) => (
                             <FormItem>
                                 <FormLabel className="flex items-center gap-2"><Crown className="w-4 h-4 text-primary" /> Subscription Plan</FormLabel>
-                                <Select onValueChange={(value: 'Free' | 'Pro' | 'Executive' | 'Elite') => handlePlanChange(value)} value={field.value} disabled={user.isAnonymous}>
+                                <Select onValueChange={field.onChange} value={field.value} disabled={user.isAnonymous}>
                                 <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select Plan" />
@@ -327,3 +317,5 @@ export default function ProfileTab() {
     </div>
   );
 }
+
+    
