@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -35,10 +34,10 @@ import {
   CartesianGrid
 } from 'recharts';
 import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, serverTimestamp, doc } from 'firebase/firestore';
+import { collection, serverTimestamp, doc, increment } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
-import type { Deal, UserProfile, UnitMixItem, ProFormaEntry } from '@/lib/types';
+import type { Deal, UserProfile, UnitMixItem, ProFormaEntry, Plan } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { ProFormaTable } from './pro-forma-table';
@@ -195,6 +194,14 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
   const { data: profileData } = useDoc<UserProfile>(userProfileRef);
+  
+  const planRef = useMemoFirebase(() => {
+    if (!profileData) return null;
+    return doc(firestore, 'plans', profileData.plan?.toLowerCase() || 'free');
+  }, [firestore, profileData]);
+  const { data: planData } = useDoc<Plan>(planRef);
+
+
   const [isSaving, setIsSaving] = useState(false);
 
   const form = useForm<FormData>({
@@ -239,6 +246,15 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
 
 
   const handleAnalysis = (data: FormData) => {
+     if (user?.isAnonymous || !profileData || !planData) {
+        toast({ title: "Account Required", description: "Please create a full account to use the calculators."});
+        return;
+    }
+
+    if (profileData.calculatorUses >= planData.maxCalculatorUses) {
+        toast({ title: "Calculator Limit Reached", description: `You have used all ${planData.maxCalculatorUses} of your monthly calculator uses. Please upgrade your plan.`});
+        return;
+    }
     const proForma = calculateProForma(data);
     const year1 = proForma[0] || {};
     
@@ -263,6 +279,9 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
 
 
     setAnalysisResult({ monthlyCashFlow, cocReturn, capRate, noi, chartData: breakdownChartData, dscr, totalInvestment, proFormaData: proForma });
+    if (userProfileRef) {
+        setDocumentNonBlocking(userProfileRef, { calculatorUses: increment(1) }, { merge: true });
+    }
   };
   
    const handleSaveDeal = async () => {
@@ -281,11 +300,9 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
         return;
     }
 
-    if (!isEditMode) {
-        const plan = profileData?.plan || 'Free';
-        const limits = { Free: 5, Pro: 15, Executive: Infinity };
-        if (dealCount >= limits[plan]) {
-            toast({ title: `Deal Limit Reached for ${plan} Plan`, description: `You have ${dealCount} deals. Please upgrade your plan.`, variant: 'destructive' });
+    if (!isEditMode && planData && profileData) {
+        if (profileData.savedDeals >= planData.maxSavedDeals) {
+            toast({ title: `Deal Limit Reached for ${planData.name} Plan`, description: `You have saved ${profileData.savedDeals} of ${planData.maxSavedDeals} deals. Please upgrade your plan.`, variant: 'destructive' });
             return;
         }
     }
@@ -316,6 +333,10 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
     
     const dealRef = doc(firestore, `users/${user.uid}/deals`, dealId);
     setDocumentNonBlocking(dealRef, dealData, { merge: true });
+
+    if (!isEditMode && userProfileRef) {
+        setDocumentNonBlocking(userProfileRef, { savedDeals: increment(1) }, { merge: true });
+    }
 
     toast({ title: isEditMode ? 'Changes Saved' : 'Deal Saved!', description: `${dealData.dealName} has been ${isEditMode ? 'updated' : 'added'}.` });
     if (isEditMode && onSave) onSave();

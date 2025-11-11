@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -38,10 +37,10 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { useUser, useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, serverTimestamp, doc } from 'firebase/firestore';
+import { collection, serverTimestamp, doc, increment } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
-import type { Deal, UserProfile } from '@/lib/types';
+import type { Deal, UserProfile, Plan } from '@/lib/types';
 
 
 const formSchema = z.object({
@@ -90,6 +89,13 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
   const { data: profileData } = useDoc<UserProfile>(userProfileRef);
+  
+  const planRef = useMemoFirebase(() => {
+    if (!profileData) return null;
+    return doc(firestore, 'plans', profileData.plan?.toLowerCase() || 'free');
+  }, [firestore, profileData]);
+  const { data: planData } = useDoc<Plan>(planRef);
+
 
   const [isSaving, setIsSaving] = useState(false);
   const isEditMode = !!deal;
@@ -123,6 +129,16 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
 
 
   const handleAnalysis = (data: FormData) => {
+    if (user?.isAnonymous || !profileData || !planData) {
+        toast({ title: "Account Required", description: "Please create a full account to use the calculators."});
+        return;
+    }
+
+    if (profileData.calculatorUses >= planData.maxCalculatorUses) {
+        toast({ title: "Calculator Limit Reached", description: `You have used all ${planData.maxCalculatorUses} of your monthly calculator uses. Please upgrade your plan.`});
+        return;
+    }
+
     const { purchasePrice, rehabCost, closingCosts, holdingLength, interestRate, downPayment, propertyTaxes, insurance, otherExpenses, sellingCosts, arv, loanTerm } = data;
 
     const loanAmount = purchasePrice - downPayment;
@@ -157,6 +173,10 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
         totalInvestment: totalCashInvested,
         chartData,
     });
+
+    if (userProfileRef) {
+        setDocumentNonBlocking(userProfileRef, { calculatorUses: increment(1) }, { merge: true });
+    }
   };
 
   const handleGenerateInsights = () => {
@@ -200,13 +220,11 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
       return;
     }
 
-    if (!isEditMode) {
-      const plan = profileData?.plan || 'Free';
-      const limits = { Free: 5, Pro: 15, Executive: Infinity };
-      if (dealCount >= limits[plan]) {
+    if (!isEditMode && planData && profileData) {
+      if (profileData.savedDeals >= planData.maxSavedDeals) {
         toast({
-            title: `Deal Limit Reached for ${plan} Plan`,
-            description: `You have ${dealCount} deals. Please upgrade your plan to save more.`,
+            title: `Deal Limit Reached for ${planData.name} Plan`,
+            description: `You have saved ${profileData.savedDeals} of ${planData.maxSavedDeals} deals. Please upgrade your plan to save more.`,
             variant: 'destructive',
         });
         return;
@@ -246,6 +264,10 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
     
     const dealRef = doc(firestore, `users/${user.uid}/deals`, dealId);
     setDocumentNonBlocking(dealRef, dealData, { merge: true });
+
+    if (!isEditMode && userProfileRef) {
+        setDocumentNonBlocking(userProfileRef, { savedDeals: increment(1) }, { merge: true });
+    }
 
     if (isEditMode) {
         toast({ title: 'Changes Saved', description: `${dealData.dealName} has been updated.` });
@@ -358,7 +380,7 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
           <CardFooter className="flex justify-end gap-2">
             {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
             <Button type="submit">Run Analysis</Button>
-            <Button variant="secondary" onClick={handleSaveDeal} disabled={isAIPending || isSaving}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
+            <Button variant="secondary" onClick={handleSaveDeal} disabled={isSaving}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
           </CardFooter>
         </form>
       </Form>
