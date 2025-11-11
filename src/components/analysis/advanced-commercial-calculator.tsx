@@ -300,7 +300,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
   const [activeTab, setActiveTab] = useState('assumptions');
 
   const [isAIPending, startAITransition] = useTransition();
-  const [aiResult, setAiResult] = useState<{message: string, assessment: string | null} | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -417,150 +417,131 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
     // AI feature disabled
   };
 
-  const watchedValues = form.watch();
-  
-  useEffect(() => {
-    if (user?.isAnonymous || !profileData || !planData) return;
-
-    if (profileData.calculatorUses >= planData.maxCalculatorUses) {
-        toast({ title: "Calculator Limit Reached", description: `You have used all ${planData.maxCalculatorUses} of your monthly calculator uses. Please upgrade your plan.`});
-        return;
-    }
-    if (userProfileRef) {
-        setDocumentNonBlocking(userProfileRef, { calculatorUses: increment(1) }, { merge: true });
-    }
-  }, [watchedValues]);
-
-  const {
-    monthlyCashFlow, cocReturn, capRate, noi, chartData, proFormaData,
-    unleveredIRR, equityMultiple, netSaleProceeds, totalCashInvested,
-    sensitivityData, lpReturns, gpReturns,
-    incomeBreakdownData, expenseBreakdownData
-  } = useMemo(() => {
-      const { 
+    const runAnalysis = (data: FormData) => {
+        const { 
           purchasePrice, downPayment, rehabCost = 0, closingCosts = 0, acquisitionFee = 0, originationFee = 0,
           holdingLength, sellingCosts, exitCapRate, preferredReturn, promoteHurdle, promoteSplit, unitMix, otherIncomes, operatingExpenses, dispositionFee = 0,
-      } = watchedValues;
+        } = data;
 
-      const loanAmount = purchasePrice - downPayment;
-      const acqFeeAmount = purchasePrice * (acquisitionFee / 100);
-      const originationFeeAmount = loanAmount * (originationFee / 100);
+        const loanAmount = purchasePrice - downPayment;
+        const acqFeeAmount = purchasePrice * (acquisitionFee / 100);
+        const originationFeeAmount = loanAmount * (originationFee / 100);
 
-      const totalCashInvested = downPayment + (purchasePrice * (closingCosts / 100)) + rehabCost + acqFeeAmount + originationFeeAmount;
-      const proForma = calculateProForma(watchedValues);
-      
-      const year1 = proForma[0] || {};
-      const noi = year1.noi || 0;
-      const monthlyCashFlow = (year1.cashFlowBeforeTax || 0) / 12;
-      const cocReturn = totalCashInvested > 0 ? ((year1.cashFlowBeforeTax || 0) / totalCashInvested) * 100 : 0;
-      const capRate = purchasePrice > 0 ? (noi / purchasePrice) * 100 : 0;
+        const totalCashInvested = downPayment + (purchasePrice * (closingCosts / 100)) + rehabCost + acqFeeAmount + originationFeeAmount;
+        const proForma = calculateProForma(data);
+        
+        const year1 = proForma[0] || {};
+        const noi = year1.noi || 0;
+        const monthlyCashFlow = (year1.cashFlowBeforeTax || 0) / 12;
+        const cocReturn = totalCashInvested > 0 ? ((year1.cashFlowBeforeTax || 0) / totalCashInvested) * 100 : 0;
+        const capRate = purchasePrice > 0 ? (noi / purchasePrice) * 100 : 0;
 
-      const cashFlowChartData = proForma.slice(0, 10).map(entry => ({
-          year: `Year ${entry.year}`,
-          cashFlow: parseFloat(entry.cashFlowBeforeTax.toFixed(2))
-      }));
-      
-      const year1GrossRent = unitMix.reduce((acc, u) => acc + (u.count * u.rent * 12), 0);
-      const year1OtherIncome = otherIncomes.reduce((acc, i) => {
-          if (i.type === 'fixed') return acc + i.amount * 12;
-          return acc + (year1GrossRent * (i.amount / 100));
-      }, 0)
+        const cashFlowChartData = proForma.slice(0, 10).map(entry => ({
+            year: `Year ${entry.year}`,
+            cashFlow: parseFloat(entry.cashFlowBeforeTax.toFixed(2))
+        }));
+        
+        const year1GrossRent = unitMix.reduce((acc, u) => acc + (u.count * u.rent * 12), 0);
+        const year1OtherIncome = otherIncomes.reduce((acc, i) => {
+            if (i.type === 'fixed') return acc + i.amount * 12;
+            return acc + (year1GrossRent * (i.amount / 100));
+        }, 0)
 
-      const incomeBreakdownData = [
-          ...unitMix.map(u => ({ name: `${u.type} Rent`, value: u.count * u.rent * 12 })),
-          { name: 'Other Income', value: year1OtherIncome}
-      ].filter(item => item.value > 0);
+        const incomeBreakdownData = [
+            ...unitMix.map(u => ({ name: `${u.type} Rent`, value: u.count * u.rent * 12 })),
+            { name: 'Other Income', value: year1OtherIncome}
+        ].filter(item => item.value > 0);
 
-      const year1EGI = (year1GrossRent + year1OtherIncome) * (1 - (watchedValues.vacancyRate / 100));
-      const expenseBreakdownData = [
-          ...operatingExpenses.map(e => ({ 
-              name: e.name, 
-              value: e.type === 'fixed' ? e.amount * 12 : year1EGI * (e.amount / 100) 
-          })),
-          ...watchedValues.capitalExpenditures.map(c => ({
-              name: c.name,
-              value: c.type === 'fixed' ? c.amount : year1EGI * (c.amount / 100)
-          }))
-      ].filter(item => item.value > 0);
+        const year1EGI = (year1GrossRent + year1OtherIncome) * (1 - (data.vacancyRate / 100));
+        const expenseBreakdownData = [
+            ...operatingExpenses.map(e => ({ 
+                name: e.name, 
+                value: e.type === 'fixed' ? e.amount * 12 : year1EGI * (e.amount / 100) 
+            })),
+            ...data.capitalExpenditures.map(c => ({
+                name: c.name,
+                value: c.type === 'fixed' ? c.amount : year1EGI * (c.amount / 100)
+            }))
+        ].filter(item => item.value > 0);
 
 
-      // Advanced metrics calculation
-      let unleveredIRR = NaN;
-      let equityMultiple = 0;
-      let netSaleProceeds = 0;
+        // Advanced metrics calculation
+        let unleveredIRR = NaN;
+        let equityMultiple = 0;
+        let netSaleProceeds = 0;
 
-      let lpCashFlows: number[] = [-totalCashInvested];
-      let gpCashFlows: number[] = [0]; // GP has 0 initial investment in this simple model
+        let lpCashFlows: number[] = [-totalCashInvested];
+        let gpCashFlows: number[] = [0]; // GP has 0 initial investment in this simple model
 
-      if (proForma.length >= holdingLength) {
-          // --- Overall Deal Returns ---
-          const exitYearEntry = proForma[holdingLength - 1];
-          const exitNOI = exitYearEntry.noi * (1 + watchedValues.annualIncomeGrowth/100);
-          
-          const salePrice = exitCapRate > 0 ? exitNOI / (exitCapRate / 100) : 0;
-          const sellingCostsAmount = salePrice * (sellingCosts / 100);
-          const dispositionFeeAmount = salePrice * (dispositionFee / 100);
-          const saleCosts = sellingCostsAmount + dispositionFeeAmount;
-          const loanPayoff = exitYearEntry.loanBalance;
-          netSaleProceeds = salePrice - saleCosts - loanPayoff;
+        if (proForma.length >= holdingLength) {
+            // --- Overall Deal Returns ---
+            const exitYearEntry = proForma[holdingLength - 1];
+            const exitNOI = exitYearEntry.noi * (1 + data.annualIncomeGrowth/100);
+            
+            const salePrice = exitCapRate > 0 ? exitNOI / (exitCapRate / 100) : 0;
+            const sellingCostsAmount = salePrice * (sellingCosts / 100);
+            const dispositionFeeAmount = salePrice * (dispositionFee / 100);
+            const saleCosts = sellingCostsAmount + dispositionFeeAmount;
+            const loanPayoff = exitYearEntry.loanBalance;
+            netSaleProceeds = salePrice - saleCosts - loanPayoff;
 
-          const cashflows = [-totalCashInvested];
-          for (let i = 0; i < holdingLength -1; i++) {
-              cashflows.push(proForma[i].cashFlowBeforeTax);
-          }
-          cashflows.push(proForma[holdingLength - 1].cashFlowBeforeTax + netSaleProceeds);
-          
-          unleveredIRR = calculateIRR(cashflows) * 100;
+            const cashflows = [-totalCashInvested];
+            for (let i = 0; i < holdingLength -1; i++) {
+                cashflows.push(proForma[i].cashFlowBeforeTax);
+            }
+            cashflows.push(proForma[holdingLength - 1].cashFlowBeforeTax + netSaleProceeds);
+            
+            unleveredIRR = calculateIRR(cashflows) * 100;
 
-          const totalCashReturned = proForma.slice(0, holdingLength).reduce((sum, entry) => sum + entry.cashFlowBeforeTax, 0) + netSaleProceeds;
-          equityMultiple = totalCashInvested > 0 ? totalCashReturned / totalCashInvested : 0;
+            const totalCashReturned = proForma.slice(0, holdingLength).reduce((sum, entry) => sum + entry.cashFlowBeforeTax, 0) + netSaleProceeds;
+            equityMultiple = totalCashInvested > 0 ? totalCashReturned / totalCashInvested : 0;
 
-          // --- Waterfall Calculation ---
-          let lpCapitalAccount = totalCashInvested;
-          for (let i = 0; i < holdingLength; i++) {
-              const yearCF = proForma[i].cashFlowBeforeTax + (i === holdingLength - 1 ? netSaleProceeds : 0);
-              
-              const prefPayment = Math.min(yearCF, lpCapitalAccount * (preferredReturn / 100));
-              let lpPref = prefPayment;
-              let gpPref = 0;
+            // --- Waterfall Calculation ---
+            let lpCapitalAccount = totalCashInvested;
+            for (let i = 0; i < holdingLength; i++) {
+                const yearCF = proForma[i].cashFlowBeforeTax + (i === holdingLength - 1 ? netSaleProceeds : 0);
+                
+                const prefPayment = Math.min(yearCF, lpCapitalAccount * (preferredReturn / 100));
+                let lpPref = prefPayment;
+                let gpPref = 0;
 
-              const remainingCfAfterPref = yearCF - prefPayment;
-              
-              const returnOfCapital = Math.min(remainingCfAfterPref, lpCapitalAccount);
-              lpCapitalAccount -= returnOfCapital;
-              lpPref += returnOfCapital;
+                const remainingCfAfterPref = yearCF - prefPayment;
+                
+                const returnOfCapital = Math.min(remainingCfAfterPref, lpCapitalAccount);
+                lpCapitalAccount -= returnOfCapital;
+                lpPref += returnOfCapital;
 
-              const remainingCfForSplit = remainingCfAfterPref - returnOfCapital;
+                const remainingCfForSplit = remainingCfAfterPref - returnOfCapital;
 
-              const dealIRRForHurdle = calculateIRR([-totalCashInvested, ...lpCashFlows.slice(1).map((cf, idx) => cf + (gpCashFlows[idx+1] || 0)), yearCF], 0.1) * 100;
-              let lpSplit, gpSplit;
-              
-              if (dealIRRForHurdle > promoteHurdle) {
-                  lpSplit = remainingCfForSplit * (1 - (promoteSplit / 100));
-                  gpSplit = remainingCfForSplit * (promoteSplit / 100);
-              } else {
-                  lpSplit = remainingCfForSplit;
-                  gpSplit = 0;
-              }
+                const dealIRRForHurdle = calculateIRR([-totalCashInvested, ...lpCashFlows.slice(1).map((cf, idx) => cf + (gpCashFlows[idx+1] || 0)), yearCF], 0.1) * 100;
+                let lpSplit, gpSplit;
+                
+                if (dealIRRForHurdle > promoteHurdle) {
+                    lpSplit = remainingCfForSplit * (1 - (promoteSplit / 100));
+                    gpSplit = remainingCfForSplit * (promoteSplit / 100);
+                } else {
+                    lpSplit = remainingCfForSplit;
+                    gpSplit = 0;
+                }
 
-              lpCashFlows.push(lpPref + lpSplit);
-              gpCashFlows.push(gpPref + gpSplit);
-          }
-      }
-      
+                lpCashFlows.push(lpPref + lpSplit);
+                gpCashFlows.push(gpPref + gpSplit);
+            }
+        }
+        
         const SENSITIVITY_RANGES: Record<SensitivityVariable, number[] | ((v: number) => number[])> = {
             purchasePrice: (v: number) => [v * -0.1, v * -0.05, 0, v * 0.05, v * 0.1].map(mod => v + mod),
             downPayment: (v: number) => [v * -0.1, v * -0.05, 0, v * 0.05, v * 0.1].map(mod => v + mod),
-            vacancyRate: [-2, -1, 0, 1, 2].map(mod => watchedValues.vacancyRate + mod),
-            annualIncomeGrowth: [-1, -0.5, 0, 0.5, 1].map(mod => watchedValues.annualIncomeGrowth + mod),
-            exitCapRate: [-0.5, -0.25, 0, 0.25, 0.5].map(mod => watchedValues.exitCapRate + mod),
-            interestRate: [-1, -0.5, 0, 0.5, 1].map(mod => watchedValues.interestRate + mod),
+            vacancyRate: [-2, -1, 0, 1, 2].map(mod => data.vacancyRate + mod),
+            annualIncomeGrowth: [-1, -0.5, 0, 0.5, 1].map(mod => data.annualIncomeGrowth + mod),
+            exitCapRate: [-0.5, -0.25, 0, 0.25, 0.5].map(mod => data.exitCapRate + mod),
+            interestRate: [-1, -0.5, 0, 0.5, 1].map(mod => data.interestRate + mod),
         };
 
         const getRange = (variable: SensitivityVariable) => {
             const rangeOrFn = SENSITIVITY_RANGES[variable];
             if (typeof rangeOrFn === 'function') {
-                return rangeOrFn(watchedValues[variable] || 0);
+                return rangeOrFn(data[variable] || 0);
             }
             return rangeOrFn;
         };
@@ -576,9 +557,9 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                     [sensitivityVar2]: val2,
                 };
                 
-                const tempProForma = calculateProForma(watchedValues, overrides);
+                const tempProForma = calculateProForma(data, overrides);
                 
-                const tempWatched = {...watchedValues, ...overrides};
+                const tempWatched = {...data, ...overrides};
                 const tInvestment = (tempWatched.downPayment) + (tempWatched.purchasePrice * (tempWatched.closingCosts/100)) + (tempWatched.rehabCost);
 
                 const y1 = tempProForma[0] || {};
@@ -625,7 +606,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
             return row;
         });
 
-      return {
+      setAnalysisResult({
           monthlyCashFlow, cocReturn, capRate, noi, chartData: cashFlowChartData, proFormaData: proForma,
           unleveredIRR, equityMultiple, netSaleProceeds, totalCashInvested,
           sensitivityData: { tableData, var1Range, var2Range },
@@ -639,10 +620,39 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
           },
           incomeBreakdownData,
           expenseBreakdownData,
-      };
-  }, [watchedValues, sensitivityVar1, sensitivityVar2, sensitivityMetric]);
+      });
+  };
+
+  const handleAnalysisClick = async () => {
+    if (user?.isAnonymous || !profileData || !planData) {
+      toast({ title: "Account Required", description: "Please create a full account to use the calculators." });
+      return;
+    }
+
+    if (profileData.calculatorUses >= planData.maxCalculatorUses) {
+      toast({ title: "Calculator Limit Reached", description: `You have used all ${planData.maxCalculatorUses} of your monthly calculator uses. Please upgrade your plan.` });
+      return;
+    }
+
+    const isFormValid = await form.trigger();
+    if (!isFormValid) {
+        toast({ title: "Invalid Data", description: "Please review the form for errors before running the analysis.", variant: "destructive" });
+        return;
+    }
+    
+    runAnalysis(form.getValues());
+    
+    if (userProfileRef) {
+      setDocumentNonBlocking(userProfileRef, { calculatorUses: increment(1) }, { merge: true });
+    }
+  };
+
 
   const handleSaveDeal = async () => {
+    if (!analysisResult) {
+      toast({ title: 'Analysis Required', description: 'Please run the analysis before saving.', variant: 'destructive' });
+      return;
+    }
     if (!user) {
       toast({ title: 'Authentication Required', description: 'Please sign in to save deals.', variant: 'destructive' });
       return;
@@ -677,12 +687,12 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
       ...formValues,
       id: dealId,
       dealType: 'Commercial Multifamily' as const,
-      monthlyCashFlow: parseFloat(monthlyCashFlow.toFixed(2)),
-      cocReturn: parseFloat(cocReturn.toFixed(2)),
-      noi: parseFloat(noi.toFixed(2)),
-      capRate: parseFloat(capRate.toFixed(2)),
-      roi: parseFloat(unleveredIRR.toFixed(2)),
-      netProfit: parseFloat(netSaleProceeds.toFixed(2)),
+      monthlyCashFlow: parseFloat(analysisResult.monthlyCashFlow.toFixed(2)),
+      cocReturn: parseFloat(analysisResult.cocReturn.toFixed(2)),
+      noi: parseFloat(analysisResult.noi.toFixed(2)),
+      capRate: parseFloat(analysisResult.capRate.toFixed(2)),
+      roi: parseFloat(analysisResult.unleveredIRR.toFixed(2)),
+      netProfit: parseFloat(analysisResult.netSaleProceeds.toFixed(2)),
       userId: user.uid,
       createdAt: isEditMode && deal.createdAt ? deal.createdAt : serverTimestamp(),
       status: isEditMode && deal.status ? deal.status : 'In Works',
@@ -703,6 +713,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
         }
         toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
         form.reset();
+        setAnalysisResult(null);
     }
     setIsSaving(false);
   };
@@ -725,8 +736,8 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
         { value: 'noi', label: 'NOI (Y1)', format: v => isNaN(v) ? 'N/A' : `$${v.toLocaleString(undefined, {maximumFractionDigits: 0})}` },
     ];
     
-    const selectedMetric = METRIC_OPTIONS.find(m => m.value === sensitivityMetric);
-    const allValues = sensitivityData.tableData.flatMap(row => Object.values(row).filter(v => typeof v === 'number' && !isNaN(v) && isFinite(v))) as number[];
+    const selectedMetric = analysisResult ? METRIC_OPTIONS.find(m => m.value === sensitivityMetric) : null;
+    const allValues = analysisResult ? analysisResult.sensitivityData.tableData.flatMap((row: any) => Object.values(row).filter((v: any) => typeof v === 'number' && !isNaN(v) && isFinite(v))) as number[] : [];
     const min = Math.min(...allValues);
     const max = Math.max(...allValues);
     
@@ -741,8 +752,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
         return 'bg-red-500/20 text-red-200';
     };
 
-    const firstYearProForma = proFormaData[0] || {};
-    const dscr = firstYearProForma.debtService > 0 ? (firstYearProForma.noi / firstYearProForma.debtService) : Infinity;
+    const dscr = analysisResult && analysisResult.proFormaData[0]?.debtService > 0 ? (analysisResult.proFormaData[0].noi / analysisResult.proFormaData[0].debtService) : Infinity;
 
     const getReturnColor = (value: number, type: 'irr' | 'em') => {
         if (isNaN(value)) return 'text-muted-foreground';
@@ -769,12 +779,14 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
             <CardContent>
                 <Form {...form}>
                     <form>
-                        <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 shadow-[0_0_15px_hsl(var(--primary)/0.5)]">
-                            <div className="text-center"> <p className="text-sm text-primary/80 font-headline">IRR</p> <p className="text-2xl font-bold text-primary">{unleveredIRR.toFixed(2)}%</p></div>
-                            <div className="text-center"> <p className="text-sm text-primary/80 font-headline">Equity Multiple</p> <p className="text-2xl font-bold text-primary">{equityMultiple.toFixed(2)}x</p></div>
-                            <div className="text-center"> <p className="text-sm text-primary/80 font-headline">Cap Rate (Y1)</p> <p className="text-2xl font-bold text-primary">{capRate.toFixed(2)}%</p></div>
-                            <div className="text-center"> <p className="text-sm text-primary/80 font-headline">NOI (Y1)</p> <p className="text-2xl font-bold text-primary">${noi.toLocaleString(undefined, {maximumFractionDigits: 0})}</p></div>
+                       {analysisResult && (
+                         <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 shadow-[0_0_15px_hsl(var(--primary)/0.5)]">
+                            <div className="text-center"> <p className="text-sm text-primary/80 font-headline">IRR</p> <p className="text-2xl font-bold text-primary">{analysisResult.unleveredIRR.toFixed(2)}%</p></div>
+                            <div className="text-center"> <p className="text-sm text-primary/80 font-headline">Equity Multiple</p> <p className="text-2xl font-bold text-primary">{analysisResult.equityMultiple.toFixed(2)}x</p></div>
+                            <div className="text-center"> <p className="text-sm text-primary/80 font-headline">Cap Rate (Y1)</p> <p className="text-2xl font-bold text-primary">{analysisResult.capRate.toFixed(2)}%</p></div>
+                            <div className="text-center"> <p className="text-sm text-primary/80 font-headline">NOI (Y1)</p> <p className="text-2xl font-bold text-primary">${analysisResult.noi.toLocaleString(undefined, {maximumFractionDigits: 0})}</p></div>
                         </div>
+                       )}
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                             <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 lg:grid-cols-6 h-auto">
                             <TabsTrigger value="assumptions" className={cn("flex-col h-14")}>
@@ -782,7 +794,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                     <span>Assumptions</span>
                             </TabsTrigger>
                             {ANALYSIS_TABS.map(tab => (
-                                    <TabsTrigger key={tab.value} value={tab.value} className={cn("flex-col h-14")} disabled={proFormaData.length === 0}>
+                                    <TabsTrigger key={tab.value} value={tab.value} className={cn("flex-col h-14")} disabled={!analysisResult}>
                                         <tab.icon className="w-5 h-5 mb-1" />
                                         <span>{tab.label}</span>
                                     </TabsTrigger>
@@ -881,9 +893,9 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                             </TabsContent>
                             
                             <TabsContent value="overview" className="mt-6 space-y-6">
-                                {proFormaData.length > 0 ? (
+                                {analysisResult ? (
                                     <>
-                                        <ProFormaTable data={proFormaData} />
+                                        <ProFormaTable data={analysisResult.proFormaData} />
                                     </>
                                 ) : (
                                     <p className="text-center text-muted-foreground p-8">Run an analysis from the Assumptions tab to see the pro forma.</p>
@@ -891,7 +903,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                             </TabsContent>
 
                             <TabsContent value="income" className="mt-6">
-                                {proFormaData.length > 0 ? (
+                                {analysisResult ? (
                                 <div className="space-y-6">
                                 <Card>
                                         <CardHeader>
@@ -901,7 +913,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                         <CardContent>
                                             <div className='h-[400px] w-full'>
                                                 <ResponsiveContainer width="100%" height="100%">
-                                                    <LineChart data={proFormaData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
+                                                    <LineChart data={analysisResult.proFormaData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
                                                         <CartesianGrid strokeDasharray="3 3" />
                                                         <XAxis dataKey="year" tickFormatter={(v) => `Year ${v}`} />
                                                         <YAxis tickFormatter={formatCurrency}/>
@@ -923,8 +935,8 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                         <div className='h-[400px] w-full'>
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <PieChart>
-                                                    <Pie data={incomeBreakdownData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={120} label>
-                                                        {incomeBreakdownData.map((entry, index) => (
+                                                    <Pie data={analysisResult.incomeBreakdownData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={120} label>
+                                                        {analysisResult.incomeBreakdownData.map((entry: any, index: number) => (
                                                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                                         ))}
                                                     </Pie>
@@ -940,7 +952,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                             </TabsContent>
 
                             <TabsContent value="expenses" className="mt-6">
-                                {proFormaData.length > 0 ? (
+                                {analysisResult ? (
                                 <div className="space-y-6">
                                 <Card>
                                         <CardHeader>
@@ -950,7 +962,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                         <CardContent>
                                             <div className='h-[350px] w-full'>
                                                 <ResponsiveContainer width="100%" height="100%">
-                                                    <RechartsBarChart data={proFormaData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
+                                                    <RechartsBarChart data={analysisResult.proFormaData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
                                                         <CartesianGrid strokeDasharray="3 3" />
                                                         <XAxis dataKey="year" tickFormatter={(v) => `Year ${v}`} />
                                                         <YAxis tickFormatter={formatCurrency} />
@@ -972,8 +984,8 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                         <div className='h-[350px] w-full'>
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <PieChart>
-                                                    <Pie data={expenseBreakdownData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                                                         {expenseBreakdownData.map((entry, index) => (
+                                                    <Pie data={analysisResult.expenseBreakdownData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                                                         {analysisResult.expenseBreakdownData.map((entry: any, index: number) => (
                                                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                                         ))}
                                                     </Pie>
@@ -989,7 +1001,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                             </TabsContent>
                             
                             <TabsContent value="financing" className="mt-6">
-                                {proFormaData.length > 0 ? (
+                                {analysisResult ? (
                                 <div className='space-y-6'>
                                     <Card>
                                         <CardHeader>
@@ -999,7 +1011,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                         <CardContent>
                                             <div className='h-[350px] w-full'>
                                                 <ResponsiveContainer width="100%" height="100%">
-                                                    <LineChart data={proFormaData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
+                                                    <LineChart data={analysisResult.proFormaData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
                                                         <CartesianGrid strokeDasharray="3 3" />
                                                         <XAxis dataKey="year" tickFormatter={(v) => `Year ${v}`} />
                                                         <YAxis tickFormatter={formatCurrency} />
@@ -1032,25 +1044,25 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                             </TabsContent>
 
                             <TabsContent value="return-analysis" className="mt-6">
-                                <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+                               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                     <Card className='lg:col-span-1'>
                                         <CardHeader><CardTitle className="font-headline">Overall Deal Returns</CardTitle></CardHeader>
                                         <CardContent className="space-y-4">
                                             <div className="p-3 rounded-lg bg-muted">
                                                 <p className="text-sm text-muted-foreground">Unlevered IRR</p>
-                                                <p className={cn("text-xl font-bold", getReturnColor(unleveredIRR, 'irr'))}>{unleveredIRR.toFixed(2)}%</p>
+                                                <p className={cn("text-xl font-bold", getReturnColor(analysisResult?.unleveredIRR || 0, 'irr'))}>{analysisResult?.unleveredIRR.toFixed(2)}%</p>
                                             </div>
                                             <div className="p-3 rounded-lg bg-muted">
                                                 <p className="text-sm text-muted-foreground">Equity Multiple</p>
-                                                <p className={cn("text-xl font-bold", getReturnColor(equityMultiple, 'em'))}>{equityMultiple.toFixed(2)}x</p>
+                                                <p className={cn("text-xl font-bold", getReturnColor(analysisResult?.equityMultiple || 0, 'em'))}>{analysisResult?.equityMultiple.toFixed(2)}x</p>
                                             </div>
                                             <div className="p-3 rounded-lg bg-muted">
                                                 <p className="text-sm text-muted-foreground">Total Cash Invested</p>
-                                                <p className="text-lg font-bold">${totalCashInvested.toLocaleString()}</p>
+                                                <p className="text-lg font-bold">${analysisResult?.totalCashInvested.toLocaleString()}</p>
                                             </div>
                                             <div className="p-3 rounded-lg bg-muted">
                                                 <p className="text-sm text-muted-foreground">Net Sale Proceeds</p>
-                                                <p className="text-lg font-bold">${netSaleProceeds.toLocaleString()}</p>
+                                                <p className="text-lg font-bold">${analysisResult?.netSaleProceeds.toLocaleString()}</p>
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -1061,99 +1073,104 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                                                 <p className="font-semibold">Limited Partner (LP)</p>
                                                 <div className="p-3 mt-1 rounded-lg bg-blue-500/10">
                                                     <p className="text-sm text-blue-400">IRR</p>
-                                                    <p className={cn("text-xl font-bold", getReturnColor(lpReturns.irr, 'irr'))}>{lpReturns.irr.toFixed(2)}%</p>
+                                                    <p className={cn("text-xl font-bold", getReturnColor(analysisResult?.lpReturns.irr || 0, 'irr'))}>{analysisResult?.lpReturns.irr.toFixed(2)}%</p>
                                                 </div>
                                                  <div className="p-3 mt-2 rounded-lg bg-blue-500/10">
                                                     <p className="text-sm text-blue-400">Equity Multiple</p>
-                                                    <p className={cn("text-xl font-bold", getReturnColor(lpReturns.equityMultiple, 'em'))}>{lpReturns.equityMultiple.toFixed(2)}x</p>
+                                                    <p className={cn("text-xl font-bold", getReturnColor(analysisResult?.lpReturns.equityMultiple || 0, 'em'))}>{analysisResult?.lpReturns.equityMultiple.toFixed(2)}x</p>
                                                 </div>
                                             </div>
                                              <div>
                                                 <p className="font-semibold">General Partner (GP)</p>
                                                 <div className="p-3 mt-1 rounded-lg bg-green-500/10">
                                                     <p className="text-sm text-green-400">IRR</p>
-                                                    <p className={cn("text-xl font-bold", getReturnColor(gpReturns.irr, 'irr'))}>{isFinite(gpReturns.irr) ? `${gpReturns.irr.toFixed(2)}%` : 'N/A'}</p>
+                                                    <p className={cn("text-xl font-bold", getReturnColor(analysisResult?.gpReturns.irr || 0, 'irr'))}>{isFinite(analysisResult?.gpReturns.irr) ? `${analysisResult.gpReturns.irr.toFixed(2)}%` : 'N/A'}</p>
                                                 </div>
                                                  <div className="p-3 mt-2 rounded-lg bg-green-500/10">
                                                     <p className="text-sm text-green-400">Total Profit</p>
-                                                    <p className="text-xl font-bold text-green-300">${gpReturns.equityMultiple.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                                    <p className="text-xl font-bold text-green-300">${analysisResult?.gpReturns.equityMultiple.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                                                 </div>
                                             </div>
                                         </CardContent>
                                     </Card>
-                                    <Card className='lg:col-span-1'>
-                                        <CardHeader>
-                                            <CardTitle className="font-headline">Sensitivity Analysis</CardTitle>
-                                            <CardDescription>How returns change with different assumptions.</CardDescription>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="flex flex-col gap-2 mb-4">
-                                                <div className="flex-1 space-y-1">
-                                                    <Label className="text-xs">Vertical Axis (Rows)</Label>
-                                                    <Select value={sensitivityVar1} onValueChange={(v) => setSensitivityVar1(v as SensitivityVariable)}>
-                                                        <SelectTrigger className="h-8"><SelectValue placeholder="Select Variable" /></SelectTrigger>
-                                                        <SelectContent>
-                                                            {SENSITIVITY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} disabled={opt.value === sensitivityVar2}>{opt.label}</SelectItem>)}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                                <div className="flex-1 space-y-1">
-                                                    <Label className="text-xs">Horizontal Axis (Columns)</Label>
-                                                    <Select value={sensitivityVar2} onValueChange={(v) => setSensitivityVar2(v as SensitivityVariable)}>
-                                                        <SelectTrigger className="h-8"><SelectValue placeholder="Select Variable" /></SelectTrigger>
-                                                        <SelectContent>
-                                                            {SENSITIVITY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} disabled={opt.value === sensitivityVar1}>{opt.label}</SelectItem>)}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                                <div className="flex-1 space-y-1">
-                                                    <Label className="text-xs">Output Metric</Label>
-                                                    <Select value={sensitivityMetric} onValueChange={(v) => setSensitivityMetric(v as SensitivityMetric)}>
-                                                        <SelectTrigger className="h-8"><SelectValue placeholder="Select Metric" /></SelectTrigger>
-                                                        <SelectContent>
-                                                            {METRIC_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
+                               </div>
+                                <Card className="mt-6">
+                                    <CardHeader>
+                                        <CardTitle className="font-headline">Sensitivity Analysis</CardTitle>
+                                        <CardDescription>How returns change with different assumptions.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="flex flex-col gap-2 mb-4">
+                                            <div className="flex-1 space-y-1">
+                                                <Label className="text-xs">Vertical Axis (Rows)</Label>
+                                                <Select value={sensitivityVar1} onValueChange={(v) => setSensitivityVar1(v as SensitivityVariable)}>
+                                                    <SelectTrigger className="h-8"><SelectValue placeholder="Select Variable" /></SelectTrigger>
+                                                    <SelectContent>
+                                                        {SENSITIVITY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} disabled={opt.value === sensitivityVar2}>{opt.label}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
+                                            <div className="flex-1 space-y-1">
+                                                <Label className="text-xs">Horizontal Axis (Columns)</Label>
+                                                <Select value={sensitivityVar2} onValueChange={(v) => setSensitivityVar2(v as SensitivityVariable)}>
+                                                    <SelectTrigger className="h-8"><SelectValue placeholder="Select Variable" /></SelectTrigger>
+                                                    <SelectContent>
+                                                        {SENSITIVITY_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} disabled={opt.value === sensitivityVar1}>{opt.label}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="flex-1 space-y-1">
+                                                <Label className="text-xs">Output Metric</Label>
+                                                <Select value={sensitivityMetric} onValueChange={(v) => setSensitivityMetric(v as SensitivityMetric)}>
+                                                    <SelectTrigger className="h-8"><SelectValue placeholder="Select Metric" /></SelectTrigger>
+                                                    <SelectContent>
+                                                        {METRIC_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
 
-                                            <div className="border rounded-lg overflow-x-auto">
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead className="w-[100px] text-xs font-bold">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar1)?.label}</TableHead>
-                                                        {sensitivityData.var2Range.map((val, i) => (
-                                                            <TableHead key={i} className="text-center text-xs font-bold">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar2)?.format(val)}</TableHead>
-                                                        ))}
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {sensitivityData.tableData.map((row, rowIndex) => (
-                                                        <TableRow key={rowIndex}>
-                                                            <TableCell className="font-mono text-xs">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar1)?.format(row.label)}</TableCell>
-                                                            {Object.keys(row).filter(k => k !== 'label').map((key, colIndex) => {
-                                                                const isCenter = rowIndex === 2 && colIndex === 2;
-                                                                return (
-                                                                    <TableCell key={colIndex} className={cn("text-center font-mono text-xs p-1", getColor(row[key]), isCenter && 'ring-2 ring-primary ring-inset')}>
-                                                                        {selectedMetric ? selectedMetric.format(row[key]) : 'N/A'}
-                                                                    </TableCell>
-                                                                );
-                                                            })}
-                                                        </TableRow>
+                                        <div className="border rounded-lg overflow-x-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead className="w-[100px] text-xs font-bold">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar1)?.label}</TableHead>
+                                                    {analysisResult?.sensitivityData.var2Range.map((val: number, i: number) => (
+                                                        <TableHead key={i} className="text-center text-xs font-bold">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar2)?.format(val)}</TableHead>
                                                     ))}
-                                                </TableBody>
-                                            </Table>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </div>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {analysisResult?.sensitivityData.tableData.map((row: any, rowIndex: number) => (
+                                                    <TableRow key={rowIndex}>
+                                                        <TableCell className="font-mono text-xs">{SENSITIVITY_OPTIONS.find(o => o.value === sensitivityVar1)?.format(row.label)}</TableCell>
+                                                        {Object.keys(row).filter(k => k !== 'label').map((key, colIndex) => {
+                                                            const isCenter = rowIndex === 2 && colIndex === 2;
+                                                            return (
+                                                                <TableCell key={colIndex} className={cn("text-center font-mono text-xs p-1", getColor(row[key]), isCenter && 'ring-2 ring-primary ring-inset')}>
+                                                                    {selectedMetric ? selectedMetric.format(row[key]) : 'N/A'}
+                                                                </TableCell>
+                                                            );
+                                                        })}
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                        </div>
+                                    </CardContent>
+                                </Card>
                             </TabsContent>
                         </Tabs>
-                        <CardFooter className="flex justify-end gap-2 mt-6">
-                            {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
-                            <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isSaving}> 
-                                {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} 
+                        <CardFooter className="flex justify-between items-center mt-6">
+                            <Button type="button" onClick={handleAnalysisClick}>
+                                Run Analysis
                             </Button>
+                            <div className="flex justify-end gap-2">
+                                {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
+                                <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isSaving}> 
+                                    {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} 
+                                </Button>
+                            </div>
                         </CardFooter>
                     </form>
                 </Form>

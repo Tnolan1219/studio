@@ -152,7 +152,7 @@
     .plan-executive {
       animation: pulse-executive 2.5s infinite;
     }
-    .plan-elite[data-state="active"] {
+    .plan-elite {
       animation: pulse-elite 2.5s infinite;
     }
     
