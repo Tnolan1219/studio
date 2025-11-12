@@ -660,7 +660,8 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
     
     if (userProfileRef) {
         incrementCalculatorUses();
-        setDocumentNonBlocking(userProfileRef, { calculatorUses: increment(1) }, { merge: true });
+        const profileUpdate = { calculatorUses: increment(1) };
+        setDocumentNonBlocking(userProfileRef, profileUpdate, { merge: true });
     }
   };
 
@@ -728,7 +729,8 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
         setDocumentNonBlocking(dealRef, dealData, { merge: true });
          if (userProfileRef) {
             useProfileStore.getState().incrementSavedDeals();
-            setDocumentNonBlocking(userProfileRef, { savedDeals: increment(1) }, { merge: true });
+            const profileUpdate = { savedDeals: increment(1) };
+            setDocumentNonBlocking(userProfileRef, profileUpdate, { merge: true });
         }
         toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
         form.reset();

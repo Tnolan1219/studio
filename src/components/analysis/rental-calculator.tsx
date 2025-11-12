@@ -293,7 +293,8 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
 
     if (!skipTrack && userProfileRef) {
         incrementCalculatorUses();
-        setDocumentNonBlocking(userProfileRef, { calculatorUses: increment(1) }, { merge: true });
+        const profileUpdate = { calculatorUses: increment(1) };
+        setDocumentNonBlocking(userProfileRef, profileUpdate, { merge: true });
     }
   };
 
@@ -361,7 +362,8 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
 
     if (!isEditMode && userProfileRef) {
         useProfileStore.getState().incrementSavedDeals();
-        setDocumentNonBlocking(userProfileRef, { savedDeals: increment(1) }, { merge: true });
+        const profileUpdate = { savedDeals: increment(1) };
+        setDocumentNonBlocking(userProfileRef, profileUpdate, { merge: true });
     }
 
     if (isEditMode) {

@@ -295,7 +295,8 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
     
     if (!skipTrack && userProfileRef) {
         incrementCalculatorUses();
-        setDocumentNonBlocking(userProfileRef, { calculatorUses: increment(1) }, { merge: true });
+        const profileUpdate = { calculatorUses: increment(1) };
+        setDocumentNonBlocking(userProfileRef, profileUpdate, { merge: true });
     }
   };
   
@@ -365,7 +366,8 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
 
     if (!isEditMode && userProfileRef) {
         useProfileStore.getState().incrementSavedDeals();
-        setDocumentNonBlocking(userProfileRef, { savedDeals: increment(1) }, { merge: true });
+        const profileUpdate = { savedDeals: increment(1) };
+        setDocumentNonBlocking(userProfileRef, profileUpdate, { merge: true });
     }
 
     toast({ title: isEditMode ? 'Changes Saved' : 'Deal Saved!', description: `${dealData.dealName} has been ${isEditMode ? 'updated' : 'added'}.` });
