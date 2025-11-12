@@ -45,6 +45,7 @@
     "firebase": "^11.9.1",
     "framer-motion": "^11.2.10",
     "genkit": "^1.22.0",
+    "immer": "^10.2.0",
     "lucide-react": "^0.475.0",
     "marked": "^13.0.2",
     "next": "15.3.3",
@@ -59,7 +60,7 @@
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.25.76",
-    "zustand": "^4.5.4"
+    "zustand": "^4.5.7"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.15",
