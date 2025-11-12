@@ -1,17 +1,20 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, FirebaseClientProvider } from '@/firebase';
-import { collection, doc, query, where, getDocs } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase, FirebaseClientProvider } from '@/firebase';
+import { collection, doc, query, setDoc } from 'firebase/firestore';
 import type { UserProfile, Plan } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Check, X, Loader2, Crown } from 'lucide-react';
+import { Check, X, Loader2, Crown, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Header } from '@/components/header';
 import { useProfileStore } from '@/hooks/use-profile-store';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 const PlanCard = ({ plan, currentPlan, onSelect, isLoading }: { plan: Plan, currentPlan?: string, onSelect: (planName: string) => void, isLoading: boolean }) => {
@@ -27,8 +30,8 @@ const PlanCard = ({ plan, currentPlan, onSelect, isLoading }: { plan: Plan, curr
     
     return (
         <Card className={cn(
-            "flex flex-col",
-            isCurrent ? "border-primary ring-2 ring-primary" : "border-border",
+            "flex flex-col transition-all duration-300",
+            isCurrent ? "border-primary ring-2 ring-primary shadow-lg" : "border-border hover:shadow-md",
             isPro && !isCurrent && "border-primary/50"
         )}>
             {isPro && <div className="text-center py-1 bg-primary text-primary-foreground text-sm font-bold rounded-t-lg">Most Popular</div>}
@@ -74,7 +77,7 @@ function PlansView() {
     const [isLoading, setIsLoading] = useState(false);
 
     const plansQuery = useMemoFirebase(() => query(collection(firestore, 'plans')), [firestore]);
-    const { data: plans } = useCollection<Plan>(plansQuery);
+    const { data: plans, isLoading: plansLoading } = useCollection<Plan>(plansQuery);
     
     const sortedPlans = plans?.sort((a, b) => a.price - b.price);
 
@@ -92,7 +95,7 @@ function PlansView() {
                 plan: planName as UserProfile['plan'],
                 // Reset usage limits or handle proration here in a real scenario
             };
-            setDocumentNonBlocking(userRef, newPlanData, { merge: true });
+            await setDoc(userRef, newPlanData, { merge: true });
             
             // Update client-side store
             setProfileData(newPlanData);
@@ -111,22 +114,36 @@ function PlansView() {
         <div className="flex min-h-screen w-full flex-col">
             <Header />
             <main className="flex-1 p-6 md:p-12 bg-transparent animate-fade-in">
-                <div className="text-center max-w-2xl mx-auto mb-12">
-                    <h1 className="text-4xl md:text-5xl font-bold font-headline">Choose Your Plan</h1>
-                    <p className="mt-4 text-lg text-muted-foreground">
-                        Unlock more features and take your real estate investing to the next level.
-                    </p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-                    {sortedPlans?.map(plan => (
-                        <PlanCard 
-                            key={plan.id} 
-                            plan={plan}
-                            currentPlan={profileData?.plan}
-                            onSelect={handleSelectPlan}
-                            isLoading={isLoading}
-                        />
-                    ))}
+                <div className="max-w-6xl mx-auto">
+                    <Button variant="ghost" onClick={() => router.push('/dashboard')} className="mb-4">
+                        <ArrowLeft className="mr-2 h-4 w-4"/>
+                        Back to Dashboard
+                    </Button>
+                    <div className="text-center max-w-2xl mx-auto mb-12">
+                        <h1 className="text-4xl md:text-5xl font-bold font-headline">Choose Your Plan</h1>
+                        <p className="mt-4 text-lg text-muted-foreground">
+                            Unlock more features and take your real estate investing to the next level.
+                        </p>
+                    </div>
+                     {plansLoading ? (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                            <Skeleton className="h-[450px] w-full" />
+                            <Skeleton className="h-[450px] w-full" />
+                            <Skeleton className="h-[450px] w-full" />
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                            {sortedPlans?.map(plan => (
+                                <PlanCard 
+                                    key={plan.id} 
+                                    plan={plan}
+                                    currentPlan={profileData?.plan}
+                                    onSelect={handleSelectPlan}
+                                    isLoading={isLoading}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
             </main>
         </div>

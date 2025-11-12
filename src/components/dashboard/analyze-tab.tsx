@@ -62,15 +62,15 @@ export default function AnalyzeTab() {
     <div className="flex flex-col items-center animate-fade-in">
       <Tabs defaultValue="rental" className="w-full max-w-7xl">
         <TabsList className="w-fit mx-auto h-auto p-1.5 bg-muted/60 rounded-full grid grid-cols-2 md:grid-cols-4">
-          <TabsTrigger value="rental" className={cn("px-4 py-2 rounded-full data-[state=active]:text-primary data-[state=active]:shadow-[0_0_15px_hsl(var(--primary)/0.8)]")}>
+          <TabsTrigger value="rental" className={cn("px-4 py-2 rounded-full", "data-[state=active]:text-primary data-[state=active]:shadow-[0_0_15px_hsl(var(--primary)/0.8)]")}>
             <Home className="mr-2 h-4 w-4" />
             Rental (1-4)
           </TabsTrigger>
-          <TabsTrigger value="flip" className={cn("px-4 py-2 rounded-full data-[state=active]:text-primary data-[state=active]:shadow-[0_0_15px_hsl(var(--primary)/0.8)]")}>
+          <TabsTrigger value="flip" className={cn("px-4 py-2 rounded-full", "data-[state=active]:text-primary data-[state=active]:shadow-[0_0_15px_hsl(var(--primary)/0.8)]")}>
             <Repeat className="mr-2 h-4 w-4" />
             House Flip
           </TabsTrigger>
-          <TabsTrigger value="commercial-basic" className={cn("px-4 py-2 rounded-full data-[state=active]:text-primary data-[state=active]:shadow-[0_0_15px_hsl(var(--primary)/0.8)]")}>
+          <TabsTrigger value="commercial-basic" className={cn("px-4 py-2 rounded-full", "data-[state=active]:text-primary data-[state=active]:shadow-[0_0_15px_hsl(var(--primary)/0.8)]")}>
             <Building className="mr-2 h-4 w-4" />
             Commercial
           </TabsTrigger>
