@@ -1,4 +1,6 @@
 
+'use server';
+
 import { defineFlow, runFlow } from '@genkit-ai/flow';
 import { generate } from '@genkit-ai/ai';
 import { googleAI } from '@genkit-ai/google-genai';
