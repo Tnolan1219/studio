@@ -14,7 +14,7 @@ import {
 import Link from 'next/link';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '../ui/carousel';
 
-const PROPERTY_ICONS = {
+const PROPERTY_ICONS: Record<string, React.ElementType> = {
   'Rental Property': Home,
   'House Flip': Repeat,
   'Commercial Multifamily': Building,
@@ -92,13 +92,13 @@ const PropertyCard = ({ deal }: { deal: Deal }) => {
 export const PortfolioVisualization = ({ deals }: { deals: Deal[] }) => {
   if (!deals || deals.length === 0) {
     return (
-        <Card className="bg-card/30 backdrop-blur-sm h-[400px]">
+        <Card className="bg-card/60 backdrop-blur-sm min-h-[250px]">
             <CardHeader>
                 <CardTitle>My Portfolio</CardTitle>
                 <CardDescription>An interactive overview of your investment properties.</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+                <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground pt-8">
                     <Briefcase className="w-12 h-12 mb-4" />
                     <p className="font-semibold">Your portfolio is empty.</p>
                     <p className="text-sm">Analyze and save a deal to see it here.</p>
@@ -109,7 +109,7 @@ export const PortfolioVisualization = ({ deals }: { deals: Deal[] }) => {
   }
 
   return (
-    <Card className="bg-card/30 backdrop-blur-sm h-[400px]">
+    <Card className="bg-card/60 backdrop-blur-sm">
         <CardHeader>
             <CardTitle>My Portfolio</CardTitle>
             <CardDescription>An interactive overview of your investment properties. Click a property to view details.</CardDescription>
@@ -119,7 +119,7 @@ export const PortfolioVisualization = ({ deals }: { deals: Deal[] }) => {
                 align: "start",
                 loop: false,
             }}>
-                <CarouselContent className="-ml-4">
+                <CarouselContent className="-ml-4 py-4">
                     {deals.map(deal => (
                         <CarouselItem key={deal.id} className="md:basis-1/2 lg:basis-1/3 pl-4">
                             <PropertyCard deal={deal} />

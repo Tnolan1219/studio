@@ -36,12 +36,11 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { useUser, useFirestore, setDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, serverTimestamp, doc, increment } from 'firebase/firestore';
+import { collection, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
-import type { Deal, UserProfile, Plan } from '@/lib/types';
+import type { Deal, UserProfile } from '@/lib/types';
 import { useRouter } from 'next/navigation';
-import { useProfileStore } from '@/hooks/use-profile-store';
 
 
 const formSchema = z.object({
@@ -67,9 +66,10 @@ interface FlipCalculatorProps {
     deal?: Deal;
     onSave?: () => void;
     onCancel?: () => void;
+    dealCount?: number;
 }
 
-export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculatorProps) {
+export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }: FlipCalculatorProps) {
   const [isAIPending, startAITransition] = useTransition();
   const [aiResult, setAiResult] = useState<string | null>(null);
   
@@ -85,22 +85,11 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
   const router = useRouter();
   const { toast } = useToast();
   
-  const { profileData, hasHydrated, incrementCalculatorUses } = useProfileStore();
-
-  const planRef = useMemoFirebase(() => {
-    if (!profileData?.plan) return null;
-    const planId = profileData.plan.toLowerCase();
-    // Ensure we don't try to fetch a "free" plan document if it doesn't exist
-    if (planId === 'free') return null;
-    return doc(firestore, 'plans', planId);
-  }, [firestore, profileData?.plan]);
-  const { data: planData } = useDoc<Plan>(planRef);
-
   const userProfileRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
-
+  const { data: profileData } = useDoc<UserProfile>(userProfileRef);
 
   const [isSaving, setIsSaving] = useState(false);
   const isEditMode = !!deal;
@@ -124,33 +113,8 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
       marketConditions: "What are the risks of flipping in a cooling market? Suggest value-add renovations for this property type.",
     },
   });
-  
-  useEffect(() => {
-    if (isEditMode && deal) {
-      form.reset(deal);
-      handleAnalysis(deal, true);
-    }
-  }, [deal, isEditMode, form]);
 
-  const handleAnalysis = (data: FormData, skipTrack = false) => {
-     if (!skipTrack && (user?.isAnonymous || !profileData || !hasHydrated)) {
-        toast({ title: "Account Required", description: "Please create a full account to use the calculators."});
-        return;
-    }
-    
-    const maxUses = planData?.maxCalculatorUses ?? (profileData.plan === 'Free' ? 25 : Infinity);
-
-    if (!skipTrack && hasHydrated && maxUses > 0 && (profileData.calculatorUses || 0) >= maxUses) {
-        toast({
-            title: 'Calculator Limit Reached',
-            description: `You have used all ${maxUses} of your monthly calculator uses.`,
-            action: (
-              <Button onClick={() => router.push('/plans')}>Upgrade</Button>
-            ),
-        });
-        return;
-    }
-
+  const handleAnalysis = (data: FormData) => {
     const { purchasePrice, rehabCost, closingCosts, holdingLength, interestRate, downPayment, propertyTaxes, insurance, otherExpenses, sellingCosts, arv, loanTerm } = data;
 
     const loanAmount = purchasePrice - downPayment;
@@ -185,13 +149,16 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
         totalInvestment: totalCashInvested,
         chartData,
     });
-    
-    if (!skipTrack && userProfileRef) {
-      incrementCalculatorUses();
-      const profileUpdate = { calculatorUses: increment(1) };
-      setDocumentNonBlocking(userProfileRef, profileUpdate, { merge: true });
-    }
   };
+  
+  useEffect(() => {
+    if (isEditMode && deal) {
+      form.reset(deal);
+      handleAnalysis(deal);
+    }
+  }, [deal, isEditMode, form]);
+
+
 
   const handleGenerateInsights = () => {
     if (!analysisResult) {
@@ -206,22 +173,12 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
     startAITransition(async () => {
       try {
         const financialData = `Net Profit: ${analysisResult.netProfit.toFixed(2)}, ROI: ${analysisResult.roi.toFixed(2)}%`;
-        const result = await assessDeal({
-          dealType: 'House Flip',
-          financialData: financialData,
-          marketConditions: form.getValues('marketConditions')
-        });
-
-        if (result.assessment) {
-            setAiResult(result.assessment);
-        } else {
-            toast({
-                title: 'AI Assessment Failed',
-                description: result.message || 'An unknown error occurred.',
-                variant: 'destructive',
-            });
-            setAiResult(null);
-        }
+        const assessment = await assessDeal(
+          'House Flip',
+          financialData,
+          form.getValues('marketConditions')
+        );
+        setAiResult(assessment);
       } catch (error: any) {
         toast({
             title: 'AI Assessment Failed',
@@ -238,9 +195,13 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
       toast({ title: 'Analysis Required', description: 'Please run the analysis before saving.', variant: 'destructive' });
       return;
     }
-    if (!user || user.isAnonymous) {
+    if (!user) {
       toast({ title: 'Authentication Required', description: 'Please sign in to save deals.', variant: 'destructive' });
       return;
+    }
+     if (user.isAnonymous) {
+        toast({ title: 'Guest Mode', description: 'Cannot save deals as a guest. Please create an account.', variant: 'destructive' });
+        return;
     }
 
     const isFormValid = await form.trigger();
@@ -248,17 +209,16 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
       toast({ title: 'Invalid Data', description: 'Please fill out all required fields correctly before saving.', variant: 'destructive' });
       return;
     }
-
-    const maxDeals = planData?.maxSavedDeals ?? (profileData.plan === 'Free' ? 5 : Infinity);
-
-    if (!isEditMode && hasHydrated && maxDeals > 0 && (profileData.savedDeals || 0) >= maxDeals) {
-      toast({
-          title: `Deal Limit Reached for ${profileData.plan} Plan`,
-          description: `You have saved ${profileData.savedDeals} of ${maxDeals} deals.`,
-          action: <Button onClick={() => router.push('/plans')}>Upgrade</Button>,
-          variant: 'destructive',
-      });
-      return;
+    
+    const plan = profileData?.plan || 'Free';
+    const limits = { Free: 5, Pro: 15, Executive: Infinity };
+    if (!isEditMode && dealCount >= limits[plan]) {
+        toast({
+            title: `Deal Limit Reached for ${plan} Plan`,
+            description: `You have ${dealCount} deals. Please upgrade your plan to save more.`,
+            variant: 'destructive',
+        });
+        return;
     }
 
     setIsSaving(true);
@@ -275,17 +235,15 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
       createdAt: isEditMode && deal ? deal.createdAt : serverTimestamp(),
       status: isEditMode && deal ? deal.status : 'In Works',
       isPublished: isEditMode ? deal.isPublished : false,
-      monthlyCashFlow: 0, cocReturn: 0, noi: 0, capRate: 0, grossMonthlyIncome: 0, repairsAndMaintenance: 0, vacancy: 0, capitalExpenditures: 0, managementFee: 0, annualIncomeGrowth: 0, annualExpenseGrowth: 0, annualAppreciation: 0,
+      // Default values for other deal types
+      monthlyCashFlow: 0,
+      cocReturn: 0,
+      noi: 0,
+      capRate: 0,
     };
     
     const dealRef = doc(firestore, `users/${user.uid}/deals`, dealId);
     setDocumentNonBlocking(dealRef, dealData, { merge: true });
-
-    if (!isEditMode && userProfileRef) {
-      useProfileStore.getState().incrementSavedDeals();
-      const profileUpdate = { savedDeals: increment(1) };
-      setDocumentNonBlocking(userProfileRef, profileUpdate, { merge: true });
-    }
 
     if (isEditMode) {
         toast({ title: 'Changes Saved', description: `${dealData.dealName} has been updated.` });
@@ -305,7 +263,7 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
         <CardDescription>{isEditMode ? 'Update the details for your house flip.' : 'Calculate the potential profit and ROI for your next house flip project.'}</CardDescription>
       </CardHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit((data) => handleAnalysis(data))}>
+        <form onSubmit={form.handleSubmit(handleAnalysis)}>
           <CardContent className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-4">
@@ -348,7 +306,8 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                         <p className="text-sm text-muted-foreground text-center p-4">AI Analysis is currently under construction. Check back soon!</p>
+                        {isAIPending && <div className="text-center text-muted-foreground">Generating...</div>}
+                        {aiResult && <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: aiResult }} />}
                     </CardContent>
                     <CardFooter>
                         <Button type="button" onClick={handleGenerateInsights} disabled={isAIPending} className="w-full">
@@ -398,7 +357,7 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
           <CardFooter className="flex justify-end gap-2">
             {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
             <Button type="submit">Run Analysis</Button>
-            <Button variant="secondary" onClick={handleSaveDeal} disabled={isSaving || !hasHydrated}> 
+            <Button variant="secondary" onClick={handleSaveDeal} disabled={isSaving}> 
                 {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} 
             </Button>
           </CardFooter>
@@ -407,5 +366,3 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
     </Card>
   );
 }
-
-    

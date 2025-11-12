@@ -1,7 +1,7 @@
 
 import { defineFlow, runFlow } from '@genkit-ai/flow';
 import { generate } from '@genkit-ai/ai';
-import { geminiPro } from '@genkit-ai/google-genai';
+import { googleAI } from '@genkit-ai/google-genai';
 import * as z from 'zod';
 
 export const chatbotFlow = defineFlow(
@@ -12,7 +12,7 @@ export const chatbotFlow = defineFlow(
   },
   async ({ prompt }) => {
     const llmResponse = await generate({
-      model: geminiPro,
+      model: googleAI.model('gemini-pro'),
       prompt: prompt,
       config: {
         temperature: 0.7,

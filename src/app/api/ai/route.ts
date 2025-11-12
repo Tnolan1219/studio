@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { generate } from '@genkit-ai/ai';
-import { geminiPro } from '@genkit-ai/google-genai';
+import { googleAI } from '@genkit-ai/google-genai';
 
 export async function POST(request: NextRequest) {
   // Check if the Gemini API key is available
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     const llmResponse = await generate({
-      model: geminiPro,
+      model: googleAI.model('gemini-pro'),
       prompt: prompt,
       config: {
         temperature: 0.7,
