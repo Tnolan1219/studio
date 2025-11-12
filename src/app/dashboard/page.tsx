@@ -67,10 +67,10 @@ function DashboardView() {
   return (
     <div className="flex min-h-screen w-full flex-col">
       <Header />
-      <main className="flex-1 p-6 md:p-12 bg-transparent">
+      <main className="flex-1 p-6 md:p-12 bg-transparent pb-40">
         <DashboardClient />
       </main>
-      <footer className="mt-auto flex justify-center py-6">
+      <footer className="fixed inset-x-0 bottom-4 z-50 flex justify-center">
         <div className="flex items-center gap-2 rounded-full bg-card/60 p-1 shadow-lg backdrop-blur-lg border border-border/20">
           <TabButton value="home" label="Home" icon={HomeIcon} />
           <TabButton value="analyze" label="Analyze" icon={BarChart2} />
