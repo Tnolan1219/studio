@@ -56,7 +56,7 @@ export async function getDealAssessment(
     }
 
     const llmResponse = await generate({
-        model: googleAI.model('gemini-pro'),
+        model: googleAI.model('gemini-1.5-flash-latest'),
         prompt: prompt,
     });
 

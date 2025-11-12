@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     const llmResponse = await generate({
-      model: googleAI.model('gemini-pro'),
+      model: googleAI.model('gemini-1.5-flash-latest'),
       prompt: prompt,
       config: {
         temperature: 0.7,
