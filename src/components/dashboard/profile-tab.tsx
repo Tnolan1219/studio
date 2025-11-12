@@ -44,6 +44,7 @@ import { Separator } from "../ui/separator";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useProfileStore } from "@/hooks/use-profile-store";
+import { useRouter } from "next/navigation";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters.").optional(),
@@ -58,13 +59,13 @@ const profileSchema = z.object({
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
-const PLAN_OPTIONS: ('Free' | 'Pro' | 'Executive' | 'Elite')[] = ['Free', 'Pro', 'Executive', 'Elite'];
 
 export default function ProfileTab() {
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const [isSaving, setIsSaving] = useState(false);
+  const router = useRouter();
 
   // Zustand store for client-side state
   const { profileData, setProfileData, hasHydrated } = useProfileStore();
@@ -80,17 +81,6 @@ export default function ProfileTab() {
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     mode: "onChange",
-    defaultValues: {
-      name: '',
-      email: '',
-      photoURL: '',
-      country: '',
-      state: '',
-      financialGoal: '',
-      plan: 'Free',
-      savedDeals: 0,
-      calculatorUses: 0,
-    }
   });
 
   // Effect 1: Hydrate the store from Firestore once
@@ -102,7 +92,7 @@ export default function ProfileTab() {
 
   // Effect 2: Sync form with the Zustand store
   useEffect(() => {
-    if (hasHydrated) {
+    if (hasHydrated && (profileData.email || user?.email)) {
       form.reset({
         name: profileData.name || user?.displayName || '',
         email: profileData.email || user?.email || '',
@@ -161,7 +151,7 @@ export default function ProfileTab() {
   }
 
   const currentPhotoURL = form.watch('photoURL');
-  const currentPlan = form.watch('plan') || 'Free';
+  const currentPlan = profileData.plan || 'Free';
   const isLoading = isUserLoading || isProfileLoading || !hasHydrated;
   
   const planStyles = {
@@ -237,34 +227,20 @@ export default function ProfileTab() {
                 </div>
                 <FormField name="financialGoal" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Financial Goal</FormLabel> <FormControl><Textarea {...field} disabled={user.isAnonymous} /></FormControl> <FormDescription>This helps us tailor your experience and AI insights.</FormDescription> <FormMessage /> </FormItem> )} />
                     <Separator />
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField
-                        control={form.control}
-                        name="plan"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel className="flex items-center gap-2"><Crown className="w-4 h-4 text-primary" /> Subscription Plan</FormLabel>
-                                <Select
-                                    onValueChange={field.onChange}
-                                    value={field.value}
-                                    disabled={user.isAnonymous}
-                                >
-                                <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select Plan" />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {PLAN_OPTIONS.map(plan => (
-                                        <SelectItem key={plan} value={plan}>{plan}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                                </Select>
-                            </FormItem>
-                        )}
-                    />
-                    <FormField name="savedDeals" control={form.control} render={({ field }) => (<FormItem><FormLabel>Deals Saved</FormLabel><FormControl><Input value={profileData.savedDeals || 0} disabled /></FormControl></FormItem>)} />
-                    <FormField name="calculatorUses" control={form.control} render={({ field }) => (<FormItem><FormLabel>Calculator Uses</FormLabel><FormControl><Input value={profileData.calculatorUses || 0} disabled /></FormControl></FormItem>)} />
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <Label className="flex items-center gap-2"><Crown className="w-4 h-4 text-primary" /> Subscription Plan</Label>
+                                <p className="text-sm text-muted-foreground">You are on the <span className="font-bold">{currentPlan}</span> plan.</p>
+                            </div>
+                            <Button type="button" variant="outline" onClick={() => router.push('/plans')}>
+                                View Plans
+                            </Button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <FormField name="savedDeals" control={form.control} render={({ field }) => (<FormItem><FormLabel>Deals Saved</FormLabel><FormControl><Input value={profileData.savedDeals || 0} disabled /></FormControl></FormItem>)} />
+                            <FormField name="calculatorUses" control={form.control} render={({ field }) => (<FormItem><FormLabel>Calculator Uses</FormLabel><FormControl><Input value={profileData.calculatorUses || 0} disabled /></FormControl></FormItem>)} />
+                        </div>
                     </div>
             </CardContent>
             <CardFooter className="flex justify-end">
@@ -322,7 +298,3 @@ export default function ProfileTab() {
     </div>
   );
 }
-
-    
-
-    

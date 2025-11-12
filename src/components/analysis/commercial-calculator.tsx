@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -41,6 +42,8 @@ import type { Deal, UserProfile, UnitMixItem, ProFormaEntry, Plan } from '@/lib/
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { ProFormaTable } from './pro-forma-table';
+import { useProfileStore } from '@/hooks/use-profile-store';
+import { useRouter } from 'next/navigation';
 
 
 const lineItemSchema = z.object({
@@ -175,6 +178,7 @@ interface CommercialCalculatorProps {
 export default function CommercialCalculator({ deal, onSave, onCancel, dealCount = 0 }: CommercialCalculatorProps) {
   const { user } = useUser();
   const firestore = useFirestore();
+  const router = useRouter();
   const { toast } = useToast();
   const isEditMode = !!deal;
   
@@ -189,17 +193,18 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
       proFormaData: ProFormaEntry[];
   } | null>(null);
 
-   const userProfileRef = useMemoFirebase(() => {
+   const { profileData, hasHydrated } = useProfileStore();
+  
+  const planRef = useMemoFirebase(() => {
+    if (!profileData?.plan) return null;
+    return doc(firestore, 'plans', profileData.plan.toLowerCase());
+  }, [firestore, profileData?.plan]);
+  const { data: planData } = useDoc<Plan>(planRef);
+
+  const userProfileRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
-  const { data: profileData } = useDoc<UserProfile>(userProfileRef);
-  
-  const planRef = useMemoFirebase(() => {
-    if (!profileData) return null;
-    return doc(firestore, 'plans', profileData.plan?.toLowerCase() || 'free');
-  }, [firestore, profileData]);
-  const { data: planData } = useDoc<Plan>(planRef);
 
 
   const [isSaving, setIsSaving] = useState(false);
@@ -210,7 +215,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
         ...deal,
         unitMix: deal.unitMix || [{type: 'Unit', count: 1, rent: deal.grossMonthlyIncome || 0}],
         operatingExpenses: deal.operatingExpenses || [],
-        capitalExpenditures: [{ name: 'CapEx Reserves', amount: 5, type: 'percent' }],
+        capitalExpenditures: deal.capitalExpenditures || [{ name: 'CapEx Reserves', amount: 5, type: 'percent' }],
         otherIncomes: deal.otherIncomes || [],
         annualIncomeGrowth: deal.annualIncomeGrowth || 3,
         annualExpenseGrowth: deal.annualExpenseGrowth || 2,
@@ -252,7 +257,13 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
     }
 
     if (profileData.calculatorUses >= planData.maxCalculatorUses) {
-        toast({ title: "Calculator Limit Reached", description: `You have used all ${planData.maxCalculatorUses} of your monthly calculator uses. Please upgrade your plan.`});
+        toast({
+            title: 'Calculator Limit Reached',
+            description: `You have used all ${planData.maxCalculatorUses} of your monthly calculator uses.`,
+            action: (
+              <Button onClick={() => router.push('/plans')}>Upgrade</Button>
+            ),
+        });
         return;
     }
     const proForma = calculateProForma(data);
@@ -302,7 +313,14 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
 
     if (!isEditMode && planData && profileData) {
         if (profileData.savedDeals >= planData.maxSavedDeals) {
-            toast({ title: `Deal Limit Reached for ${planData.name} Plan`, description: `You have saved ${profileData.savedDeals} of ${planData.maxSavedDeals} deals. Please upgrade your plan.`, variant: 'destructive' });
+            toast({
+                title: `Deal Limit Reached for ${planData.name} Plan`,
+                description: `You have saved ${profileData.savedDeals} of ${planData.maxSavedDeals} deals.`,
+                action: (
+                  <Button onClick={() => router.push('/plans')}>Upgrade</Button>
+                ),
+                variant: 'destructive',
+            });
             return;
         }
     }

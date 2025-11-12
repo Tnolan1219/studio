@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -41,6 +42,8 @@ import { collection, serverTimestamp, doc, increment } from 'firebase/firestore'
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
 import type { Deal, UserProfile, Plan } from '@/lib/types';
+import { useProfileStore } from '@/hooks/use-profile-store';
+import { useRouter } from 'next/navigation';
 
 
 const formSchema = z.object({
@@ -82,20 +85,22 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
 
   const { user } = useUser();
   const firestore = useFirestore();
+  const router = useRouter();
   const { toast } = useToast();
+
+  const { profileData, hasHydrated } = useProfileStore();
+  
+  const planRef = useMemoFirebase(() => {
+    if (!profileData?.plan) return null;
+    return doc(firestore, 'plans', profileData.plan.toLowerCase());
+  }, [firestore, profileData?.plan]);
+  const { data: planData } = useDoc<Plan>(planRef);
+
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
-  const { data: profileData } = useDoc<UserProfile>(userProfileRef);
-  
-  const planRef = useMemoFirebase(() => {
-    if (!profileData) return null;
-    return doc(firestore, 'plans', profileData.plan?.toLowerCase() || 'free');
-  }, [firestore, profileData]);
-  const { data: planData } = useDoc<Plan>(planRef);
-
 
   const [isSaving, setIsSaving] = useState(false);
   const isEditMode = !!deal;
@@ -135,7 +140,13 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
     }
 
     if (profileData.calculatorUses >= planData.maxCalculatorUses) {
-        toast({ title: "Calculator Limit Reached", description: `You have used all ${planData.maxCalculatorUses} of your monthly calculator uses. Please upgrade your plan.`});
+        toast({
+            title: 'Calculator Limit Reached',
+            description: `You have used all ${planData.maxCalculatorUses} of your monthly calculator uses.`,
+            action: (
+              <Button onClick={() => router.push('/plans')}>Upgrade</Button>
+            ),
+        });
         return;
     }
 
@@ -224,7 +235,10 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
       if (profileData.savedDeals >= planData.maxSavedDeals) {
         toast({
             title: `Deal Limit Reached for ${planData.name} Plan`,
-            description: `You have saved ${profileData.savedDeals} of ${planData.maxSavedDeals} deals. Please upgrade your plan to save more.`,
+            description: `You have saved ${profileData.savedDeals} of ${planData.maxSavedDeals} deals.`,
+            action: (
+              <Button onClick={() => router.push('/plans')}>Upgrade</Button>
+            ),
             variant: 'destructive',
         });
         return;

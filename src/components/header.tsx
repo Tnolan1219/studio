@@ -76,6 +76,9 @@ export function Header() {
                 <DropdownMenuItem onClick={() => navigateToTab('profile')}>
                   Profile
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/plans')}>
+                  Upgrade Plan
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigateToTab('settings')}>
                   Settings
                 </DropdownMenuItem>
