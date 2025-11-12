@@ -45,6 +45,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useProfileStore } from "@/hooks/use-profile-store";
 import { useRouter } from "next/navigation";
+import { Label } from "@/components/ui/label";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters.").optional(),
