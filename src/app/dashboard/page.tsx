@@ -67,19 +67,17 @@ function DashboardView() {
   return (
     <div className="flex min-h-screen w-full flex-col">
       <Header />
-      <main className="flex-1 p-6 md:p-12 bg-transparent pb-72">
+      <main className="flex-1 p-6 md:p-12 bg-transparent">
         <DashboardClient />
       </main>
-      <footer className="fixed bottom-4 left-0 right-0 z-40 h-24 pointer-events-none">
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-auto">
-            <div className="flex items-center gap-2 rounded-full bg-card/60 p-1 shadow-lg backdrop-blur-lg border border-border/20">
-              <TabButton value="home" label="Home" icon={HomeIcon} />
-              <TabButton value="analyze" label="Analyze" icon={BarChart2} />
-              <TabButton value="deals" label="Deals" icon={Briefcase} />
-              <TabButton value="community" label="Community" icon={Users} />
-              <TabButton value="profile" label="Profile" icon={User} isProfile />
-            </div>
-          </div>
+      <footer className="mt-auto flex justify-center py-6">
+        <div className="flex items-center gap-2 rounded-full bg-card/60 p-1 shadow-lg backdrop-blur-lg border border-border/20">
+          <TabButton value="home" label="Home" icon={HomeIcon} />
+          <TabButton value="analyze" label="Analyze" icon={BarChart2} />
+          <TabButton value="deals" label="Deals" icon={Briefcase} />
+          <TabButton value="community" label="Community" icon={Users} />
+          <TabButton value="profile" label="Profile" icon={User} isProfile />
+        </div>
       </footer>
     </div>
   );
