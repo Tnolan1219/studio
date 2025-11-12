@@ -172,10 +172,9 @@ interface CommercialCalculatorProps {
     deal?: Deal;
     onSave?: () => void;
     onCancel?: () => void;
-    dealCount?: number;
 }
 
-export default function CommercialCalculator({ deal, onSave, onCancel, dealCount = 0 }: CommercialCalculatorProps) {
+export default function CommercialCalculator({ deal, onSave, onCancel }: CommercialCalculatorProps) {
   const { user } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
@@ -193,7 +192,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
       proFormaData: ProFormaEntry[];
   } | null>(null);
 
-   const { profileData, hasHydrated } = useProfileStore();
+   const { profileData, hasHydrated, incrementCalculatorUses } = useProfileStore();
   
   const planRef = useMemoFirebase(() => {
     if (!profileData?.plan) return null;
@@ -250,22 +249,25 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
   });
 
 
-  const handleAnalysis = (data: FormData) => {
-     if (user?.isAnonymous || !profileData || !planData) {
+  const handleAnalysis = (data: FormData, skipTrack: boolean = false) => {
+     if (!skipTrack && (user?.isAnonymous || !profileData || !hasHydrated)) {
         toast({ title: "Account Required", description: "Please create a full account to use the calculators."});
         return;
     }
+    
+    const maxUses = planData?.maxCalculatorUses ?? (profileData.plan === 'Free' ? 25 : 0);
 
-    if (profileData.calculatorUses >= planData.maxCalculatorUses) {
+    if (!skipTrack && hasHydrated && maxUses > 0 && (profileData.calculatorUses || 0) >= maxUses) {
         toast({
             title: 'Calculator Limit Reached',
-            description: `You have used all ${planData.maxCalculatorUses} of your monthly calculator uses.`,
+            description: `You have used all ${maxUses} of your monthly calculator uses.`,
             action: (
               <Button onClick={() => router.push('/plans')}>Upgrade</Button>
             ),
         });
         return;
     }
+
     const proForma = calculateProForma(data);
     const year1 = proForma[0] || {};
     
@@ -290,10 +292,19 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
 
 
     setAnalysisResult({ monthlyCashFlow, cocReturn, capRate, noi, chartData: breakdownChartData, dscr, totalInvestment, proFormaData: proForma });
-    if (userProfileRef) {
+    
+    if (!skipTrack && userProfileRef) {
+        incrementCalculatorUses();
         setDocumentNonBlocking(userProfileRef, { calculatorUses: increment(1) }, { merge: true });
     }
   };
+  
+  useEffect(() => {
+    if (isEditMode && deal) {
+      form.reset(deal);
+      handleAnalysis(deal, true);
+    }
+  }, [deal, isEditMode, form.reset]);
   
    const handleSaveDeal = async () => {
     if (!analysisResult) {
@@ -310,19 +321,19 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
         toast({ title: 'Invalid Data', description: 'Please fill out all required fields correctly.', variant: 'destructive' });
         return;
     }
+    
+    const maxDeals = planData?.maxSavedDeals ?? (profileData.plan === 'Free' ? 5 : 0);
 
-    if (!isEditMode && planData && profileData) {
-        if (profileData.savedDeals >= planData.maxSavedDeals) {
-            toast({
-                title: `Deal Limit Reached for ${planData.name} Plan`,
-                description: `You have saved ${profileData.savedDeals} of ${planData.maxSavedDeals} deals.`,
-                action: (
-                  <Button onClick={() => router.push('/plans')}>Upgrade</Button>
-                ),
-                variant: 'destructive',
-            });
-            return;
-        }
+    if (!isEditMode && hasHydrated && maxDeals > 0 && (profileData.savedDeals || 0) >= maxDeals) {
+        toast({
+            title: `Deal Limit Reached for ${profileData.plan} Plan`,
+            description: `You have saved ${profileData.savedDeals} of ${maxDeals} deals.`,
+            action: (
+              <Button onClick={() => router.push('/plans')}>Upgrade</Button>
+            ),
+            variant: 'destructive',
+        });
+        return;
     }
 
     setIsSaving(true);
@@ -353,6 +364,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
     setDocumentNonBlocking(dealRef, dealData, { merge: true });
 
     if (!isEditMode && userProfileRef) {
+        useProfileStore.getState().incrementSavedDeals();
         setDocumentNonBlocking(userProfileRef, { savedDeals: increment(1) }, { merge: true });
     }
 
@@ -395,7 +407,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
         </div>
       </CardHeader>
        <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleAnalysis)}>
+        <form onSubmit={form.handleSubmit((data) => handleAnalysis(data))}>
             <CardContent className="space-y-6">
                 <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-4">
@@ -481,7 +493,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel, dealCount
              <CardFooter className="flex justify-end gap-2">
                 {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
                 <Button type="submit">Run Analysis</Button>
-                <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isSaving}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
+                <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isSaving || !hasHydrated}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
             </CardFooter>
         </form>
       </Form>

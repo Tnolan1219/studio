@@ -154,10 +154,9 @@ interface RentalCalculatorProps {
     deal?: Deal;
     onSave?: () => void;
     onCancel?: () => void;
-    dealCount?: number;
 }
 
-export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0 }: RentalCalculatorProps) {
+export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalculatorProps) {
   
   const [analysisResult, setAnalysisResult] = useState<{
       monthlyCashFlow: number;
@@ -175,7 +174,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
   const router = useRouter();
   const { toast } = useToast();
 
-  const { profileData, hasHydrated } = useProfileStore();
+  const { profileData, hasHydrated, incrementCalculatorUses } = useProfileStore();
 
   const planRef = useMemoFirebase(() => {
     if (!profileData?.plan) return null;
@@ -224,20 +223,23 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
   useEffect(() => {
     if (isEditMode && deal) {
       form.reset(deal);
-      handleAnalysis(deal);
+      handleAnalysis(deal, true); // Pass skipTrack=true for initial load in edit mode
     }
   }, [deal, isEditMode, form.reset]);
 
-  const handleAnalysis = (data: FormData) => {
-    if (user?.isAnonymous || !profileData || !planData) {
+  const handleAnalysis = (data: FormData, skipTrack: boolean = false) => {
+    if (!skipTrack && (user?.isAnonymous || !profileData || !hasHydrated)) {
         toast({ title: "Account Required", description: "Please create a full account to use the calculators."});
         return;
     }
-
-    if (profileData.calculatorUses >= planData.maxCalculatorUses) {
+    
+    // Determine max uses based on plan.
+    const maxUses = planData?.maxCalculatorUses ?? (profileData.plan === 'Free' ? 25 : 0);
+    
+    if (!skipTrack && hasHydrated && maxUses > 0 && (profileData.calculatorUses || 0) >= maxUses) {
         toast({
             title: 'Calculator Limit Reached',
-            description: `You have used all ${planData.maxCalculatorUses} of your monthly calculator uses.`,
+            description: `You have used all ${maxUses} of your monthly calculator uses.`,
             action: (
               <Button onClick={() => router.push('/plans')}>Upgrade</Button>
             ),
@@ -289,7 +291,8 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
         proFormaData: proForma,
     });
 
-    if (userProfileRef) {
+    if (!skipTrack && userProfileRef) {
+        incrementCalculatorUses();
         setDocumentNonBlocking(userProfileRef, { calculatorUses: increment(1) }, { merge: true });
     }
   };
@@ -318,18 +321,18 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
       return;
     }
     
-    if (!isEditMode && planData && profileData) {
-      if (profileData.savedDeals >= planData.maxSavedDeals) {
-        toast({
-            title: `Deal Limit Reached for ${planData.name} Plan`,
-            description: `You have saved ${profileData.savedDeals} of ${planData.maxSavedDeals} deals.`,
-            action: (
-              <Button onClick={() => router.push('/plans')}>Upgrade</Button>
-            ),
-            variant: 'destructive',
-        });
-        return;
-      }
+    const maxDeals = planData?.maxSavedDeals ?? (profileData.plan === 'Free' ? 5 : 0);
+    
+    if (!isEditMode && hasHydrated && maxDeals > 0 && (profileData.savedDeals || 0) >= maxDeals) {
+      toast({
+          title: `Deal Limit Reached for ${profileData.plan} Plan`,
+          description: `You have saved ${profileData.savedDeals} of ${maxDeals} deals.`,
+          action: (
+            <Button onClick={() => router.push('/plans')}>Upgrade</Button>
+          ),
+          variant: 'destructive',
+      });
+      return;
     }
 
     setIsSaving(true);
@@ -357,6 +360,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
     setDocumentNonBlocking(dealRef, dealData, { merge: true });
 
     if (!isEditMode && userProfileRef) {
+        useProfileStore.getState().incrementSavedDeals();
         setDocumentNonBlocking(userProfileRef, { savedDeals: increment(1) }, { merge: true });
     }
 
@@ -381,7 +385,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
         </CardDescription>
       </CardHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleAnalysis)}>
+        <form onSubmit={form.handleSubmit((data) => handleAnalysis(data))}>
           <CardContent className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-4">
@@ -516,7 +520,7 @@ export default function RentalCalculator({ deal, onSave, onCancel, dealCount = 0
           <CardFooter className="flex justify-end gap-2">
             {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
             <Button type="submit">Run Analysis</Button>
-            <Button variant="secondary" onClick={handleSaveDeal} disabled={isSaving}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
+            <Button variant="secondary" onClick={handleSaveDeal} disabled={isSaving || !hasHydrated}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
           </CardFooter>
         </form>
       </Form>

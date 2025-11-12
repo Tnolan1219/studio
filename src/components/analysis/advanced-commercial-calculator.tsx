@@ -279,7 +279,6 @@ interface AdvancedCommercialCalculatorProps {
     deal?: Deal;
     onSave?: () => void;
     onCancel?: () => void;
-    dealCount?: number;
 }
 
 const ANALYSIS_TABS = [
@@ -299,7 +298,7 @@ const formatCurrency = (value: number) => {
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d"];
 
 
-export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, dealCount = 0 }: AdvancedCommercialCalculatorProps) {
+export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }: AdvancedCommercialCalculatorProps) {
     
   const [activeTab, setActiveTab] = useState('assumptions');
   const router = useRouter();
@@ -309,7 +308,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const { profileData, hasHydrated } = useProfileStore();
+  const { profileData, hasHydrated, incrementCalculatorUses } = useProfileStore();
 
   const planRef = useMemoFirebase(() => {
     if (!profileData?.plan) return null;
@@ -640,9 +639,9 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
     }
 
     // Determine max uses based on plan. Pro/Exec/Elite plans have planData, Free doesn't need a DB fetch.
-    const maxUses = planData?.maxCalculatorUses ?? (profileData.plan === 'Free' ? 25 : 0);
+    const maxUses = planData?.maxCalculatorUses ?? (profileData.plan === 'Free' ? 25 : Infinity);
 
-    if (profileData.calculatorUses && maxUses > 0 && profileData.calculatorUses >= maxUses) {
+    if (hasHydrated && maxUses > 0 && (profileData.calculatorUses || 0) >= maxUses) {
       toast({ 
         title: "Calculator Limit Reached", 
         description: `You have used all ${maxUses} of your monthly calculator uses. Please upgrade your plan.`,
@@ -660,7 +659,8 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
     runAnalysis(form.getValues());
     
     if (userProfileRef) {
-      setDocumentNonBlocking(userProfileRef, { calculatorUses: increment(1) }, { merge: true });
+        incrementCalculatorUses();
+        setDocumentNonBlocking(userProfileRef, { calculatorUses: increment(1) }, { merge: true });
     }
   };
 
@@ -685,17 +685,16 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
       return;
     }
 
-    if (!isEditMode) {
-      const maxDeals = planData?.maxSavedDeals ?? (profileData.plan === 'Free' ? 5 : 0);
-      if (profileData.savedDeals && maxDeals > 0 && profileData.savedDeals >= maxDeals) {
-        toast({
-            title: `Deal Limit Reached for ${profileData.plan} Plan`,
-            description: `You have saved ${profileData.savedDeals} of ${maxDeals} deals.`,
-            action: <Button onClick={() => router.push('/plans')}>Upgrade</Button>,
-            variant: 'destructive',
-        });
-        return;
-      }
+    const maxDeals = planData?.maxSavedDeals ?? (profileData.plan === 'Free' ? 5 : Infinity);
+
+    if (!isEditMode && hasHydrated && maxDeals > 0 && (profileData.savedDeals || 0) >= maxDeals) {
+      toast({
+          title: `Deal Limit Reached for ${profileData.plan} Plan`,
+          description: `You have saved ${profileData.savedDeals} of ${maxDeals} deals.`,
+          action: <Button onClick={() => router.push('/plans')}>Upgrade</Button>,
+          variant: 'destructive',
+      });
+      return;
     }
 
     setIsSaving(true);
@@ -728,6 +727,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
     } else {
         setDocumentNonBlocking(dealRef, dealData, { merge: true });
          if (userProfileRef) {
+            useProfileStore.getState().incrementSavedDeals();
             setDocumentNonBlocking(userProfileRef, { savedDeals: increment(1) }, { merge: true });
         }
         toast({ title: 'Deal Saved!', description: `${dealData.dealName} has been added to your portfolio.` });
@@ -1186,7 +1186,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                             </Button>
                             <div className="flex justify-end gap-2">
                                 {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
-                                <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isSaving || !analysisResult}> 
+                                <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isSaving || !analysisResult || !hasHydrated}> 
                                     {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} 
                                 </Button>
                             </div>

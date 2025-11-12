@@ -69,10 +69,9 @@ interface FlipCalculatorProps {
     deal?: Deal;
     onSave?: () => void;
     onCancel?: () => void;
-    dealCount?: number;
 }
 
-export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }: FlipCalculatorProps) {
+export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculatorProps) {
   const [isAIPending, startAITransition] = useTransition();
   const [aiResult, setAiResult] = useState<{message: string, assessment: string | null} | null>(null);
   
@@ -88,7 +87,7 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
   const router = useRouter();
   const { toast } = useToast();
 
-  const { profileData, hasHydrated } = useProfileStore();
+  const { profileData, hasHydrated, incrementCalculatorUses } = useProfileStore();
   
   const planRef = useMemoFirebase(() => {
     if (!profileData?.plan) return null;
@@ -125,24 +124,18 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
     },
   });
 
-  useEffect(() => {
-    if (isEditMode && deal) {
-      form.reset(deal);
-      handleAnalysis(deal);
-    }
-  }, [deal, isEditMode, form.reset]);
-
-
-  const handleAnalysis = (data: FormData) => {
-    if (user?.isAnonymous || !profileData || !planData) {
+  const handleAnalysis = (data: FormData, skipTrack: boolean = false) => {
+    if (!skipTrack && (user?.isAnonymous || !profileData || !hasHydrated)) {
         toast({ title: "Account Required", description: "Please create a full account to use the calculators."});
         return;
     }
+    
+    const maxUses = planData?.maxCalculatorUses ?? (profileData.plan === 'Free' ? 25 : 0);
 
-    if (profileData.calculatorUses >= planData.maxCalculatorUses) {
+    if (!skipTrack && hasHydrated && maxUses > 0 && (profileData.calculatorUses || 0) >= maxUses) {
         toast({
             title: 'Calculator Limit Reached',
-            description: `You have used all ${planData.maxCalculatorUses} of your monthly calculator uses.`,
+            description: `You have used all ${maxUses} of your monthly calculator uses.`,
             action: (
               <Button onClick={() => router.push('/plans')}>Upgrade</Button>
             ),
@@ -185,10 +178,20 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
         chartData,
     });
 
-    if (userProfileRef) {
+    if (!skipTrack && userProfileRef) {
+        incrementCalculatorUses();
         setDocumentNonBlocking(userProfileRef, { calculatorUses: increment(1) }, { merge: true });
     }
   };
+  
+  useEffect(() => {
+    if (isEditMode && deal) {
+      form.reset(deal);
+      handleAnalysis(deal, true);
+    }
+  }, [deal, isEditMode, form.reset]);
+
+
 
   const handleGenerateInsights = () => {
     if (!analysisResult) {
@@ -231,18 +234,18 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
       return;
     }
 
-    if (!isEditMode && planData && profileData) {
-      if (profileData.savedDeals >= planData.maxSavedDeals) {
-        toast({
-            title: `Deal Limit Reached for ${planData.name} Plan`,
-            description: `You have saved ${profileData.savedDeals} of ${planData.maxSavedDeals} deals.`,
-            action: (
-              <Button onClick={() => router.push('/plans')}>Upgrade</Button>
-            ),
-            variant: 'destructive',
-        });
-        return;
-      }
+    const maxDeals = planData?.maxSavedDeals ?? (profileData.plan === 'Free' ? 5 : 0);
+
+    if (!isEditMode && hasHydrated && maxDeals > 0 && (profileData.savedDeals || 0) >= maxDeals) {
+      toast({
+          title: `Deal Limit Reached for ${profileData.plan} Plan`,
+          description: `You have saved ${profileData.savedDeals} of ${maxDeals} deals.`,
+          action: (
+            <Button onClick={() => router.push('/plans')}>Upgrade</Button>
+          ),
+          variant: 'destructive',
+      });
+      return;
     }
 
     setIsSaving(true);
@@ -280,6 +283,7 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
     setDocumentNonBlocking(dealRef, dealData, { merge: true });
 
     if (!isEditMode && userProfileRef) {
+        useProfileStore.getState().incrementSavedDeals();
         setDocumentNonBlocking(userProfileRef, { savedDeals: increment(1) }, { merge: true });
     }
 
@@ -301,7 +305,7 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
         <CardDescription>{isEditMode ? 'Update the details for your house flip.' : 'Calculate the potential profit and ROI for your next house flip project.'}</CardDescription>
       </CardHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleAnalysis)}>
+        <form onSubmit={form.handleSubmit((data) => handleAnalysis(data))}>
           <CardContent className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-4">
@@ -394,7 +398,7 @@ export default function FlipCalculator({ deal, onSave, onCancel, dealCount = 0 }
           <CardFooter className="flex justify-end gap-2">
             {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
             <Button type="submit">Run Analysis</Button>
-            <Button variant="secondary" onClick={handleSaveDeal} disabled={isSaving}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
+            <Button variant="secondary" onClick={handleSaveDeal} disabled={isSaving || !hasHydrated}> {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} </Button>
           </CardFooter>
         </form>
       </Form>
