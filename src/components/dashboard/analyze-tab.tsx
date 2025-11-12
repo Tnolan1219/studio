@@ -8,7 +8,7 @@ import RentalCalculator from "@/components/analysis/rental-calculator";
 import FlipCalculator from "@/components/analysis/flip-calculator";
 import CommercialCalculator from "@/components/analysis/commercial-calculator";
 import { cn } from "@/lib/utils";
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, doc } from 'firebase/firestore';
 import type { Deal, UserProfile } from '@/lib/types';
 import AdvancedCommercialCalculator from '../analysis/advanced-commercial-calculator';
