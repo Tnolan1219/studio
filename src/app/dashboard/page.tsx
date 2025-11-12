@@ -67,7 +67,7 @@ function DashboardView() {
   return (
     <div className="flex min-h-screen w-full flex-col">
       <Header />
-      <main className="flex-1 p-6 md:p-12 bg-transparent pb-40">
+      <main className="flex-1 p-6 md:p-12 bg-transparent pb-72">
         <DashboardClient />
       </main>
       <footer className="fixed bottom-4 left-0 right-0 z-40 h-24 pointer-events-none">
