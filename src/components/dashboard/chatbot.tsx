@@ -77,14 +77,7 @@ export function Chatbot() {
                     </CardHeader>
                     <CardContent>
                         <div className="h-80 overflow-y-auto p-4 space-y-4 border rounded-md bg-muted/50">
-                        {messages.map((message, index) => (
-                            <div key={index} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`p-3 rounded-lg max-w-[85%] ${message.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-background'}`}>
-                                {message.text}
-                            </div>
-                            </div>
-                        ))}
-                         {isLoading && <div className="text-center text-muted-foreground">Thinking...</div>}
+                        <p className="text-sm text-muted-foreground text-center">AI Chat is currently under construction. Check back soon!</p>
                         </div>
                         <div className="flex space-x-2 mt-4">
                         <Input
@@ -92,9 +85,9 @@ export function Chatbot() {
                             onChange={(e) => setInput(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                             placeholder="Ask me anything..."
-                            disabled={isLoading}
+                            disabled={true}
                         />
-                        <Button onClick={handleSendMessage} size="icon" disabled={isLoading}>
+                        <Button onClick={handleSendMessage} size="icon" disabled={true}>
                             <CornerDownLeft className="h-4 w-4" />
                         </Button>
                         </div>

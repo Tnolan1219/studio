@@ -1,11 +1,15 @@
 
 'use client';
+import { useMemo } from 'react';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
+import type { Deal } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { DollarSign, Zap, BarChart, Users, FileText } from "lucide-react"
 import { PortfolioVisualization } from "./portfolio-visualization";
 import { NewsFeed } from "./news-feed";
 import { QuickTips } from "./quick-tips";
-import { Chatbot } from "./chatbot";
+import { AIChatBox } from './ai-chat-box';
 
 const kpiData = [
     { title: "Portfolio Value", value: "$1,250,000", icon: DollarSign, change: "+12.5%" },
@@ -15,6 +19,15 @@ const kpiData = [
 ]
 
 export function HomeTab() {
+    const { user } = useUser();
+    const firestore = useFirestore();
+
+    const dealsQuery = useMemoFirebase(() => {
+        if (!user || user.isAnonymous) return null;
+        return query(collection(firestore, `users/${user.uid}/deals`), orderBy('createdAt', 'desc'));
+    }, [firestore, user]);
+
+    const { data: deals, isLoading } = useCollection<Deal>(dealsQuery);
 
     return (
         <div className="grid grid-cols-12 gap-6">
@@ -31,14 +44,9 @@ export function HomeTab() {
                 </Card>
             ))}
 
-            <Card className="col-span-12 lg:col-span-8 h-[400px]">
-                <CardHeader>
-                    <CardTitle>Portfolio Performance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <PortfolioVisualization />
-                </CardContent>
-            </Card>
+            <div className="col-span-12 lg:col-span-8">
+                 <PortfolioVisualization deals={deals || []} />
+            </div>
 
             <Card className="col-span-12 lg:col-span-4 h-[400px] flex flex-col">
                 <CardHeader>
@@ -53,7 +61,7 @@ export function HomeTab() {
                 <QuickTips />
             </div>
 
-            <Chatbot />
+            <AIChatBox />
         </div>
     )
 }

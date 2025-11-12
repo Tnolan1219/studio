@@ -2,7 +2,7 @@
 'use client';
 
 import type { Deal } from '@/lib/types';
-import { Building, Home, Repeat, TrendingUp, TrendingDown } from 'lucide-react';
+import { Building, Home, Repeat, TrendingUp, TrendingDown, Briefcase } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
@@ -90,8 +90,26 @@ const PropertyCard = ({ deal }: { deal: Deal }) => {
 
 
 export const PortfolioVisualization = ({ deals }: { deals: Deal[] }) => {
+  if (!deals || deals.length === 0) {
+    return (
+        <Card className="bg-card/30 backdrop-blur-sm h-[400px]">
+            <CardHeader>
+                <CardTitle>My Portfolio</CardTitle>
+                <CardDescription>An interactive overview of your investment properties.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+                    <Briefcase className="w-12 h-12 mb-4" />
+                    <p className="font-semibold">Your portfolio is empty.</p>
+                    <p className="text-sm">Analyze and save a deal to see it here.</p>
+                </div>
+            </CardContent>
+        </Card>
+    );
+  }
+
   return (
-    <Card className="bg-card/30 backdrop-blur-sm">
+    <Card className="bg-card/30 backdrop-blur-sm h-[400px]">
         <CardHeader>
             <CardTitle>My Portfolio</CardTitle>
             <CardDescription>An interactive overview of your investment properties. Click a property to view details.</CardDescription>
