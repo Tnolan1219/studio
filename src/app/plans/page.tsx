@@ -2,16 +2,16 @@
 'use client';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { Header } from '@/components/header';
-import { useProfileStore } from '@/store/profile-store';
+import { useProfileStore } from '@/hooks/use-profile-store';
 import { useUser } from '@/firebase/auth/use-user';
 import { useFirestore, setDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, where } from 'firebase/firestore';
+import { doc, collection, query } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { FirebaseDataInitializer } from '@/firebase/data-initializer';
 import type { Plan } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Check, ArrowLeft } from 'lucide-react';
+import { Check, ArrowLeft, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -48,11 +48,11 @@ const PlanCard = ({ plan, isCurrent, onUpgrade, isPopular }: { plan: Plan, isCur
                         <span>Up to <strong>{plan.maxCalculatorUses === Infinity ? 'Unlimited' : plan.maxCalculatorUses}</strong> calculator uses</span>
                     </li>
                     <li className="flex items-center gap-2">
-                        {plan.accessAdvancedCRE ? <Check className="w-4 h-4 text-green-500" /> : <span className="w-4 h-4" />}
+                        {plan.accessAdvancedCRE ? <Check className="w-4 h-4 text-green-500" /> : <X className="w-4 h-4 text-destructive" />}
                         <span>Advanced Commercial Tools</span>
                     </li>
                     <li className="flex items-center gap-2">
-                         {plan.accessNewsletter ? <Check className="w-4 h-4 text-green-500" /> : <span className="w-4 h-4" />}
+                         {plan.accessNewsletter ? <Check className="w-4 h-4 text-green-500" /> : <X className="w-4 h-4 text-destructive" />}
                         <span>AI-Powered Insights</span>
                     </li>
                 </ul>
@@ -136,7 +136,7 @@ function PlansView() {
                 
                 {isLoading ? (
                     <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
-                        {[...Array(4)].map(i => <Skeleton key={i} className="h-[450px] w-full rounded-2xl" />)}
+                        {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-[450px] w-full rounded-2xl" />)}
                     </div>
                 ) : (
                     <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto animate-fade-in">
