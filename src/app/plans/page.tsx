@@ -127,7 +127,7 @@ function PlansView() {
                 </Button>
                 <div className="text-center mb-16 animate-fade-in">
                     <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl font-headline">
-                        Find Your Edge
+                        Choose Your Plan
                     </h1>
                     <p className="mt-4 text-xl text-muted-foreground max-w-3xl mx-auto">
                         Choose the plan that's right for you and unlock the full potential of your real estate investments.
