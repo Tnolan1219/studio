@@ -155,13 +155,6 @@ export default function ProfileTab() {
   const currentPlan = profileData.plan || 'Free';
   const isLoading = isUserLoading || isProfileLoading || !hasHydrated;
   
-  const planStyles = {
-    'Free': '',
-    'Pro': 'plan-pro shadow-primary/40',
-    'Executive': 'plan-executive shadow-secondary/40',
-    'Elite': 'plan-elite',
-  };
-
   if (isLoading) {
     return (
         <div className="animate-fade-in">
@@ -204,10 +197,10 @@ export default function ProfileTab() {
 
   return (
     <div className="animate-fade-in space-y-6">
-        <Card className={cn("bg-card/60 backdrop-blur-sm max-w-4xl mx-auto transition-all duration-500", planStyles[currentPlan])}>
+        <Card className={cn("bg-card/60 backdrop-blur-sm max-w-4xl mx-auto transition-all duration-500")}>
         <CardHeader>
             <div className="flex items-center gap-4">
-                <Avatar className={cn("h-24 w-24 border-2 border-primary/50 relative", planStyles[currentPlan])}>
+                <Avatar className={cn("h-24 w-24 border-2 border-primary/50 relative")}>
                     <AvatarImage src={currentPhotoURL || ""} alt={form.getValues('name') || ""} data-ai-hint="person" />
                     <AvatarFallback className="text-3xl">{getInitials()}</AvatarFallback>
                 </Avatar>

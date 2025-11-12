@@ -36,13 +36,14 @@ function DashboardView() {
     )
   }
 
-  const TabButton = ({ value, label, icon: Icon }: { value: string, label: string, icon: React.ElementType }) => (
+  const TabButton = ({ value, label, icon: Icon, isProfile = false }: { value: string, label: string, icon: React.ElementType, isProfile?: boolean }) => (
     <Button
       variant={'ghost'}
       size="icon"
       className={cn(
         "relative flex flex-col h-16 w-16 rounded-full transition-all duration-300 overflow-hidden group",
-        "text-muted-foreground hover:text-foreground"
+        "text-muted-foreground hover:text-foreground",
+        isProfile && "hover:shadow-[0_0_15px_hsl(var(--primary)/0.8)]"
       )}
       onClick={() => setActiveTab(value)}
     >
@@ -76,7 +77,7 @@ function DashboardView() {
               <TabButton value="analyze" label="Analyze" icon={BarChart2} />
               <TabButton value="deals" label="Deals" icon={Briefcase} />
               <TabButton value="community" label="Community" icon={Users} />
-              <TabButton value="profile" label="Profile" icon={User} />
+              <TabButton value="profile" label="Profile" icon={User} isProfile />
             </div>
           </div>
       </footer>

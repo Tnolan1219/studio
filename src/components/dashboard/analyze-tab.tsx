@@ -77,7 +77,7 @@ export default function AnalyzeTab() {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <TabsTrigger value="commercial-advanced" className={cn("px-4 py-2 rounded-full", hasAdvancedAccess && "plan-elite")} disabled={!hasAdvancedAccess}>
+                <TabsTrigger value="commercial-advanced" className={cn("px-4 py-2 rounded-full plan-elite")} disabled={!hasAdvancedAccess}>
                   <TestTube2 className="mr-2 h-4 w-4" />
                   Advanced Commercial
                 </TabsTrigger>

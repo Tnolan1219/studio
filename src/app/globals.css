@@ -149,11 +149,9 @@
     .plan-pro {
       animation: pulse-pro 3s infinite;
     }
-    .plan-executive {
-      animation: pulse-executive 2.5s infinite;
-    }
-    .plan-elite {
-      animation: pulse-elite 2.5s infinite;
+    .plan-elite[data-state='active'] {
+        color: hsl(var(--secondary-foreground));
+        box-shadow: 0 0 20px 2px hsl(var(--secondary) / 0.8);
     }
     
     @keyframes pulse-elite {

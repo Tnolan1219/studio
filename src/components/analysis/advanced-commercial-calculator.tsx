@@ -63,6 +63,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Label } from '../ui/label';
 import { useProfileStore } from '@/hooks/use-profile-store';
+import { useRouter } from 'next/navigation';
 
 
 const unitMixSchema = z.object({
@@ -301,7 +302,7 @@ const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d"
 export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, dealCount = 0 }: AdvancedCommercialCalculatorProps) {
     
   const [activeTab, setActiveTab] = useState('assumptions');
-
+  const router = useRouter();
   const [isAIPending, startAITransition] = useTransition();
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const { user } = useUser();
@@ -312,8 +313,12 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
 
   const planRef = useMemoFirebase(() => {
     if (!profileData?.plan) return null;
-    return doc(firestore, 'plans', profileData.plan.toLowerCase());
+    const planId = profileData.plan.toLowerCase();
+    // Ensure we don't try to fetch a "free" plan document if it doesn't exist
+    if (planId === 'free') return null;
+    return doc(firestore, 'plans', planId);
   }, [firestore, profileData?.plan]);
+
   const { data: planData } = useDoc<Plan>(planRef);
   
   const userProfileRef = useMemoFirebase(() => {
@@ -629,13 +634,20 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
   };
 
   const handleAnalysisClick = async () => {
-    if (user?.isAnonymous || !profileData || !planData) {
+    if (user?.isAnonymous || !profileData || !hasHydrated) {
       toast({ title: "Account Required", description: "Please create a full account to use the calculators." });
       return;
     }
 
-    if (profileData.calculatorUses >= planData.maxCalculatorUses) {
-      toast({ title: "Calculator Limit Reached", description: `You have used all ${planData.maxCalculatorUses} of your monthly calculator uses. Please upgrade your plan.` });
+    // Determine max uses based on plan. Pro/Exec/Elite plans have planData, Free doesn't need a DB fetch.
+    const maxUses = planData?.maxCalculatorUses ?? (profileData.plan === 'Free' ? 25 : 0);
+
+    if (profileData.calculatorUses && maxUses > 0 && profileData.calculatorUses >= maxUses) {
+      toast({ 
+        title: "Calculator Limit Reached", 
+        description: `You have used all ${maxUses} of your monthly calculator uses. Please upgrade your plan.`,
+        action: <Button onClick={() => router.push('/plans')}>Upgrade</Button>
+      });
       return;
     }
 
@@ -673,15 +685,17 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
       return;
     }
 
-    if (!isEditMode && planData && profileData) {
-        if (profileData.savedDeals >= planData.maxSavedDeals) {
-            toast({
-                title: `Deal Limit Reached for ${planData.name} Plan`,
-                description: `You have saved ${profileData.savedDeals} of ${planData.maxSavedDeals} deals. Please upgrade your plan to save more.`,
-                variant: 'destructive',
-            });
-            return;
-        }
+    if (!isEditMode) {
+      const maxDeals = planData?.maxSavedDeals ?? (profileData.plan === 'Free' ? 5 : 0);
+      if (profileData.savedDeals && maxDeals > 0 && profileData.savedDeals >= maxDeals) {
+        toast({
+            title: `Deal Limit Reached for ${profileData.plan} Plan`,
+            description: `You have saved ${profileData.savedDeals} of ${maxDeals} deals.`,
+            action: <Button onClick={() => router.push('/plans')}>Upgrade</Button>,
+            variant: 'destructive',
+        });
+        return;
+      }
     }
 
     setIsSaving(true);
@@ -1172,7 +1186,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
                             </Button>
                             <div className="flex justify-end gap-2">
                                 {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
-                                <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isSaving || !hasHydrated}> 
+                                <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isSaving || !analysisResult}> 
                                     {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : (isEditMode ? 'Save Changes' : 'Save Deal')} 
                                 </Button>
                             </div>
@@ -1183,4 +1197,3 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel, d
         </Card>
     );
 }
-
