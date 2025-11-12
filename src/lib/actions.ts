@@ -2,17 +2,24 @@
 'use server';
 
 import type { DealStage } from './types';
+import { generate } from '@genkit-ai/ai';
+import { googleAI } from '@genkit-ai/google-genai';
+import { marked } from 'marked';
 
 /**
  * Gets an AI assessment for a deal by constructing a prompt and calling the AI provider directly.
  * This version matches the calling signature from the RealEstateQueryBox component.
  */
-export async function assessDeal(
-  dealType: string,
+export async function getDealAssessment(
+  {dealType,
+  financialData,
+  marketConditions,
+  stage}:
+  {dealType: string,
   financialData: string,
   marketConditions: string,
-  stage?: DealStage | 'initial-analysis' | 'general-query'
-): Promise<string> {
+  stage?: DealStage | 'initial-analysis' | 'general-query'}
+): Promise<{message: string, assessment: string | null}> {
   try {
     const getPromptForStage = (
       stage: DealStage | 'initial-analysis' | 'general-query',
@@ -44,34 +51,26 @@ export async function assessDeal(
 
     const prompt = getPromptForStage(stage || 'initial-analysis', dealType, financialData, marketConditions);
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const apiUrl = new URL('/api/ai', baseUrl).toString();
+    if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
+      throw new Error('The Google API key is not configured on the server.');
+    }
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ prompt }),
+    const llmResponse = await generate({
+        model: googleAI.model('gemini-pro'),
+        prompt: prompt,
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'The AI service returned an error.');
+    const markdownText = llmResponse.text();
+    const html = marked.parse(markdownText);
+    
+    if (typeof html !== 'string') {
+        return { message: "Could not render AI response.", assessment: null };
     }
 
-    const data = await response.json();
-
-    if (!data.text) {
-      throw new Error('Received an invalid response from the AI service.');
-    }
-
-    // Return the raw markdown text, as the component uses ReactMarkdown to render it.
-    return data.text;
+    return { message: "Success", assessment: html };
 
   } catch (error: any) {
-    console.error('Error in assessDeal:', error);
-    // Rethrow the error so the component's try/catch block can handle it and display a message to the user.
-    throw new Error(error.message || 'An unknown error occurred while generating the assessment.');
+    console.error('Error in getDealAssessment:', error);
+    return { message: error.message || "An unknown error occurred.", assessment: null };
   }
 }

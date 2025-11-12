@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Send, Sparkles, X, ChevronsUpDown } from "lucide-react";
-import { assessDeal } from '@/lib/actions';
+import { getDealAssessment } from '@/lib/actions';
 import { ScrollArea } from '../ui/scroll-area';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Badge } from '../ui/badge';
@@ -41,14 +41,14 @@ export function AIChatBox() {
         setIsLoading(true);
 
         try {
-            const result = await assessDeal(
-                'general',
-                '',
-                query,
-                'general-query'
-            );
+            const result = await getDealAssessment({
+                dealType: 'general',
+                financialData: '',
+                marketConditions: query,
+                stage: 'general-query'
+            });
 
-            const aiText = result || "Sorry, I couldn't get a response.";
+            const aiText = result.assessment || "Sorry, I couldn't get a response.";
             const aiMessage: Message = { sender: 'ai', text: aiText };
             setMessages(prev => [...prev, aiMessage]);
 
