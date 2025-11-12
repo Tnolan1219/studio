@@ -10,7 +10,7 @@ export type UserProfile = {
     country?: string;
     state?: string;
     financialGoal?: string;
-    plan?: 'Free' | 'Pro' | 'Executive' | 'Elite';
+    plan?: 'Free' | 'Pro' | 'Premium' | 'Elite';
     savedDeals?: number;
     calculatorUses?: number;
     lastUpgradeDate?: string;

@@ -28,7 +28,7 @@ const plans = [
     },
     {
         name: 'Pro',
-        price: 49,
+        price: 9,
         features: [
             'Up to 25 saved deals',
             'Advanced commercial calculator',
@@ -39,8 +39,8 @@ const plans = [
         ],
     },
     {
-        name: 'Executive',
-        price: 99,
+        name: 'Premium',
+        price: 29,
         features: [
             'Unlimited saved deals',
             'All Pro features included',
@@ -50,6 +50,18 @@ const plans = [
             'Dedicated 24/7 priority support',
         ],
     },
+    {
+        name: 'Elite',
+        price: 49,
+        features: [
+            'Everything in Premium',
+            '1-on-1 coaching sessions',
+            'Exclusive market reports',
+            'Early access to new features',
+            'Customizable branding',
+            'API Access for custom integrations',
+        ],
+    }
 ];
 
 function PlansView() {
@@ -72,7 +84,7 @@ function PlansView() {
             const userRef = doc(firestore, 'users', user.uid);
             await setDoc(userRef, { plan: planName }, { merge: true });
             
-            useProfileStore.getState().setProfileData({ plan: planName as 'Free' | 'Pro' | 'Executive' });
+            useProfileStore.getState().setProfileData({ plan: planName as 'Free' | 'Pro' | 'Premium' | 'Elite' });
 
             toast({
                 title: 'Plan Updated!',
@@ -114,7 +126,7 @@ function PlansView() {
                         <Loader2 className="h-12 w-12 animate-spin text-primary" />
                     </div>
                 ) : (
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-12 max-w-7xl mx-auto animate-fade-in-up">
+                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto animate-fade-in-up">
                         {plans.map((plan, i) => (
                             <PricingPlan
                                 key={i}

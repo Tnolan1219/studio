@@ -54,7 +54,7 @@ const profileSchema = z.object({
   country: z.string().optional(),
   state: z.string().optional(),
   financialGoal: z.string().min(10, "Financial goal must be at least 10 characters.").optional(),
-  plan: z.enum(['Free', 'Pro', 'Executive', 'Elite']).optional(),
+  plan: z.enum(['Free', 'Pro', 'Premium', 'Elite']).optional(),
   savedDeals: z.number().optional(),
   calculatorUses: z.number().optional(),
 });

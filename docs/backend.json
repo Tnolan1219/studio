@@ -12,7 +12,7 @@
         "email": { "type": "string", "description": "User's email address.", "format": "email" },
         "country": { "type": "string", "description": "User's country of residence." },
         "state": { "type": "string", "description": "User's state of residence." },
-        "plan": { "type": "string", "description": "User's subscription plan status.", "enum": ["Free", "Pro", "Executive", "Elite"] },
+        "plan": { "type": "string", "description": "User's subscription plan status.", "enum": ["Free", "Pro", "Premium", "Elite"] },
         "dutyStation": { "type": "string", "description": "User's duty station if applicable." },
         "rank": { "type": "string", "description": "User's rank if applicable." },
         "branch": { "type": "string", "description": "User's branch of service if applicable." },
@@ -28,7 +28,7 @@
         "type": "object",
         "description": "Defines the limits and features for a subscription plan.",
         "properties": {
-            "name": { "type": "string", "enum": ["Free", "Pro", "Executive", "Elite"] },
+            "name": { "type": "string", "enum": ["Free", "Pro", "Premium", "Elite"] },
             "maxSavedDeals": { "type": "number" },
             "maxCalculatorUses": { "type": "number" },
             "accessAdvancedCRE": { "type": "boolean" },
