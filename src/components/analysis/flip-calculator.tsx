@@ -5,7 +5,7 @@ import { useState, useEffect, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { getDealAssessment } from '@/lib/actions';
+import { assessDeal } from '@/lib/actions';
 import {
   Card,
   CardContent,
@@ -89,7 +89,10 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
 
   const planRef = useMemoFirebase(() => {
     if (!profileData?.plan) return null;
-    return doc(firestore, 'plans', profileData.plan.toLowerCase());
+    const planId = profileData.plan.toLowerCase();
+    // Ensure we don't try to fetch a "free" plan document if it doesn't exist
+    if (planId === 'free') return null;
+    return doc(firestore, 'plans', planId);
   }, [firestore, profileData?.plan]);
   const { data: planData } = useDoc<Plan>(planRef);
 
@@ -135,7 +138,7 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
         return;
     }
     
-    const maxUses = planData?.maxCalculatorUses ?? (profileData.plan === 'Free' ? 25 : 0);
+    const maxUses = planData?.maxCalculatorUses ?? (profileData.plan === 'Free' ? 25 : Infinity);
 
     if (!skipTrack && hasHydrated && maxUses > 0 && (profileData.calculatorUses || 0) >= maxUses) {
         toast({
@@ -203,12 +206,22 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
     startAITransition(async () => {
       try {
         const financialData = `Net Profit: ${analysisResult.netProfit.toFixed(2)}, ROI: ${analysisResult.roi.toFixed(2)}%`;
-        const assessment = await getDealAssessment(
-          'House Flip',
-          financialData,
-          form.getValues('marketConditions')
-        );
-        setAiResult(assessment);
+        const result = await assessDeal({
+          dealType: 'House Flip',
+          financialData: financialData,
+          marketConditions: form.getValues('marketConditions')
+        });
+
+        if (result.assessment) {
+            setAiResult(result.assessment);
+        } else {
+            toast({
+                title: 'AI Assessment Failed',
+                description: result.message || 'An unknown error occurred.',
+                variant: 'destructive',
+            });
+            setAiResult(null);
+        }
       } catch (error: any) {
         toast({
             title: 'AI Assessment Failed',
@@ -236,7 +249,7 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
       return;
     }
 
-    const maxDeals = planData?.maxSavedDeals ?? (profileData.plan === 'Free' ? 5 : 0);
+    const maxDeals = planData?.maxSavedDeals ?? (profileData.plan === 'Free' ? 5 : Infinity);
 
     if (!isEditMode && hasHydrated && maxDeals > 0 && (profileData.savedDeals || 0) >= maxDeals) {
       toast({
@@ -394,3 +407,5 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
     </Card>
   );
 }
+
+    
