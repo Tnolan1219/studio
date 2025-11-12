@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useProfileStore } from '@/hooks/use-profile-store';
 import { useToast } from '@/hooks/use-toast';
 import { collection, query, doc } from 'firebase/firestore';
@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 function PlanCard({ plan, currentPlan, onSelect, isLoading }: { plan: Plan; currentPlan: string; onSelect: (planName: string) => void; isLoading: boolean; }) {
     const isCurrent = plan.name === currentPlan;
@@ -122,10 +123,10 @@ function PlansView() {
     };
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-transparent">
             <Header />
             <main className="container mx-auto px-4 py-12">
-                <div className="text-center mb-12">
+                <div className="text-center mb-12 animate-fade-in">
                     <h1 className="text-5xl font-bold font-headline">Find the Right Plan for You</h1>
                     <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
                         Whether you're just starting out or managing a large portfolio, we have a plan that fits your needs.
@@ -133,14 +134,14 @@ function PlansView() {
                 </div>
                 
                 {plansLoading ? (
-                     <div className="flex justify-center items-center">
+                     <div className="flex justify-center items-center py-20">
                         <Loader2 className="h-12 w-12 animate-spin text-primary" />
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto animate-fade-in">
                         {sortedPlans?.map(plan => (
                             <PlanCard 
-                                key={plan.id} 
+                                key={plan.id || plan.name} 
                                 plan={plan}
                                 currentPlan={profileData?.plan || 'Free'}
                                 onSelect={handleSelectPlan}
@@ -161,5 +162,3 @@ export default function PlansPage() {
         </FirebaseClientProvider>
     )
 }
-
-    
