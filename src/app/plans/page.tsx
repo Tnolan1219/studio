@@ -19,10 +19,11 @@ import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 function PlanCard({ plan, currentPlan, onSelect, isLoading }: { plan: Plan; currentPlan: string; onSelect: (planName: string) => void; isLoading: boolean; }) {
     const isCurrent = plan.name === currentPlan;
     const isPro = plan.name === 'Pro';
+    const isElite = plan.name === 'Elite';
 
     const features = [
         { text: `${plan.dealLimit === -1 ? 'Unlimited' : plan.dealLimit} saved deals`, included: true },
-        { text: `${plan.maxCalculatorUses === -1 ? 'Unlimited' : plan.maxCalculatorUses} calculator uses`, included: true },
+        { text: `${plan.maxCalculatorUses === -1 ? 'Unlimited' : plan.maxCalculatorUses} calculator uses / mo`, included: true },
         { text: 'Advanced commercial calculator', included: plan.accessAdvancedCRE },
         { text: 'Partnership & waterfall modeling', included: plan.name === 'Executive' || plan.name === 'Elite' },
         { text: 'AI-powered deal analysis', included: plan.price > 0 },
@@ -34,7 +35,8 @@ function PlanCard({ plan, currentPlan, onSelect, isLoading }: { plan: Plan; curr
         <Card className={cn(
             "flex flex-col transition-all duration-300 w-full max-w-sm mx-auto",
             isCurrent ? "border-primary ring-2 ring-primary shadow-lg shadow-primary/20" : "border-border hover:shadow-xl hover:-translate-y-2",
-            isPro && !isCurrent && "border-cyan-400/50"
+            isPro && !isCurrent && "plan-pro border-cyan-400/50",
+            isElite && "plan-elite"
         )}>
             {isPro && <div className="text-center py-1 bg-cyan-400 text-black text-sm font-bold rounded-t-lg">Most Popular</div>}
             <CardHeader className="text-center">
