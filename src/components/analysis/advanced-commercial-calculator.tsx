@@ -793,9 +793,14 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
 
     return (
         <Card className="bg-card/60 backdrop-blur-sm">
-            <CardHeader>
-                <CardTitle className="font-headline">{isEditMode ? `Editing: ${deal.dealName}` : 'Advanced Commercial Analyzer'}</CardTitle>
-                <CardDescription>A professional underwriting suite for institutional-grade analysis.</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle className="font-headline">{isEditMode ? `Editing: ${deal.dealName}` : 'Advanced Commercial Analyzer'}</CardTitle>
+                    <CardDescription>A professional underwriting suite for institutional-grade analysis.</CardDescription>
+                </div>
+                <Button type="button" size="lg" onClick={handleAnalysisClick} disabled={!hasHydrated}>
+                    Run Analysis
+                </Button>
             </CardHeader>
             <CardContent>
                 <Form {...form}>
@@ -808,11 +813,6 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
                             <div className="text-center"> <p className="text-sm text-primary/80 font-headline">NOI (Y1)</p> <p className="text-2xl font-bold text-primary">${analysisResult.noi.toLocaleString(undefined, {maximumFractionDigits: 0})}</p></div>
                         </div>
                        )}
-                         <div className="mb-6 flex justify-center">
-                            <Button type="button" size="lg" onClick={handleAnalysisClick} disabled={!hasHydrated}>
-                                Run Analysis
-                            </Button>
-                        </div>
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                             <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 lg:grid-cols-6 h-auto">
                             <TabsTrigger value="assumptions" className={cn("flex-col h-14")}>
@@ -1188,9 +1188,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
                             </TabsContent>
                         </Tabs>
                         <CardFooter className="flex justify-between items-center mt-6">
-                             <Button type="button" onClick={handleAnalysisClick} disabled={!hasHydrated}>
-                                Run Analysis
-                            </Button>
+                            <div/>
                             <div className="flex justify-end gap-2">
                                 {isEditMode && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
                                 <Button type="button" variant="secondary" onClick={handleSaveDeal} disabled={isSaving || !analysisResult || !hasHydrated}> 
