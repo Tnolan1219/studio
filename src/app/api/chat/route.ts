@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { runFlow } from '@genkit-ai/core';
-import { chatbotFlow } from '@/ai/genkit';
+import { chatbotFlow } from '@/lib/flows/chatbotFlow';
 
 export async function POST(request: NextRequest) {
   const { prompt } = await request.json();

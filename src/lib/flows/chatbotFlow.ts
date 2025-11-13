@@ -1,8 +1,8 @@
 
-import { defineFlow, runFlow } from '@genkit-ai/core';
+import { defineFlow } from '@genkit-ai/core';
 import { generate } from '@genkit-ai/ai';
 import { gemini15Flash } from '@genkit-ai/google-genai';
-import *s z from 'zod';
+import * as z from 'zod';
 
 export const chatbotFlow = defineFlow(
   {
