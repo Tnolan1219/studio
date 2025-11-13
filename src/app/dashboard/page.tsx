@@ -41,16 +41,15 @@ function DashboardView() {
       variant={'ghost'}
       size="icon"
       className={cn(
-        "relative flex flex-col h-16 w-16 rounded-full transition-all duration-300 overflow-hidden group",
+        "relative flex flex-col h-14 w-14 rounded-full transition-all duration-300 overflow-hidden group",
         "text-muted-foreground hover:text-foreground",
-        isProfile && "hover:shadow-[0_0_15px_hsl(var(--primary)/0.8)]"
       )}
       onClick={() => setActiveTab(value)}
     >
       {activeTab === value && (
          <motion.div
             layoutId="active-tab-indicator"
-            className="absolute inset-0 bg-primary/80 rounded-full z-0"
+            className="absolute inset-0 bg-primary/80 rounded-full z-0 active-tab-glow"
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
          />
       )}
@@ -76,7 +75,7 @@ function DashboardView() {
           <TabButton value="analyze" label="Analyze" icon={BarChart2} />
           <TabButton value="deals" label="Deals" icon={Briefcase} />
           <TabButton value="community" label="Community" icon={Users} />
-          <TabButton value="profile" label="Profile" icon={User} isProfile />
+          <TabButton value="profile" label="Profile" icon={User} />
         </div>
       </footer>
     </div>
@@ -90,3 +89,5 @@ export default function DashboardPage() {
     </FirebaseClientProvider>
   )
 }
+
+    

@@ -145,6 +145,20 @@
       transform: translateY(0);
     }
 
+    .active-tab-glow {
+        box-shadow: 0 0 15px 2px hsl(var(--primary) / 0.7), 0 0 25px 5px hsl(var(--primary) / 0.4);
+        animation: pulse-glow 2s infinite alternate;
+    }
+
+    @keyframes pulse-glow {
+        from {
+            box-shadow: 0 0 15px 2px hsl(var(--primary) / 0.7), 0 0 25px 5px hsl(var(--primary) / 0.4);
+        }
+        to {
+            box-shadow: 0 0 20px 4px hsl(var(--primary) / 0.8), 0 0 35px 8px hsl(var(--primary) / 0.5);
+        }
+    }
+
     /* Plan Styles */
     .plan-pro {
       animation: pulse-pro 3s infinite;
@@ -178,3 +192,5 @@
         }
     }
 }
+
+    
