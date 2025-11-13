@@ -3,10 +3,10 @@
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { Header } from '@/components/header';
 import { PricingPlan } from '@/components/pricing-plan';
-import { useProfileStore } from '@/store/profile-store';
+import { useProfileStore } from '@/hooks/use-profile-store';
 import { useUser } from '@/firebase/auth/use-user';
-import { useFirestore } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { useFirestore, setDocumentNonBlocking } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { FirebaseDataInitializer } from '@/firebase/data-initializer';
@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import type { UserProfile } from '@/lib/types';
 
-// Hardcoding the plan data to ensure it's always available on the page
 const plans = [
     {
         name: 'Free',
@@ -29,7 +28,7 @@ const plans = [
     },
     {
         name: 'Pro',
-        price: 49,
+        price: 9,
         features: [
             'Up to 25 saved deals',
             'Advanced commercial calculator',
@@ -40,8 +39,20 @@ const plans = [
         ],
     },
     {
-        name: 'Executive',
-        price: 99,
+        name: 'Premium',
+        price: 29,
+        features: [
+            'Unlimited saved deals',
+            'All Pro features included',
+            'Advanced partnership & waterfall modeling',
+            'Tax & depreciation analysis tools',
+            'Sensitivity & scenario analysis',
+            'Dedicated 24/7 priority support',
+        ],
+    },
+     {
+        name: 'Elite',
+        price: 49,
         features: [
             'Unlimited saved deals',
             'All Pro features included',
@@ -58,7 +69,7 @@ function PlansView() {
     const { toast } = useToast();
     const { user } = useUser();
     const firestore = useFirestore();
-    const { profileData, setProfileData, isLoading } = useProfileStore();
+    const { profileData, setProfileData, isLoading, hasHydrated } = useProfileStore();
     const [isUpdating, setIsUpdating] = useState<string | null>(null);
 
     const handleUpgrade = async (planName: UserProfile['plan']) => {
@@ -69,29 +80,26 @@ function PlansView() {
         if (!firestore) return;
 
         setIsUpdating(planName);
-        try {
-            const userRef = doc(firestore, 'users', user.uid);
-            // Update the document in Firestore
-            await setDoc(userRef, { plan: planName }, { merge: true });
-            
-            // Update the local state in Zustand
-            setProfileData({ plan: planName });
+        
+        const userRef = doc(firestore, 'users', user.uid);
+        const planUpdateData = { plan: planName, lastUpgradeDate: new Date().toISOString() };
+        
+        // Non-blocking write to Firestore
+        setDocumentNonBlocking(userRef, planUpdateData, { merge: true });
+        
+        // Optimistically update the local Zustand store
+        setProfileData(planUpdateData);
 
-            toast({
-                title: 'Plan Updated!',
-                description: `You are now on the ${planName} plan.`,
-            });
-            router.push('/dashboard');
-        } catch (error) {
-            console.error("Failed to update plan: ", error);
-            toast({
-                title: 'Error updating plan',
-                description: 'Could not update your plan. Please try again.',
-                variant: 'destructive',
-            });
-        } finally {
+        toast({
+            title: 'Plan Updated!',
+            description: `You are now on the ${planName} plan.`,
+        });
+        
+        // Use a timeout to simulate network latency before redirecting
+        setTimeout(() => {
             setIsUpdating(null);
-        }
+            router.push('/dashboard');
+        }, 500);
     };
 
     return (
@@ -112,15 +120,15 @@ function PlansView() {
                     </p>
                 </div>
                 
-                {isLoading && !profileData ? (
+                {isLoading || !hasHydrated ? (
                     <div className="flex justify-center items-center h-64">
                         <Loader2 className="h-12 w-12 animate-spin text-primary" />
                     </div>
                 ) : (
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-12 max-w-7xl mx-auto animate-fade-in-up">
-                        {plans.map((plan, i) => (
+                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto animate-fade-in-up">
+                        {plans.map((plan) => (
                             <PricingPlan
-                                key={i}
+                                key={plan.name}
                                 plan={plan as {name: UserProfile['plan'], price: number, features: string[]}}
                                 isCurrent={profileData?.plan === plan.name}
                                 onUpgrade={handleUpgrade}

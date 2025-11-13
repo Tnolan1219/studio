@@ -196,7 +196,9 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
   
   const planRef = useMemoFirebase(() => {
     if (!profileData?.plan) return null;
-    return doc(firestore, 'plans', profileData.plan.toLowerCase());
+    const planId = profileData.plan.toLowerCase();
+    if (planId === 'free') return null;
+    return doc(firestore, 'plans', planId);
   }, [firestore, profileData?.plan]);
   const { data: planData } = useDoc<Plan>(planRef);
 
@@ -214,7 +216,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
         ...deal,
         unitMix: deal.unitMix || [{type: 'Unit', count: 1, rent: deal.grossMonthlyIncome || 0}],
         operatingExpenses: deal.operatingExpenses || [],
-        capitalExpenditures: deal.capitalExpenditures || [{ name: 'CapEx Reserves', amount: 5, type: 'percent' }],
+        capitalExpenditures: (Array.isArray(deal.capitalExpenditures) ? deal.capitalExpenditures : []) as any[],
         otherIncomes: deal.otherIncomes || [],
         annualIncomeGrowth: deal.annualIncomeGrowth || 3,
         annualExpenseGrowth: deal.annualExpenseGrowth || 2,
@@ -255,9 +257,9 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
         return;
     }
     
-    const maxUses = planData?.maxCalculatorUses ?? (profileData.plan === 'Free' ? 25 : 0);
+    const maxUses = planData?.maxCalculatorUses ?? (profileData?.plan === 'Free' ? 25 : Infinity);
 
-    if (!skipTrack && hasHydrated && maxUses > 0 && (profileData.calculatorUses || 0) >= maxUses) {
+    if (!skipTrack && hasHydrated && maxUses > 0 && (profileData?.calculatorUses || 0) >= maxUses) {
         toast({
             title: 'Calculator Limit Reached',
             description: `You have used all ${maxUses} of your monthly calculator uses.`,
@@ -305,7 +307,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
       form.reset(deal);
       handleAnalysis(deal, true);
     }
-  }, [deal, isEditMode, form.reset]);
+  }, [deal, isEditMode, form]);
   
    const handleSaveDeal = async () => {
     if (!analysisResult) {
@@ -323,12 +325,12 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
         return;
     }
     
-    const maxDeals = planData?.maxSavedDeals ?? (profileData.plan === 'Free' ? 5 : 0);
+    const maxDeals = planData?.maxSavedDeals ?? (profileData?.plan === 'Free' ? 5 : Infinity);
 
-    if (!isEditMode && hasHydrated && maxDeals > 0 && (profileData.savedDeals || 0) >= maxDeals) {
+    if (!isEditMode && hasHydrated && maxDeals > 0 && (profileData?.savedDeals || 0) >= maxDeals) {
         toast({
-            title: `Deal Limit Reached for ${profileData.plan} Plan`,
-            description: `You have saved ${profileData.savedDeals} of ${maxDeals} deals.`,
+            title: `Deal Limit Reached for ${profileData?.plan} Plan`,
+            description: `You have saved ${profileData?.savedDeals} of ${maxDeals} deals.`,
             action: (
               <Button onClick={() => router.push('/plans')}>Upgrade</Button>
             ),
@@ -344,7 +346,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
     const grossMonthlyIncome = (formValues.unitMix.reduce((acc, unit) => acc + unit.count * unit.rent, 0));
     const rehabCost = formValues.capitalExpenditures?.reduce((acc, item) => item.type === 'fixed' ? acc + item.amount : acc, 0) || 0;
 
-    const dealData: Partial<Deal> = {
+    const dealData: Omit<Deal, 'createdAt'> & {createdAt?: any} = {
       ...formValues,
       id: dealId,
       dealType: 'Commercial Multifamily' as const,
@@ -355,11 +357,23 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
       noi: parseFloat(analysisResult.noi.toFixed(2)),
       capRate: parseFloat(analysisResult.capRate.toFixed(2)),
       userId: user.uid,
-      createdAt: isEditMode && deal ? deal.createdAt : serverTimestamp(),
       status: isEditMode && deal ? deal.status : 'In Works',
       isPublished: isEditMode && deal ? deal.isPublished : false,
       isAdvanced: false,
+      roi: 0,
+      netProfit: 0,
+      propertyTaxes: 0,
+      insurance: 0,
+      repairsAndMaintenance: 0,
+      managementFee: 0,
+      otherExpenses: 0,
+      holdingLength: 0,
+      sellingCosts: 0,
     };
+    
+    if (!isEditMode) {
+      dealData.createdAt = serverTimestamp();
+    }
     
     const dealRef = doc(firestore, `users/${user.uid}/deals`, dealId);
     setDocumentNonBlocking(dealRef, dealData, { merge: true });

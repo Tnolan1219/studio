@@ -1,51 +1,66 @@
 
+'use client';
+
 import { create } from 'zustand';
 import type { UserProfile } from '@/lib/types';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { immer } from 'zustand/middleware/immer';
 import { useState, useEffect } from 'react';
 
-type ProfileState = {
+interface ProfileState {
   profileData: Partial<UserProfile>;
+  isLoading: boolean;
+  hasHydrated: boolean;
   setProfileData: (data: Partial<UserProfile>) => void;
+  setIsLoading: (loading: boolean) => void;
+  setHasHydrated: (hydrated: boolean) => void;
   incrementCalculatorUses: () => void;
   incrementSavedDeals: () => void;
-};
+}
 
-// We use a middleware to persist the store to sessionStorage
 const useProfileStoreImpl = create<ProfileState>()(
-  persist(
-    (set) => ({
-      profileData: {},
-      setProfileData: (data) => set((state) => ({ profileData: { ...state.profileData, ...data } })),
-      incrementCalculatorUses: () => set((state) => ({
-        profileData: {
-            ...state.profileData,
-            calculatorUses: (state.profileData.calculatorUses || 0) + 1,
-        }
-      })),
-      incrementSavedDeals: () => set((state) => ({
-        profileData: {
-            ...state.profileData,
-            savedDeals: (state.profileData.savedDeals || 0) + 1,
-        }
-      })),
-    }),
-    {
-      name: 'profile-storage', // name of the item in storage
-      storage: createJSONStorage(() => sessionStorage), // use sessionStorage
-    }
-  )
+  immer((set) => ({
+    profileData: {},
+    isLoading: true,
+    hasHydrated: false,
+    setProfileData: (data) =>
+      set((state) => {
+        state.profileData = { ...state.profileData, ...data };
+      }),
+    setIsLoading: (loading) =>
+      set((state) => {
+        state.isLoading = loading;
+      }),
+    setHasHydrated: (hydrated) =>
+      set((state) => {
+        state.hasHydrated = hydrated;
+      }),
+    incrementCalculatorUses: () =>
+      set((state) => {
+        state.profileData.calculatorUses = (state.profileData.calculatorUses || 0) + 1;
+      }),
+    incrementSavedDeals: () =>
+      set((state) => {
+        state.profileData.savedDeals = (state.profileData.savedDeals || 0) + 1;
+      }),
+  }))
 );
 
-// Custom hook to handle hydration
+// Custom hook to ensure we use the store only after client-side hydration
 export const useProfileStore = () => {
-  const store = useProfileStoreImpl();
-  const [hasHydrated, setHasHydrated] = useState(false);
+    const store = useProfileStoreImpl();
+    const [hydratedStore, setHydratedStore] = useState(store);
 
-  useEffect(() => {
-    // This effect runs on the client and marks the store as hydrated
-    setHasHydrated(true);
-  }, []);
+    useEffect(() => {
+        const unsub = useProfileStoreImpl.subscribe((newState) => {
+            setHydratedStore(newState);
+        });
+        
+        // Initial sync on mount
+        setHydratedStore(useProfileStoreImpl.getState());
+        useProfileStoreImpl.getState().setHasHydrated(true);
 
-  return { ...store, hasHydrated };
+        return () => unsub();
+    }, []);
+
+    return hydratedStore;
 };

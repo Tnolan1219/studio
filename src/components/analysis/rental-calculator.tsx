@@ -72,7 +72,7 @@ const formSchema = z.object({
   annualAppreciation: z.coerce.number().min(0).max(100),
   holdingLength: z.coerce.number().int().min(1).max(30),
   sellingCosts: z.coerce.number().min(0).max(100),
-  marketConditions: z.string().min(10, 'Please describe market conditions.'),
+  marketConditions: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -178,7 +178,9 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
 
   const planRef = useMemoFirebase(() => {
     if (!profileData?.plan) return null;
-    return doc(firestore, 'plans', profileData.plan.toLowerCase());
+    const planId = profileData.plan.toLowerCase();
+    if (planId === 'free') return null;
+    return doc(firestore, 'plans', planId);
   }, [firestore, profileData?.plan]);
   const { data: planData } = useDoc<Plan>(planRef);
 
@@ -216,7 +218,7 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
       annualAppreciation: 3,
       holdingLength: 10,
       sellingCosts: 6,
-      marketConditions: 'Analyze the rental market in the 90210 zip code. What are the average rents for a 3-bedroom house?',
+      marketConditions: '',
     },
   });
 
@@ -225,7 +227,7 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
       form.reset(deal);
       handleAnalysis(deal, true); // Pass skipTrack=true for initial load in edit mode
     }
-  }, [deal, isEditMode, form.reset]);
+  }, [deal, isEditMode, form]);
 
   const handleAnalysis = (data: FormData, skipTrack: boolean = false) => {
     if (!skipTrack && (user?.isAnonymous || !profileData || !hasHydrated)) {
@@ -234,9 +236,9 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
     }
     
     // Determine max uses based on plan.
-    const maxUses = planData?.maxCalculatorUses ?? (profileData.plan === 'Free' ? 25 : 0);
+    const maxUses = planData?.maxCalculatorUses ?? (profileData?.plan === 'Free' ? 25 : Infinity);
     
-    if (!skipTrack && hasHydrated && maxUses > 0 && (profileData.calculatorUses || 0) >= maxUses) {
+    if (!skipTrack && hasHydrated && maxUses > 0 && (profileData?.calculatorUses || 0) >= maxUses) {
         toast({
             title: 'Calculator Limit Reached',
             description: `You have used all ${maxUses} of your monthly calculator uses.`,
@@ -307,13 +309,9 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
         });
         return;
     }
-    if (!user) {
-      toast({ title: 'Authentication Required', description: 'Please sign in to save deals.', variant: 'destructive' });
+    if (!user || user.isAnonymous) {
+      toast({ title: user ? 'Guest Mode': 'Authentication Required', description: 'Please create an account to save deals.', variant: 'destructive' });
       return;
-    }
-     if (user.isAnonymous) {
-        toast({ title: 'Guest Mode', description: 'Cannot save deals as a guest. Please create an account.', variant: 'destructive' });
-        return;
     }
 
     const isFormValid = await form.trigger();
@@ -322,12 +320,12 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
       return;
     }
     
-    const maxDeals = planData?.maxSavedDeals ?? (profileData.plan === 'Free' ? 5 : 0);
+    const maxDeals = planData?.maxSavedDeals ?? (profileData?.plan === 'Free' ? 5 : Infinity);
     
-    if (!isEditMode && hasHydrated && maxDeals > 0 && (profileData.savedDeals || 0) >= maxDeals) {
+    if (!isEditMode && hasHydrated && maxDeals > 0 && (profileData?.savedDeals || 0) >= maxDeals) {
       toast({
-          title: `Deal Limit Reached for ${profileData.plan} Plan`,
-          description: `You have saved ${profileData.savedDeals} of ${maxDeals} deals.`,
+          title: `Deal Limit Reached for ${profileData?.plan} Plan`,
+          description: `You have saved ${profileData?.savedDeals} of ${maxDeals} deals.`,
           action: (
             <Button onClick={() => router.push('/plans')}>Upgrade</Button>
           ),
@@ -341,7 +339,7 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
     
     let dealId = isEditMode && deal ? deal.id : doc(collection(firestore, `users/${user.uid}/deals`)).id;
 
-    const dealData: Deal = {
+    const dealData: Omit<Deal, 'createdAt'> & { createdAt?: any } = {
       ...formValues,
       id: dealId,
       dealType: 'Rental Property' as const,
@@ -350,12 +348,15 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
       noi: parseFloat(analysisResult.noi.toFixed(2)),
       capRate: parseFloat(analysisResult.capRate.toFixed(2)),
       userId: user.uid,
-      createdAt: isEditMode && deal ? deal.createdAt : serverTimestamp(),
       status: isEditMode && deal ? deal.status : 'In Works',
       isPublished: isEditMode && deal ? deal.isPublished : false,
       roi: 0, // Not used for rentals
       netProfit: 0, // Not used for rentals
     };
+    
+    if (!isEditMode) {
+      dealData.createdAt = serverTimestamp();
+    }
     
     const dealRef = doc(firestore, `users/${user.uid}/deals`, dealId);
     setDocumentNonBlocking(dealRef, dealData, { merge: true });

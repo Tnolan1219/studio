@@ -33,7 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirestore, useMemoFirebase, setDocumentNonBlocking } from "@/firebase";
 import { doc } from 'firebase/firestore';
 import { useEffect, useState } from "react";
 import { Skeleton } from "../ui/skeleton";
@@ -54,46 +54,31 @@ const profileSchema = z.object({
   country: z.string().optional(),
   state: z.string().optional(),
   financialGoal: z.string().min(10, "Financial goal must be at least 10 characters.").optional(),
-  plan: z.enum(['Free', 'Pro', 'Premium', 'Elite']).optional(),
-  savedDeals: z.number().optional(),
-  calculatorUses: z.number().optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export default function ProfileTab() {
   const { toast } = useToast();
-  const { user, isUserLoading } = useUser();
+  const { user } = useUser();
   const firestore = useFirestore();
   const [isSaving, setIsSaving] = useState(false);
   const router = useRouter();
 
-  // Zustand store for client-side state
-  const { profileData, setProfileData, hasHydrated } = useProfileStore();
+  const { profileData, setProfileData, isLoading, hasHydrated } = useProfileStore();
 
   const userProfileRef = useMemoFirebase(() => {
-    if (!user) return null;
+    if (!user || user.isAnonymous) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
-
-  // Fetch from DB to initialize the store
-  const { data: remoteProfileData, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     mode: "onChange",
   });
 
-  // Effect 1: Hydrate the store from Firestore once
   useEffect(() => {
-    if (remoteProfileData && !profileData.email) { // Only set if store is empty
-      setProfileData(remoteProfileData);
-    }
-  }, [remoteProfileData, profileData.email, setProfileData]);
-
-  // Effect 2: Sync form with the Zustand store
-  useEffect(() => {
-    if (hasHydrated && (profileData.email || user?.email)) {
+    if (hasHydrated && profileData) {
       form.reset({
         name: profileData.name || user?.displayName || '',
         email: profileData.email || user?.email || '',
@@ -101,9 +86,6 @@ export default function ProfileTab() {
         country: profileData.country || '',
         state: profileData.state || '',
         financialGoal: profileData.financialGoal || '',
-        plan: profileData.plan || 'Free',
-        savedDeals: profileData.savedDeals || 0,
-        calculatorUses: profileData.calculatorUses || 0,
       });
     }
   }, [profileData, user, form, hasHydrated]);
@@ -113,49 +95,32 @@ export default function ProfileTab() {
     if (!userProfileRef || !user || user.isAnonymous) return;
     
     setIsSaving(true);
-    try {
-      const dataToSave = {
-        ...profileData, // Start with current store data
-        ...data // Override with form data
-      };
+    const dataToSave = { ...profileData, ...data };
 
-      setDocumentNonBlocking(userProfileRef, dataToSave, { merge: true });
+    setDocumentNonBlocking(userProfileRef, dataToSave, { merge: true });
+    setProfileData(dataToSave);
       
-      // Update the store with the saved data
-      setProfileData(dataToSave);
-      
-      toast({
-        title: "Changes saved successfully",
-      });
-      
-      form.reset(dataToSave, { keepIsDirty: false });
-    } catch (error) {
-      console.error("Profile update failed:", error);
-      toast({
-        title: "Error",
-        description: "Could not update your profile.",
-        variant: "destructive"
-      })
-    } finally {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setIsSaving(false);
-    }
+    toast({
+      title: "Changes saved successfully",
+    });
+    
+    form.reset(dataToSave, { keepIsDirty: false });
+    setIsSaving(false);
   }
 
   const getInitials = () => {
-    if (!user) return "";
-    if (user.isAnonymous) return 'G';
-    const name = form.getValues('name');
+    if (user?.isAnonymous) return 'G';
+    const name = form.getValues('name') || profileData?.name || user?.displayName;
     if (name) return name.split(' ').map((n) => n[0]).join('').toUpperCase();
-    if (user.email) return user.email.charAt(0).toUpperCase();
+    const email = profileData?.email || user?.email;
+    if (email) return email.charAt(0).toUpperCase();
     return 'U';
   }
 
   const currentPhotoURL = form.watch('photoURL');
-  const currentPlan = profileData.plan || 'Free';
-  const isLoading = isUserLoading || isProfileLoading || !hasHydrated;
+  const currentPlan = profileData?.plan || 'Free';
   
-  if (isLoading) {
+  if (isLoading || !hasHydrated) {
     return (
         <div className="animate-fade-in">
             <Card className="bg-card/60 backdrop-blur-sm max-w-4xl mx-auto">
@@ -232,8 +197,8 @@ export default function ProfileTab() {
                             </Button>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <FormField name="savedDeals" control={form.control} render={({ field }) => (<FormItem><FormLabel>Deals Saved</FormLabel><FormControl><Input value={profileData.savedDeals || 0} disabled /></FormControl></FormItem>)} />
-                            <FormField name="calculatorUses" control={form.control} render={({ field }) => (<FormItem><FormLabel>Calculator Uses</FormLabel><FormControl><Input value={profileData.calculatorUses || 0} disabled /></FormControl></FormItem>)} />
+                             <div><Label>Deals Saved</Label><Input value={profileData.savedDeals || 0} disabled /></div>
+                            <div><Label>Calculator Uses</Label><Input value={profileData.calculatorUses || 0} disabled /></div>
                         </div>
                     </div>
             </CardContent>
