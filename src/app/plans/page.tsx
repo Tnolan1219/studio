@@ -13,6 +13,7 @@ import { FirebaseDataInitializer } from '@/firebase/data-initializer';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
+import type { UserProfile } from '@/lib/types';
 
 // Hardcoding the plan data to ensure it's always available on the page
 const plans = [
@@ -28,7 +29,7 @@ const plans = [
     },
     {
         name: 'Pro',
-        price: 9,
+        price: 49,
         features: [
             'Up to 25 saved deals',
             'Advanced commercial calculator',
@@ -39,8 +40,8 @@ const plans = [
         ],
     },
     {
-        name: 'Premium',
-        price: 29,
+        name: 'Executive',
+        price: 99,
         features: [
             'Unlimited saved deals',
             'All Pro features included',
@@ -50,18 +51,6 @@ const plans = [
             'Dedicated 24/7 priority support',
         ],
     },
-    {
-        name: 'Elite',
-        price: 49,
-        features: [
-            'Everything in Premium',
-            '1-on-1 coaching sessions',
-            'Exclusive market reports',
-            'Early access to new features',
-            'Customizable branding',
-            'API Access for custom integrations',
-        ],
-    }
 ];
 
 function PlansView() {
@@ -69,22 +58,24 @@ function PlansView() {
     const { toast } = useToast();
     const { user } = useUser();
     const firestore = useFirestore();
-    const { profileData, isLoading } = useProfileStore();
-    const [isUpdating, setIsUpdating] = useState(false);
+    const { profileData, setProfileData, isLoading } = useProfileStore();
+    const [isUpdating, setIsUpdating] = useState<string | null>(null);
 
-    const handleUpgrade = async (planName: string) => {
+    const handleUpgrade = async (planName: UserProfile['plan']) => {
         if (!user || user.isAnonymous) {
             toast({ title: "Account Required", description: "Please create an account to upgrade your plan." });
             return;
         }
         if (!firestore) return;
 
-        setIsUpdating(true);
+        setIsUpdating(planName);
         try {
             const userRef = doc(firestore, 'users', user.uid);
+            // Update the document in Firestore
             await setDoc(userRef, { plan: planName }, { merge: true });
             
-            useProfileStore.getState().setProfileData({ plan: planName as 'Free' | 'Pro' | 'Premium' | 'Elite' });
+            // Update the local state in Zustand
+            setProfileData({ plan: planName });
 
             toast({
                 title: 'Plan Updated!',
@@ -99,7 +90,7 @@ function PlansView() {
                 variant: 'destructive',
             });
         } finally {
-            setIsUpdating(false);
+            setIsUpdating(null);
         }
     };
 
@@ -121,19 +112,19 @@ function PlansView() {
                     </p>
                 </div>
                 
-                {isLoading ? (
+                {isLoading && !profileData ? (
                     <div className="flex justify-center items-center h-64">
                         <Loader2 className="h-12 w-12 animate-spin text-primary" />
                     </div>
                 ) : (
-                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto animate-fade-in-up">
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-12 max-w-7xl mx-auto animate-fade-in-up">
                         {plans.map((plan, i) => (
                             <PricingPlan
                                 key={i}
-                                plan={plan}
+                                plan={plan as {name: UserProfile['plan'], price: number, features: string[]}}
                                 isCurrent={profileData?.plan === plan.name}
                                 onUpgrade={handleUpgrade}
-                                isUpdating={isUpdating}
+                                isUpdating={isUpdating === plan.name}
                             />
                         ))}
                     </div>
