@@ -1,6 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { runFlow } from '@genkit-ai/flow';
+import { runFlow } from '@genkit-ai/core';
 import { chatbotFlow } from '@/ai/genkit';
 
 export async function POST(request: NextRequest) {

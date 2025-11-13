@@ -1,9 +1,8 @@
 
-'use server';
-import { defineFlow, runFlow } from '@genkit-ai/flow';
+import { defineFlow, runFlow } from '@genkit-ai/core';
 import { generate } from '@genkit-ai/ai';
-import { googleAI } from '@genkit-ai/google-genai';
-import * as z from 'zod';
+import { gemini15Flash } from '@genkit-ai/google-genai';
+import *s z from 'zod';
 
 export const chatbotFlow = defineFlow(
   {
@@ -13,7 +12,7 @@ export const chatbotFlow = defineFlow(
   },
   async ({ prompt }) => {
     const llmResponse = await generate({
-      model: googleAI.model('gemini-1.5-flash-latest'),
+      model: gemini15Flash,
       prompt: prompt,
       config: {
         temperature: 0.7,
