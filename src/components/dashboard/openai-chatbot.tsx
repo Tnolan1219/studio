@@ -32,12 +32,13 @@ export function OpenAIChatbot() {
         body: JSON.stringify({ prompt: currentInput }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || 'An unexpected API error occurred.');
+        // Try to get a specific error message from the response body
+        const errorData = await response.json().catch(() => ({ error: 'An unexpected API error occurred.' }));
+        throw new Error(errorData.error);
       }
       
+      const data = await response.json();
       const botMessage = data.text || 'Sorry, I could not understand that.';
 
       setMessages(prev => [...prev, { sender: 'bot' as const, text: botMessage }]);
