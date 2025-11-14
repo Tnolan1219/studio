@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { runOpenAIChatbot } from '@/lib/flows/openaiChatbotFlow';
 
@@ -10,17 +9,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { prompt } = await request.json();
-
-  if (!prompt) {
-    return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
-  }
-
   try {
+    const { prompt } = await request.json();
+
+    if (!prompt) {
+      return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
+    }
+
     const responseText = await runOpenAIChatbot({ prompt });
     return NextResponse.json({ text: responseText });
+
   } catch (error: any) {
-    console.error('OpenAI API error:', error);
+    console.error('[OpenAI API Route Error]', error);
     return NextResponse.json({ error: error.message || 'An internal server error occurred.' }, { status: 500 });
   }
 }

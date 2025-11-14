@@ -1,8 +1,7 @@
-
 'use server';
 
 import { generate } from '@genkit-ai/ai';
-import { gpt4oMini } from 'genkitx-openai';
+import { openAI } from 'genkitx-openai';
 import * as z from 'zod';
 import { ai } from '@/ai/genkit';
 
@@ -14,7 +13,7 @@ const openaiChatbotFlow = ai.defineFlow(
   },
   async ({ prompt }) => {
     const llmResponse = await generate({
-      model: gpt4oMini,
+      model: openAI.gpt4oMini,
       prompt: prompt,
       config: {
         temperature: 0.7,
