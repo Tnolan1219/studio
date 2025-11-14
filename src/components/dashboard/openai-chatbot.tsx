@@ -17,7 +17,7 @@ export function OpenAIChatbot() {
   const handleSendMessage = async () => {
     if (input.trim() === '' || isLoading) return;
 
-    const newMessages = [...messages, { sender: 'user'as const, text: input }];
+    const newMessages = [...messages, { sender: 'user' as const, text: input }];
     setMessages(newMessages);
     const currentInput = input;
     setInput('');
@@ -35,15 +35,15 @@ export function OpenAIChatbot() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'API error');
+        throw new Error(data.error || 'An unexpected API error occurred.');
       }
       
       const botMessage = data.text || 'Sorry, I could not understand that.';
 
-      setMessages(prev => [...prev, { sender: 'bot'as const, text: botMessage }]);
+      setMessages(prev => [...prev, { sender: 'bot' as const, text: botMessage }]);
     } catch (error: any) {
       console.error('Error fetching from OpenAI API:', error);
-      setMessages(prev => [...prev, { sender: 'bot'as const, text: `Sorry, something went wrong: ${error.message}` }]);
+      setMessages(prev => [...prev, { sender: 'bot' as const, text: `Sorry, something went wrong: ${error.message}` }]);
     } finally {
         setIsLoading(false);
     }
