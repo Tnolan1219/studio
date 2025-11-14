@@ -6,7 +6,7 @@ import { gpt4oMini } from 'genkitx-openai';
 import * as z from 'zod';
 import { ai } from '@/ai/genkit';
 
-export const openaiChatbotFlow = ai.defineFlow(
+const openaiChatbotFlow = ai.defineFlow(
   {
     name: 'openaiChatbotFlow',
     inputSchema: z.object({ prompt: z.string() }),
@@ -24,3 +24,8 @@ export const openaiChatbotFlow = ai.defineFlow(
     return llmResponse.text();
   }
 );
+
+// Export a wrapper function that can be called from the API route.
+export async function runOpenAIChatbot(input: { prompt: string }): Promise<string> {
+    return await openaiChatbotFlow(input);
+}

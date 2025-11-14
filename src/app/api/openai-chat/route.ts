@@ -1,6 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { openaiChatbotFlow } from '@/lib/flows/openaiChatbotFlow';
+import { runOpenAIChatbot } from '@/lib/flows/openaiChatbotFlow';
 
 export async function POST(request: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const responseText = await openaiChatbotFlow({ prompt });
+    const responseText = await runOpenAIChatbot({ prompt });
     return NextResponse.json({ text: responseText });
   } catch (error: any) {
     console.error('OpenAI API error:', error);
