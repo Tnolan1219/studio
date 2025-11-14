@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useTransition, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -25,8 +25,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { BarChart2, Loader2, TrendingUp, TrendingDown, PiggyBank } from 'lucide-react';
+import { BarChart2, Loader2, TrendingUp, PiggyBank, Briefcase, Calculator, Repeat } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -45,9 +44,35 @@ import { collection, serverTimestamp, doc, increment } from 'firebase/firestore'
 import { useToast } from '@/hooks/use-toast';
 import { InputWithIcon } from '../ui/input-with-icon';
 import { ProFormaTable } from './pro-forma-table';
-import type { ProFormaEntry, Deal, UserProfile, Plan } from '@/lib/types';
+import type { ProFormaEntry, Deal, Plan } from '@/lib/types';
 import { useProfileStore } from '@/hooks/use-profile-store';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
+
+// Simplified IRR calculation using Newton-Raphson method
+function calculateIRR(cashflows: number[], guess = 0.1) {
+    const maxIterations = 100;
+    const tolerance = 1e-6;
+    let x0 = guess;
+
+    for (let i = 0; i < maxIterations; i++) {
+        let f = 0;
+        let df = 0;
+        for (let t = 0; t < cashflows.length; t++) {
+            f += cashflows[t] / Math.pow(1 + x0, t);
+            if (t !== 0) {
+                df -= (t * cashflows[t]) / Math.pow(1 + x0, t + 1);
+            }
+        }
+        if (Math.abs(df) < 1e-10) return NaN; // Avoid division by zero
+        const x1 = x0 - f / df;
+        if (Math.abs(x1 - x0) < tolerance) {
+            return x1;
+        }
+        x0 = x1;
+    }
+    return NaN; // Failed to converge
+}
 
 
 const formSchema = z.object({
@@ -56,6 +81,7 @@ const formSchema = z.object({
   closingCosts: z.coerce.number().min(0),
   rehabCost: z.coerce.number().min(0),
   arv: z.coerce.number().min(0),
+  ltv: z.coerce.number().min(0).max(100).optional().default(80),
   downPayment: z.coerce.number().min(0),
   interestRate: z.coerce.number().min(0).max(100),
   loanTerm: z.coerce.number().int().min(1),
@@ -72,6 +98,7 @@ const formSchema = z.object({
   annualAppreciation: z.coerce.number().min(0).max(100),
   holdingLength: z.coerce.number().int().min(1).max(30),
   sellingCosts: z.coerce.number().min(0).max(100),
+  exitCapRate: z.coerce.number().min(0).max(100).optional(),
   marketConditions: z.string().optional(),
 });
 
@@ -83,7 +110,7 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
         purchasePrice, rehabCost, closingCosts, downPayment, interestRate, loanTerm,
         grossMonthlyIncome, vacancy, annualIncomeGrowth,
         propertyTaxes, insurance, repairsAndMaintenance,
-        capitalExpenditures, managementFee, otherExpenses, annualExpenseGrowth, annualAppreciation
+        capitalExpenditures, managementFee, otherExpenses, annualAppreciation
     } = values;
 
     if (!purchasePrice || !loanTerm) return [];
@@ -167,6 +194,14 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
       cashFlowChartData: any[];
       amortizationChartData: any[];
       proFormaData: ProFormaEntry[];
+      saleAnalysis: {
+        salePrice: number;
+        sellingCosts: number;
+        loanPayoff: number;
+        netProceeds: number;
+      };
+      irr: number;
+      equityMultiple: number;
   } | null>(null);
 
   const { user } = useUser();
@@ -196,12 +231,13 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: isEditMode && deal ? deal : {
+    defaultValues: isEditMode && deal ? { ...deal, ltv: deal.ltv || 80 } : {
       dealName: 'My Next Rental',
       purchasePrice: 250000,
       closingCosts: 3,
       rehabCost: 10000,
       arv: 280000,
+      ltv: 80,
       downPayment: 50000,
       interestRate: 6.5,
       loanTerm: 30,
@@ -218,13 +254,24 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
       annualAppreciation: 3,
       holdingLength: 10,
       sellingCosts: 6,
+      exitCapRate: 5.5,
       marketConditions: '',
     },
   });
+  
+  useEffect(() => {
+        const subscription = form.watch((values, { name, type }) => {
+            if ((name === 'purchasePrice' || name === 'ltv') && values.purchasePrice && values.ltv) {
+                const newDownPayment = values.purchasePrice * (1 - (values.ltv / 100));
+                form.setValue('downPayment', newDownPayment, { shouldValidate: true });
+            }
+        });
+        return () => subscription.unsubscribe();
+    }, [form.watch, form.setValue]);
 
   useEffect(() => {
     if (isEditMode && deal) {
-      form.reset(deal);
+      form.reset({...deal, ltv: deal.ltv || 80});
       handleAnalysis(deal, true); // Pass skipTrack=true for initial load in edit mode
     }
   }, [deal, isEditMode, form]);
@@ -267,30 +314,43 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
         { name: 'Cash Flow', value: monthlyCashFlow > 0 ? monthlyCashFlow : 0, fill: 'hsl(var(--chart-2))' },
     ];
     
-    const cashFlowChartData = [
-      { year: 'Invest', cashFlow: -totalInvestment },
-      ...proForma.slice(0, data.holdingLength).map(entry => ({
-        year: `Year ${entry.year}`,
-        cashFlow: entry.cashFlowBeforeTax
-      })),
-    ];
-    
     const amortizationChartData = proForma.slice(0, data.loanTerm).map(entry => ({
         year: entry.year,
         Equity: entry.equity,
         'Loan Balance': entry.loanBalance,
     }));
 
+    // --- Sale & IRR Calculation ---
+    const holdEndYear = proForma[data.holdingLength - 1] || {};
+    const yearAfterHold = proForma[data.holdingLength] || holdEndYear;
+    
+    const exitNOI = yearAfterHold.noi || holdEndYear.noi;
+    const exitCap = (data.exitCapRate || 0) / 100;
+    const salePrice = exitCap > 0 ? exitNOI / exitCap : holdEndYear.propertyValue;
+
+    const sellingCostsAmount = salePrice * (data.sellingCosts / 100);
+    const loanPayoff = holdEndYear.loanBalance || 0;
+    const netProceeds = salePrice - sellingCostsAmount - loanPayoff;
+    
+    const cashFlows: number[] = [-totalInvestment];
+    for(let i=0; i < data.holdingLength - 1; i++) {
+        cashFlows.push(proForma[i]?.cashFlowBeforeTax || 0);
+    }
+    cashFlows.push((proForma[data.holdingLength - 1]?.cashFlowBeforeTax || 0) + netProceeds);
+
+    const irr = calculateIRR(cashFlows) * 100;
+    const totalCashReturned = proForma.slice(0, data.holdingLength).reduce((sum, entry) => sum + entry.cashFlowBeforeTax, 0) + netProceeds;
+    const equityMultiple = totalInvestment > 0 ? totalCashReturned / totalInvestment : 0;
+
+    const cashFlowChartData = cashFlows.map((cf, i) => ({ year: `Year ${i}`, cashFlow: cf }));
+    cashFlowChartData[0].year = "Invest";
+
 
     setAnalysisResult({
-        monthlyCashFlow,
-        cocReturn,
-        capRate,
-        noi,
-        breakdownChartData,
-        cashFlowChartData,
-        amortizationChartData,
-        proFormaData: proForma,
+        monthlyCashFlow, cocReturn, capRate, noi, breakdownChartData, cashFlowChartData, amortizationChartData, proFormaData: proForma,
+        saleAnalysis: { salePrice, sellingCosts: sellingCostsAmount, loanPayoff, netProceeds },
+        irr,
+        equityMultiple,
     });
 
     if (!skipTrack && userProfileRef) {
@@ -302,11 +362,7 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
 
   const handleSaveDeal = async () => {
     if (!analysisResult) {
-        toast({
-            title: 'Analysis Required',
-            description: 'Please run the analysis before saving the deal.',
-            variant: 'destructive',
-        });
+        toast({ title: 'Analysis Required', description: 'Please run the analysis before saving the deal.', variant: 'destructive'});
         return;
     }
     if (!user || user.isAnonymous) {
@@ -326,9 +382,7 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
       toast({
           title: `Deal Limit Reached for ${profileData?.plan} Plan`,
           description: `You have saved ${profileData?.savedDeals} of ${maxDeals} deals.`,
-          action: (
-            <Button onClick={() => router.push('/plans')}>Upgrade</Button>
-          ),
+          action: ( <Button onClick={() => router.push('/plans')}>Upgrade</Button> ),
           variant: 'destructive',
       });
       return;
@@ -347,6 +401,8 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
       cocReturn: parseFloat(analysisResult.cocReturn.toFixed(2)),
       noi: parseFloat(analysisResult.noi.toFixed(2)),
       capRate: parseFloat(analysisResult.capRate.toFixed(2)),
+      irr: parseFloat(analysisResult.irr.toFixed(2)),
+      equityMultiple: parseFloat(analysisResult.equityMultiple.toFixed(2)),
       userId: user.uid,
       status: isEditMode && deal ? deal.status : 'In Works',
       isPublished: isEditMode && deal ? deal.isPublished : false,
@@ -375,7 +431,6 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
       form.reset();
       setAnalysisResult(null);
     }
-
     setIsSaving(false);
   };
 
@@ -397,17 +452,17 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
                       <CardContent className="grid grid-cols-2 gap-4">
                           <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.1" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Rehab Costs</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                          <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Rehab Costs</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                          <FormField name="ltv" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan-to-Value (LTV)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                          <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment ($)</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} disabled /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.01" {...field}/></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan Term (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="arv" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>After Repair Value (ARV)</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                       </CardContent>
                   </Card>
                    <Card>
                       <CardHeader><CardTitle className="text-lg font-headline">Income</CardTitle></CardHeader>
-                      <CardContent className="grid grid-cols-2 gap-4">
+                      <CardContent>
                            <FormField name="grossMonthlyIncome" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Gross Monthly Income</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                       </CardContent>
                   </Card>
@@ -427,13 +482,14 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
                       </CardContent>
                   </Card>
                   <Card>
-                    <CardHeader><CardTitle className="text-lg font-headline">Projections</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="text-lg font-headline">Projections & Exit Strategy</CardTitle></CardHeader>
                     <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <FormField name="annualIncomeGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Income Growth</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                         <FormField name="annualExpenseGrowth" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Expense Growth</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                         <FormField name="annualAppreciation" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Appreciation</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                         <FormField name="holdingLength" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Hold Length (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                         <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Selling Costs</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                        <FormField name="exitCapRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Exit Cap Rate</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                     </CardContent>
                   </Card>
               </div>
@@ -442,12 +498,14 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
             {analysisResult && (
                 <div className="space-y-6 mt-6">
                     <Card>
-                        <CardHeader><CardTitle className="font-headline">Key Metrics (Year 1)</CardTitle></CardHeader>
+                        <CardHeader>
+                            <CardTitle className="font-headline">Overall Investment Analysis</CardTitle>
+                        </CardHeader>
                         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div> <p className="text-sm text-muted-foreground">Monthly Cash Flow</p> <p className="text-2xl font-bold">${analysisResult.monthlyCashFlow.toFixed(2)}</p> </div>
-                            <div> <p className="text-sm text-muted-foreground">CoC Return</p> <p className="text-2xl font-bold">{analysisResult.cocReturn.toFixed(2)}%</p> </div>
-                            <div> <p className="text-sm text-muted-foreground">NOI (Annual)</p> <p className="font-bold text-lg">${analysisResult.noi.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
-                            <div> <p className="text-sm text-muted-foreground">Cap Rate (on ARV)</p> <p className="font-bold">{analysisResult.capRate.toFixed(2)}%</p> </div>
+                            <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">IRR</p> <p className={cn("text-2xl font-bold", analysisResult.irr > 12 ? 'text-success' : 'text-foreground')}>{isNaN(analysisResult.irr) ? 'N/A' : `${analysisResult.irr.toFixed(2)}%`}</p> </div>
+                            <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">Equity Multiple</p> <p className={cn("text-2xl font-bold", analysisResult.equityMultiple > 2 ? 'text-success' : 'text-foreground')}>{isNaN(analysisResult.equityMultiple) ? 'N/A' : `${analysisResult.equityMultiple.toFixed(2)}x`}</p> </div>
+                             <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">CoC Return (Y1)</p> <p className="text-2xl font-bold">{analysisResult.cocReturn.toFixed(2)}%</p> </div>
+                            <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">Cap Rate (Y1)</p> <p className="font-bold text-2xl">{analysisResult.capRate.toFixed(2)}%</p> </div>
                         </CardContent>
                     </Card>
 
@@ -463,15 +521,9 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
                                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                                         <XAxis dataKey="year" stroke="hsl(var(--foreground))" fontSize={12} />
                                         <YAxis stroke="hsl(var(--foreground))" fontSize={12} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
-                                        <Tooltip
-                                            cursor={{ fill: 'hsla(var(--primary), 0.1)' }}
-                                            contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))' }}
-                                            formatter={(value: number, name: string) => [value < 0 ? `-$${(-value).toLocaleString()}` : `$${value.toLocaleString()}`, 'Cash Flow']}
-                                        />
+                                        <Tooltip cursor={{ fill: 'hsla(var(--primary), 0.1)' }} contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))' }} formatter={(value: number) => [value < 0 ? `-$${(-value).toLocaleString()}` : `$${value.toLocaleString()}`, 'Cash Flow']} />
                                         <Bar dataKey="cashFlow">
-                                            {analysisResult.cashFlowChartData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.cashFlow >= 0 ? 'hsl(var(--primary))' : 'hsl(var(--destructive))'} />
-                                            ))}
+                                            {analysisResult.cashFlowChartData.map((entry, index) => ( <Cell key={`cell-${index}`} fill={entry.cashFlow >= 0 ? 'hsl(var(--primary))' : 'hsl(var(--destructive))'} /> ))}
                                         </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
@@ -488,11 +540,7 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
                                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                                         <XAxis dataKey="year" stroke="hsl(var(--foreground))" fontSize={12} label={{ value: 'Year', position: 'insideBottom', offset: -5 }}/>
                                         <YAxis stroke="hsl(var(--foreground))" fontSize={12} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
-                                        <Tooltip
-                                            cursor={{ stroke: 'hsl(var(--primary))', strokeDasharray: '3 3' }}
-                                            contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))' }}
-                                             formatter={(value: number) => `$${value.toLocaleString(undefined, {maximumFractionDigits: 0})}`}
-                                        />
+                                        <Tooltip cursor={{ stroke: 'hsl(var(--primary))', strokeDasharray: '3 3' }} contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))' }} formatter={(value: number) => `$${value.toLocaleString(undefined, {maximumFractionDigits: 0})}`} />
                                         <Legend />
                                         <Line type="monotone" dataKey="Equity" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
                                         <Line type="monotone" dataKey="Loan Balance" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={false} />
@@ -506,16 +554,15 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
                     
                     <Card>
                         <CardHeader>
-                            <CardTitle className="font-headline">AI Deal Assessment</CardTitle>
+                            <CardTitle className="font-headline">Sale Analysis (Year {form.getValues('holdingLength')})</CardTitle>
+                            <CardDescription>An estimate of your profit if you sell at the end of your holding period.</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                           <p className="text-sm text-muted-foreground text-center p-4">AI Analysis is currently under construction. Check back soon!</p>
+                        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                             <div> <p className="text-sm text-muted-foreground">Est. Sale Price</p> <p className="text-xl font-bold">${analysisResult.saleAnalysis.salePrice.toLocaleString(undefined, {maximumFractionDigits: 0})}</p> </div>
+                            <div> <p className="text-sm text-muted-foreground">Selling Costs</p> <p className="text-xl font-bold">${analysisResult.saleAnalysis.sellingCosts.toLocaleString(undefined, {maximumFractionDigits: 0})}</p> </div>
+                            <div> <p className="text-sm text-muted-foreground">Loan Payoff</p> <p className="text-xl font-bold">${analysisResult.saleAnalysis.loanPayoff.toLocaleString(undefined, {maximumFractionDigits: 0})}</p> </div>
+                            <div className="p-3 bg-success/10 rounded-lg border border-success/30"> <p className="text-sm text-success/80">Net Sale Proceeds</p> <p className="text-xl font-bold text-success">${analysisResult.saleAnalysis.netProceeds.toLocaleString(undefined, {maximumFractionDigits: 0})}</p> </div>
                         </CardContent>
-                        <CardFooter>
-                           <Button type="button" disabled className="w-full">
-                                Generate AI Insights
-                           </Button>
-                        </CardFooter>
                     </Card>
                 </div>
             )}

@@ -1,4 +1,3 @@
-
 'use client';
 import { Timestamp } from "firebase/firestore";
 
@@ -87,6 +86,7 @@ export type Deal = {
     loanTerm: number;
     interestRate: number;
     loanAmount?: number; // Added for commercial
+    ltv?: number;
     
     // Income
     grossMonthlyIncome: number;
@@ -109,6 +109,7 @@ export type Deal = {
     annualAppreciation: number;
     holdingLength: number; 
     sellingCosts: number;
+    exitCapRate?: number;
 
     // Calculated Metrics
     monthlyCashFlow?: number;
@@ -117,6 +118,8 @@ export type Deal = {
     capRate?: number;
     roi?: number;
     netProfit?: number;
+    irr?: number;
+    equityMultiple?: number;
 
     // Deal Management
     marketConditions: string;
