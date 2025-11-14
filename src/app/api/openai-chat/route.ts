@@ -1,3 +1,4 @@
+
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -25,9 +26,15 @@ export async function POST(request: NextRequest) {
   try {
     // Use the OpenAI library directly, bypassing Genkit for this route
     const chatCompletion = await openai.chat.completions.create({
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        { 
+          role: 'system', 
+          content: 'You are a real estate investment expert. Provide concise answers in simple bullet points. Use markdown for formatting.' 
+        },
+        { role: 'user', content: prompt }
+      ],
       model: 'gpt-4o-mini',
-      temperature: 0.7,
+      temperature: 0.5,
     });
     
     const responseText = chatCompletion.choices[0].message.content;
