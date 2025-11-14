@@ -75,6 +75,14 @@ export default function ProfileTab() {
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     mode: "onChange",
+    defaultValues: {
+      name: '',
+      email: '',
+      photoURL: '',
+      country: '',
+      state: '',
+      financialGoal: '',
+    }
   });
 
   useEffect(() => {
@@ -256,4 +264,5 @@ export default function ProfileTab() {
         </Card>
     </div>
   );
-}
+
+    
