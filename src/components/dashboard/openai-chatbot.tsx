@@ -36,7 +36,9 @@ export function OpenAIChatbot() {
         // If the response is not OK, read the body as text to get the error message.
         // This avoids a JSON parsing error if the server returned an HTML error page.
         const errorText = await response.text();
-        throw new Error(errorText || 'An unexpected API error occurred.');
+        // The error could be HTML, so we show a generic message but log the specific one.
+        console.error("OpenAI API Error Response:", errorText);
+        throw new Error('The server returned an error. Please check the console for details.');
       }
       
       const data = await response.json();
@@ -45,7 +47,7 @@ export function OpenAIChatbot() {
       setMessages(prev => [...prev, { sender: 'bot' as const, text: botMessage }]);
     } catch (error: any) {
       console.error('Error fetching from OpenAI API:', error);
-      // The error message now comes from the actual server response text.
+      // The error message now comes from a controlled source.
       setMessages(prev => [...prev, { sender: 'bot' as const, text: `Sorry, something went wrong: ${error.message}` }]);
     } finally {
         setIsLoading(false);
