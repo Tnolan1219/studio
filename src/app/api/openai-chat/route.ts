@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { marked } from 'marked';
 
 // Initialize the OpenAI client directly
 const openai = new OpenAI({
@@ -38,7 +39,16 @@ export async function POST(request: NextRequest) {
     });
     
     const responseText = chatCompletion.choices[0].message.content;
-    return NextResponse.json({ text: responseText });
+    const html = marked.parse(responseText || '');
+
+    if (typeof html !== 'string') {
+        return NextResponse.json(
+            { error: 'Failed to parse AI response.' },
+            { status: 500 }
+        );
+    }
+    
+    return NextResponse.json({ text: html });
 
   } catch (error: any) {
     console.error('[OpenAI API Route Error]', error);
