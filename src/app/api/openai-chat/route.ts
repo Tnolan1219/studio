@@ -1,6 +1,5 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { runFlow } from '@genkit-ai/core';
 import { openaiChatbotFlow } from '@/lib/flows/openaiChatbotFlow';
 
 export async function POST(request: NextRequest) {
@@ -18,7 +17,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const responseText = await runFlow(openaiChatbotFlow, { prompt });
+    const responseText = await openaiChatbotFlow({ prompt });
     return NextResponse.json({ text: responseText });
   } catch (error: any) {
     console.error('OpenAI API error:', error);
