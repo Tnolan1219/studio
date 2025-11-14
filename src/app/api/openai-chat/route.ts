@@ -1,36 +1,36 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generate } from '@genkit-ai/ai';
-import { openAI } from 'genkitx-openai';
-// Do not import the global `ai` instance to prevent initialization conflicts.
+import OpenAI from 'openai';
+
+// Initialize the OpenAI client directly
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 export async function POST(request: NextRequest) {
+  const { prompt } = await request.json();
+
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json(
       { error: 'The OpenAI API key is not configured on the server.' },
       { status: 500 }
     );
   }
+  
+  if (!prompt) {
+    return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
+  }
 
   try {
-    const { prompt } = await request.json();
-
-    if (!prompt) {
-      return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
-    }
-
-    // Directly call the generate function with the OpenAI model.
-    // This is more direct and avoids potential conflicts with global Genkit flow registration.
-    const llmResponse = await generate({
-        model: openAI.gpt4oMini,
-        prompt: prompt,
-        config: {
-            temperature: 0.7,
-        },
+    // Use the OpenAI library directly, bypassing Genkit for this route
+    const chatCompletion = await openai.chat.completions.create({
+      messages: [{ role: 'user', content: prompt }],
+      model: 'gpt-4o-mini',
+      temperature: 0.7,
     });
-
-    const responseText = llmResponse.text; // Use .text property for Genkit 1.x
+    
+    const responseText = chatCompletion.choices[0].message.content;
     return NextResponse.json({ text: responseText });
 
   } catch (error: any) {
