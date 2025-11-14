@@ -1,5 +1,9 @@
+'use server';
+
 import { NextRequest, NextResponse } from 'next/server';
-import { runOpenAIChatbot } from '@/lib/flows/openaiChatbotFlow';
+import { generate } from '@genkit-ai/ai';
+import { openAI } from 'genkitx-openai';
+import { ai } from '@/ai/genkit'; // ensure ai is initialized
 
 export async function POST(request: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
@@ -16,7 +20,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
-    const responseText = await runOpenAIChatbot({ prompt });
+    // Directly call the generate function with the OpenAI model
+    const llmResponse = await generate({
+        model: openAI.gpt4oMini,
+        prompt: prompt,
+        config: {
+            temperature: 0.7,
+        },
+    });
+
+    const responseText = llmResponse.text();
     return NextResponse.json({ text: responseText });
 
   } catch (error: any) {

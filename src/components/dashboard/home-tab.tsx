@@ -1,11 +1,10 @@
-
 'use client';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { DollarSign, Zap, BarChart, Users, FileText } from "lucide-react"
 import { PortfolioVisualization } from "./portfolio-visualization";
 import { NewsFeed } from "./news-feed";
 import { QuickTips } from "./quick-tips";
-import { OpenAIChatbot } from "./openai-chatbot";
+import { AIChatBox } from "./ai-chat-box";
 
 const kpiData = [
     { title: "Portfolio Value", value: "$1,250,000", icon: DollarSign, change: "+12.5%" },
@@ -53,7 +52,7 @@ export function HomeTab() {
                 </CardContent>
             </Card>
 
-            <OpenAIChatbot />
+            <AIChatBox />
         </div>
     )
 }
