@@ -1,10 +1,12 @@
 
-import { defineFlow } from '@genkit-ai/core';
+'use server';
+
 import { generate } from '@genkit-ai/ai';
 import { gpt4oMini } from 'genkitx-openai';
 import * as z from 'zod';
+import { ai } from '@/ai/genkit';
 
-export const openaiChatbotFlow = defineFlow(
+export const openaiChatbotFlow = ai.defineFlow(
   {
     name: 'openaiChatbotFlow',
     inputSchema: z.object({ prompt: z.string() }),

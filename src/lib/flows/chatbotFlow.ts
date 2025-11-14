@@ -1,10 +1,12 @@
 
-import { defineFlow } from '@genkit-ai/core';
+'use server';
+
 import { generate } from '@genkit-ai/ai';
 import { gemini15Flash } from '@genkit-ai/google-genai';
 import * as z from 'zod';
+import { ai } from '@/ai/genkit';
 
-export const chatbotFlow = defineFlow(
+export const chatbotFlow = ai.defineFlow(
   {
     name: 'chatbotFlow',
     inputSchema: z.object({ prompt: z.string() }),
