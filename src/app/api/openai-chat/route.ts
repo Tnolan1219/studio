@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generate } from '@genkit-ai/ai';
 import { openAI } from 'genkitx-openai';
-import { ai } from '@/ai/genkit'; // ensure ai is initialized
+// Do not import the global `ai` instance to prevent initialization conflicts.
 
 export async function POST(request: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
@@ -20,7 +20,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
-    // Directly call the generate function with the OpenAI model
+    // Directly call the generate function with the OpenAI model.
+    // This is more direct and avoids potential conflicts with global Genkit flow registration.
     const llmResponse = await generate({
         model: openAI.gpt4oMini,
         prompt: prompt,
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
         },
     });
 
-    const responseText = llmResponse.text();
+    const responseText = llmResponse.text; // Use .text property for Genkit 1.x
     return NextResponse.json({ text: responseText });
 
   } catch (error: any) {
