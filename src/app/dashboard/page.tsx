@@ -16,7 +16,7 @@ import { FirebaseClientProvider } from '@/firebase';
 
 function TabButton({ value, label, icon: Icon, isProfile = false }: { value: string; label: string; icon: React.ElementType; isProfile?: boolean }) {
     const { activeTab, setActiveTab } = useDashboardTab();
-    const { user } = useUser();
+    const { user, isUserLoading } = useUser();
     const isActive = activeTab === value;
 
     return (
@@ -41,7 +41,7 @@ function TabButton({ value, label, icon: Icon, isProfile = false }: { value: str
             )}
         </AnimatePresence>
         <div className="relative z-10 flex flex-col items-center">
-            {isProfile && user ? (
+            {isProfile && !isUserLoading && user ? (
                  <Avatar className="w-6 h-6">
                     <AvatarImage src={user.photoURL ?? ''} />
                     <AvatarFallback>{user.displayName?.charAt(0) ?? '?'}</AvatarFallback>
