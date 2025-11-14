@@ -33,9 +33,10 @@ export function OpenAIChatbot() {
       });
 
       if (!response.ok) {
-        // Try to get a specific error message from the response body
-        const errorData = await response.json().catch(() => ({ error: 'An unexpected API error occurred.' }));
-        throw new Error(errorData.error);
+        // If the response is not OK, read the body as text to get the error message.
+        // This avoids a JSON parsing error if the server returned an HTML error page.
+        const errorText = await response.text();
+        throw new Error(errorText || 'An unexpected API error occurred.');
       }
       
       const data = await response.json();
@@ -44,6 +45,7 @@ export function OpenAIChatbot() {
       setMessages(prev => [...prev, { sender: 'bot' as const, text: botMessage }]);
     } catch (error: any) {
       console.error('Error fetching from OpenAI API:', error);
+      // The error message now comes from the actual server response text.
       setMessages(prev => [...prev, { sender: 'bot' as const, text: `Sorry, something went wrong: ${error.message}` }]);
     } finally {
         setIsLoading(false);
@@ -83,7 +85,7 @@ export function OpenAIChatbot() {
                         {messages.map((message, index) => (
                             <div key={index} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                             <div className={`p-3 rounded-lg max-w-[85%] ${message.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-background'}`}>
-                                {message.text}
+                                <div dangerouslySetInnerHTML={{ __html: message.text }} />
                             </div>
                             </div>
                         ))}
