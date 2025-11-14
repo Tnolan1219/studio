@@ -235,8 +235,8 @@ export default function ProfileTab() {
         
         <Card className="bg-card/60 backdrop-blur-sm max-w-4xl mx-auto">
             <CardHeader>
-                <CardTitle className="text-2xl font-headline">About Valentor RE</_cardTitle>
-                <CardDescription>Our Vision, Goals, and Philosophy</CardDescription>
+            <CardTitle className="text-2xl font-headline">About Valentor RE</CardTitle>
+            <CardDescription>Our Vision, Goals, and Philosophy</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 text-muted-foreground">
                 <div>
