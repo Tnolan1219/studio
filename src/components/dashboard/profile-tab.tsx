@@ -38,7 +38,7 @@ import { doc } from 'firebase/firestore';
 import { useEffect, useState } from "react";
 import { Skeleton } from "../ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
-import type { UserProfile } from "@/lib/types";
+import type { UserProfile, StructuredGoal } from "@/lib/types";
 import { Loader2, Crown } from "lucide-react";
 import { Separator } from "../ui/separator";
 import Link from "next/link";
@@ -47,16 +47,29 @@ import { useProfileStore } from "@/hooks/use-profile-store";
 import { useRouter } from "next/navigation";
 import { Label } from "@/components/ui/label";
 
+const goalSchema = z.object({
+  type: z.string().min(1, "Please select a goal type."),
+  target: z.coerce.number().min(1, "Target must be greater than 0."),
+  text: z.string().optional(),
+});
+
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters.").optional(),
   email: z.string().email(),
   photoURL: z.string().url().optional(),
   country: z.string().optional(),
   state: z.string().optional(),
-  financialGoal: z.string().min(10, "Financial goal must be at least 10 characters.").optional(),
+  financialGoal: z.union([z.string(), goalSchema]).optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
+
+const GOAL_TEMPLATES = [
+  { type: 'deals', text: 'Own {target} deals' },
+  { type: 'cashflow', text: 'Attain ${target}/month in cash flow' },
+  { type: 'portfolioValue', text: 'Grow portfolio value to ${target}' },
+];
+
 
 export default function ProfileTab() {
   const { toast } = useToast();
@@ -81,9 +94,12 @@ export default function ProfileTab() {
       photoURL: '',
       country: '',
       state: '',
-      financialGoal: '',
+      financialGoal: undefined,
     }
   });
+  
+  const watchedGoalType = form.watch('financialGoal.type');
+  const watchedGoalTarget = form.watch('financialGoal.target');
 
   useEffect(() => {
     if (hasHydrated && profileData) {
@@ -93,10 +109,20 @@ export default function ProfileTab() {
         photoURL: profileData.photoURL || user?.photoURL || '',
         country: profileData.country || '',
         state: profileData.state || '',
-        financialGoal: profileData.financialGoal || '',
+        financialGoal: profileData.financialGoal || undefined,
       });
     }
   }, [profileData, user, form, hasHydrated]);
+  
+  useEffect(() => {
+    if (typeof form.getValues('financialGoal') === 'object') {
+      const template = GOAL_TEMPLATES.find(t => t.type === watchedGoalType);
+      if (template) {
+          const text = template.text.replace('{target}', Number(watchedGoalTarget || 0).toLocaleString());
+          form.setValue('financialGoal.text', text, { shouldDirty: true });
+      }
+    }
+  }, [watchedGoalType, watchedGoalTarget, form]);
 
 
   async function onSubmit(data: ProfileFormValues) {
@@ -167,6 +193,7 @@ export default function ProfileTab() {
   if (!user) {
     return null;
   }
+  
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -186,7 +213,48 @@ export default function ProfileTab() {
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardContent className="space-y-6">
-                <FormField name="financialGoal" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Financial Goal</FormLabel> <FormControl><Textarea {...field} placeholder="e.g., Achieve $5,000/mo in cash flow..." disabled={user.isAnonymous} /></FormControl> <FormDescription>This helps us tailor your experience and track your progress.</FormDescription> <FormMessage /> </FormItem> )} />
+                <FormField name="financialGoal" control={form.control} render={({ field }) => ( 
+                  <FormItem>
+                    <FormLabel>Financial Goal</FormLabel>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                      <Controller
+                          control={form.control}
+                          name="financialGoal.type"
+                          render={({ field }) => (
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select a goal template" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {GOAL_TEMPLATES.map(t => (
+                                  <SelectItem key={t.type} value={t.type}>{t.text.replace(/{target}/, '...').replace(/\$/g, '')}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                       <Controller
+                          control={form.control}
+                          name="financialGoal.target"
+                          render={({ field }) => (
+                             <Input 
+                                type="number" 
+                                placeholder="Enter Target" 
+                                value={field.value || ''} 
+                                onChange={field.onChange} 
+                                disabled={!watchedGoalType}
+                              />
+                          )}
+                        />
+                    </div>
+                     <FormDescription>
+                       {form.getValues('financialGoal.text') || "Select a template and enter a target number."}
+                    </FormDescription>
+                    <FormMessage /> 
+                  </FormItem> 
+                )} />
                 <Separator />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField name="name" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Full Name</FormLabel> <FormControl><Input {...field} disabled={user.isAnonymous} /></FormControl> <FormMessage /> </FormItem> )} />

@@ -1,6 +1,12 @@
 'use client';
 import { Timestamp } from "firebase/firestore";
 
+export type StructuredGoal = {
+    type: 'deals' | 'cashflow' | 'portfolioValue';
+    target: number;
+    text: string;
+}
+
 export type UserProfile = {
     id?: string;
     name?: string;
@@ -8,7 +14,7 @@ export type UserProfile = {
     photoURL?: string;
     country?: string;
     state?: string;
-    financialGoal?: string;
+    financialGoal?: string | StructuredGoal;
     plan?: 'Free' | 'Pro' | 'Premium' | 'Elite';
     savedDeals?: number;
     calculatorUses?: number;

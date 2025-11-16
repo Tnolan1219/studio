@@ -1,4 +1,3 @@
-
 'use client';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { DollarSign, Zap, BarChart, Users, TrendingUp, Goal, Briefcase } from "lucide-react"
@@ -9,16 +8,18 @@ import { AIChatBox } from "./ai-chat-box";
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { useProfileStore } from "@/hooks/use-profile-store";
 import { collection, query } from "firebase/firestore";
-import type { Deal } from "@/lib/types";
-import { useMemo } from "react";
+import type { Deal, StructuredGoal } from "@/lib/types";
+import { useMemo, useEffect } from "react";
 import { Progress } from "../ui/progress";
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { useToast } from "@/hooks/use-toast";
 
 
 export function HomeTab() {
     const { user } = useUser();
     const { profileData, hasHydrated } = useProfileStore();
     const firestore = useFirestore();
+    const { toast } = useToast();
 
     const dealsQuery = useMemoFirebase(() => {
         if (!user || user.isAnonymous) return null;
@@ -51,7 +52,48 @@ export function HomeTab() {
         return { portfolioValue, activeDeals: activeDealsList.length, averageRoi, cashFlow };
     }, [deals]);
 
-    const goalProgress = 35; // Static value for now
+    const { goalProgress, goalText, isGoalAchieved } = useMemo(() => {
+        const goal = profileData.financialGoal;
+        if (typeof goal !== 'object' || !goal || !deals) {
+            return { goalProgress: 0, goalText: 'Set your financial goal in your profile!', isGoalAchieved: false };
+        }
+
+        let current = 0;
+        const target = goal.target;
+
+        switch(goal.type) {
+            case 'deals':
+                current = deals.length;
+                break;
+            case 'cashflow':
+                current = deals.reduce((sum, deal) => sum + (deal.monthlyCashFlow || 0), 0);
+                break;
+            case 'portfolioValue':
+                 current = deals.reduce((sum, deal) => sum + (deal.arv || deal.purchasePrice), 0);
+                 break;
+        }
+
+        const progress = target > 0 ? Math.min((current / target) * 100, 100) : 0;
+        
+        return { goalProgress: progress, goalText: goal.text, isGoalAchieved: progress >= 100 };
+    }, [profileData.financialGoal, deals]);
+    
+    useEffect(() => {
+        if (isGoalAchieved) {
+            // Check if we've already shown the toast for this goal to prevent spamming
+            const goalAchievedKey = `goalAchieved_${profileData.financialGoal?.text}`;
+            if (!sessionStorage.getItem(goalAchievedKey)) {
+                toast({
+                    title: "🎉 Goal Achieved! 🎉",
+                    description: `Congratulations! You've reached your goal: "${goalText}"`,
+                    duration: 10000,
+                });
+                sessionStorage.setItem(goalAchievedKey, 'true');
+            }
+        }
+    }, [isGoalAchieved, goalText, toast, profileData.financialGoal]);
+
+
     const goalData = [{ value: goalProgress }, { value: 100 - goalProgress }];
     const COLORS = ['url(#goalGradient)', 'hsl(var(--muted))'];
 
@@ -76,7 +118,7 @@ export function HomeTab() {
                             <kpi.icon className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{kpi.value}</div>
+                            <div className="text-2xl font-bold">{dealsLoading ? '...' : kpi.value}</div>
                         </CardContent>
                     </Card>
                 ))}
@@ -118,10 +160,10 @@ export function HomeTab() {
                                     </PieChart>
                                 </ResponsiveContainer>
                                 <div className="absolute inset-0 flex items-center justify-center">
-                                    <span className="text-3xl font-bold font-headline text-cyan-300">{goalProgress}%</span>
+                                    <span className="text-3xl font-bold font-headline text-cyan-300">{goalProgress.toFixed(0)}%</span>
                                 </div>
                             </div>
-                            <p className="mt-4 font-semibold max-w-full px-2 text-sm text-center truncate">{profileData.financialGoal || "Set your financial goal in your profile!"}</p>
+                            <p className="mt-4 font-semibold max-w-full px-2 text-sm text-center truncate">{goalText}</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -143,3 +185,4 @@ export function HomeTab() {
             <AIChatBox />
         </div>
     )
+}
