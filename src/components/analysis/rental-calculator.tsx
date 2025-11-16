@@ -257,7 +257,7 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
       holdingLength: 10,
       sellingCosts: 6,
       exitCapRate: 5.5,
-      marketConditions: 'Average market conditions, looking for stable cash flow.',
+      marketConditions: "Analyze this deal in its entirety and provide recommendations",
     },
   });
   

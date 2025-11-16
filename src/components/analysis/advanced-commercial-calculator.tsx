@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -382,7 +383,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
       promoteHurdle: 15,
       promoteSplit: 30,
       // Meta
-      marketConditions: 'Analyze this deal using advanced metrics. Consider value-add opportunities by renovating 10 units in Year 2 for a 20% rent premium. What would the IRR and Equity Multiple be over a 10 year hold?',
+      marketConditions: "Analyze this deal in its entirety and provide recommendations",
       isAdvanced: true,
     },
   });

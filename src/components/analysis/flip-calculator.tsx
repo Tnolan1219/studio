@@ -118,7 +118,7 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
       insurance: 0.5,
       otherExpenses: 1000,
       sellingCosts: 6,
-      marketConditions: "Fixer-upper in a transitioning neighborhood. Good comps support ARV.",
+      marketConditions: "Analyze this deal in its entirety and provide recommendations",
     },
   });
 

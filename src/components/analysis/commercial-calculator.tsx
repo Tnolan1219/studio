@@ -247,7 +247,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
       annualIncomeGrowth: 3,
       annualExpenseGrowth: 2,
       annualAppreciation: 3,
-      marketConditions: 'Class B building in a growing secondary market.',
+      marketConditions: "Analyze this deal in its entirety and provide recommendations",
     },
   });
   
