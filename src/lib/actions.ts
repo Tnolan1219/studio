@@ -1,7 +1,8 @@
+
 'use server';
 
 import type { DealStage } from './types';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { marked } from 'marked';
 
 
@@ -25,7 +26,7 @@ export async function getDealAssessment(
       throw new Error('The Google API key is not configured on the server.');
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
+    const genAI = new GoogleGenAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest"});
 
     const getPromptForStage = (
