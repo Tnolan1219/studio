@@ -40,9 +40,12 @@ export function HomeTab() {
         const portfolioValue = activeDealsList.reduce((acc, deal) => acc + (deal.arv || deal.purchasePrice), 0);
         const cashFlow = activeDealsList.reduce((acc, deal) => acc + (deal.monthlyCashFlow || 0), 0);
 
-        const dealsWithReturn = activeDealsList.filter(d => (d.cocReturn || d.roi) && (d.cocReturn || d.roi)! > 0);
-        const averageRoi = dealsWithReturn.length > 0 
-            ? dealsWithReturn.reduce((acc, deal) => acc + (deal.cocReturn || deal.roi || 0), 0) / dealsWithReturn.length
+        const dealsWithReturn = activeDealsList.filter(d => (d.cocReturn || d.roi) && (d.cocReturn || d.roi) > 0);
+        const averageRoi = dealsWithReturn.length > 0
+            ? dealsWithReturn.reduce((acc, deal) => {
+                const metric = deal.cocReturn || deal.roi || 0;
+                return acc + metric;
+            }, 0) / dealsWithReturn.length
             : 0;
 
         return { portfolioValue, activeDeals: activeDealsList.length, averageRoi, cashFlow };
@@ -97,7 +100,7 @@ export function HomeTab() {
                         </CardHeader>
                         <CardContent className="flex-1 flex flex-col items-center justify-center text-center">
                              <div className="relative h-40 w-40">
-                                <svg width="100%" height="100%" viewBox="0 0 160 160">
+                                <svg width="0" height="0" className="absolute">
                                     <defs>
                                         <linearGradient id="goalGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                                             <stop offset="0%" stopColor="hsl(var(--primary))" />
@@ -140,4 +143,3 @@ export function HomeTab() {
             <AIChatBox />
         </div>
     )
-}
