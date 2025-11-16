@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useForm, Controller } from "react-hook-form";
@@ -64,10 +63,13 @@ const profileSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
-const GOAL_TEMPLATES = [
-  { type: 'deals', text: 'Own {target} deals' },
-  { type: 'cashflow', text: 'Attain ${target}/month in cash flow' },
-  { type: 'portfolioValue', text: 'Grow portfolio value to ${target}' },
+const GOAL_TEMPLATES: {type: StructuredGoal['type'], text: string}[] = [
+  { type: 'deals', text: 'Acquire {target} total investment properties' },
+  { type: 'cashflow', text: 'Generate ${target} in monthly passive cash flow' },
+  { type: 'portfolioValue', text: 'Grow portfolio net worth to ${target}' },
+  { type: 'deals', text: 'Own {target} rental units' },
+  { type: 'cashflow', text: 'Achieve ${target} in annual Net Operating Income (NOI)' },
+  { type: 'portfolioValue', text: 'Reach ${target} in total property value' },
 ];
 
 
@@ -116,7 +118,7 @@ export default function ProfileTab() {
   
   useEffect(() => {
     if (typeof form.getValues('financialGoal') === 'object') {
-      const template = GOAL_TEMPLATES.find(t => t.type === watchedGoalType);
+      const template = GOAL_TEMPLATES.find(t => t.type === watchedGoalType && t.text.includes('{target}'));
       if (template) {
           const text = template.text.replace('{target}', Number(watchedGoalTarget || 0).toLocaleString());
           form.setValue('financialGoal.text', text, { shouldDirty: true });
@@ -220,16 +222,22 @@ export default function ProfileTab() {
                       <Controller
                           control={form.control}
                           name="financialGoal.type"
-                          render={({ field }) => (
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          render={({ field: controllerField }) => (
+                            <Select onValueChange={(value) => {
+                                const template = GOAL_TEMPLATES.find(t => t.type === value);
+                                if (template) {
+                                    controllerField.onChange(template.type);
+                                    form.setValue('financialGoal.text', template.text.replace('{target}', '...'));
+                                }
+                            }} defaultValue={typeof form.getValues('financialGoal') === 'object' ? (form.getValues('financialGoal') as StructuredGoal).type : undefined}>
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select a goal template" />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {GOAL_TEMPLATES.map(t => (
-                                  <SelectItem key={t.type} value={t.type}>{t.text.replace(/{target}/, '...').replace(/\$/g, '')}</SelectItem>
+                                {GOAL_TEMPLATES.map((t, i) => (
+                                  <SelectItem key={`${t.type}-${i}`} value={t.type} data-text={t.text}>{t.text.replace('{target}', '...').replace(/\$/g, '')}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
@@ -250,7 +258,7 @@ export default function ProfileTab() {
                         />
                     </div>
                      <FormDescription>
-                       {form.getValues('financialGoal.text') || "Select a template and enter a target number."}
+                       {typeof form.getValues('financialGoal') === 'object' ? (form.getValues('financialGoal') as StructuredGoal).text : "Select a template and enter a target number."}
                     </FormDescription>
                     <FormMessage /> 
                   </FormItem> 
@@ -334,3 +342,5 @@ export default function ProfileTab() {
     </div>
   );
 }
+
+    
