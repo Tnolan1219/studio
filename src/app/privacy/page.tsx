@@ -1,7 +1,10 @@
 
-import { Header } from '@/components/header';
+'use client';
 
-export default function PrivacyPage() {
+import { Header } from '@/components/header';
+import { FirebaseClientProvider } from '@/firebase';
+
+function PrivacyView() {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
@@ -59,4 +62,12 @@ export default function PrivacyPage() {
       </main>
     </div>
   );
+}
+
+export default function PrivacyPage() {
+    return (
+        <FirebaseClientProvider>
+            <PrivacyView />
+        </FirebaseClientProvider>
+    )
 }

@@ -1,7 +1,10 @@
 
-import { Header } from '@/components/header';
+'use client';
 
-export default function TermsPage() {
+import { Header } from '@/components/header';
+import { FirebaseClientProvider } from '@/firebase';
+
+function TermsView() {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
@@ -48,4 +51,12 @@ export default function TermsPage() {
       </main>
     </div>
   );
+}
+
+export default function TermsPage() {
+    return (
+        <FirebaseClientProvider>
+            <TermsView />
+        </FirebaseClientProvider>
+    )
 }

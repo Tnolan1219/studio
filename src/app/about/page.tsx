@@ -1,7 +1,10 @@
 
-import { Header } from '@/components/header';
+'use client';
 
-export default function AboutPage() {
+import { Header } from '@/components/header';
+import { FirebaseClientProvider } from '@/firebase';
+
+function AboutView() {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
@@ -23,4 +26,12 @@ export default function AboutPage() {
       </main>
     </div>
   );
+}
+
+export default function AboutPage() {
+    return (
+        <FirebaseClientProvider>
+            <AboutView />
+        </FirebaseClientProvider>
+    )
 }
