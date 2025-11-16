@@ -1,10 +1,14 @@
 
+'use client';
+
 import { Header } from '@/components/header';
 import { ArticleCard } from '@/components/articles/article-card';
 import type { Article } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { FirebaseClientProvider } from '@/firebase';
+
 
 // Mock data for demonstration purposes
 const mockArticles: Article[] = [
@@ -70,7 +74,7 @@ const mockArticles: Article[] = [
   },
 ];
 
-export default function ArticlesPage() {
+function ArticlesView() {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
@@ -98,4 +102,13 @@ export default function ArticlesPage() {
       </main>
     </div>
   );
+}
+
+
+export default function ArticlesPage() {
+    return (
+        <FirebaseClientProvider>
+            <ArticlesView />
+        </FirebaseClientProvider>
+    )
 }
