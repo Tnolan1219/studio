@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -41,6 +40,7 @@ import { InputWithIcon } from '../ui/input-with-icon';
 import type { Deal, UserProfile, Plan } from '@/lib/types';
 import { useProfileStore } from '@/hooks/use-profile-store';
 import { useRouter } from 'next/navigation';
+import { getDealAssessment } from '@/lib/actions';
 
 
 const formSchema = z.object({
@@ -82,6 +82,9 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
   const { toast } = useToast();
   
   const { profileData, hasHydrated, incrementCalculatorUses } = useProfileStore();
+  
+  const [isAIPending, startAITransition] = useTransition();
+  const [aiResult, setAiResult] = useState<{message: string, assessment: string | null} | null>(null);
 
   const planRef = useMemoFirebase(() => {
     if (!profileData?.plan) return null;
@@ -115,7 +118,7 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
       insurance: 0.5,
       otherExpenses: 1000,
       sellingCosts: 6,
-      marketConditions: "",
+      marketConditions: "Fixer-upper in a transitioning neighborhood. Good comps support ARV.",
     },
   });
 
@@ -172,6 +175,7 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
         totalInvestment: totalCashInvested,
         chartData,
     });
+    setAiResult(null); // Clear previous AI results
     
     if (!skipTrack && userProfileRef) {
         incrementCalculatorUses();
@@ -227,7 +231,7 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
       roi: parseFloat(analysisResult.roi.toFixed(2)),
       userId: user.uid,
       status: isEditMode && deal ? deal.status : 'In Works',
-      isPublished: isEditMode ? deal.isPublished : false,
+      isPublished: isEditMode && deal ? deal.isPublished : false,
       // Default values for other deal types
       monthlyCashFlow: 0,
       cocReturn: 0,
@@ -267,6 +271,21 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
     setIsSaving(false);
   };
   
+    const handleGenerateInsights = (userQuery?: string) => {
+    if (!analysisResult) return;
+
+    startAITransition(async () => {
+      const financialData = `ARV: ${form.getValues('arv')}, Rehab Cost: ${form.getValues('rehabCost')}, Net Profit: ${analysisResult.netProfit.toFixed(0)}, ROI: ${analysisResult.roi.toFixed(2)}%`;
+      const result = await getDealAssessment({
+        dealType: 'House Flip',
+        financialData,
+        marketConditions: userQuery || form.getValues('marketConditions') || 'No specific market conditions provided.',
+        stage: 'initial-analysis',
+      });
+      setAiResult(result);
+    });
+  };
+
   return (
     <Card className="bg-card/60 backdrop-blur-sm">
       <CardHeader>
@@ -309,22 +328,40 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
                         <FormField name="sellingCosts" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Selling Costs (% of ARV)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                     </CardContent>
                 </Card>
-                 <Card>
-                    <CardHeader>
-                        <CardTitle className="font-headline flex items-center gap-2">
-                            <Sparkles size={20} className="text-primary"/>
-                            AI Deal Assessment
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-sm text-muted-foreground text-center p-4">AI Analysis is temporarily unavailable. We are working on an improved version. Please check back soon!</p>
-                    </CardContent>
-                    <CardFooter>
-                        <Button type="button" disabled={true} className="w-full">
-                            Generate AI Insights
-                        </Button>
-                    </CardFooter>
-                </Card>
+                {analysisResult && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="font-headline flex items-center gap-2">
+                                <Sparkles size={20} className="text-primary"/>
+                                AI Deal Insights
+                            </CardTitle>
+                             <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Market Conditions & User Notes</FormLabel> <FormControl><Input {...field} /></FormControl> <FormDescription>Provide context for the AI (e.g., "hot market," "needs cosmetic updates").</FormDescription></FormItem> )}/>
+                        </CardHeader>
+                        <CardContent>
+                             {isAIPending ? (
+                                <div className="flex justify-center items-center py-8">
+                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                </div>
+                            ) : aiResult ? (
+                                <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment || `<p class="text-destructive">${aiResult.message}</p>` }} />
+                            ) : (
+                                <p className="text-sm text-muted-foreground">Click the button below to get an AI-powered analysis of this deal's strengths and weaknesses.</p>
+                            )}
+                        </CardContent>
+                        <CardFooter className="flex-col items-stretch gap-2">
+                            <Button type="button" onClick={() => handleGenerateInsights()} disabled={isAIPending || !analysisResult} className="w-full">
+                                {isAIPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                {isAIPending ? 'Generating...' : 'Analyze This Deal'}
+                            </Button>
+                             {analysisResult && !isAIPending && (
+                                <div className="grid grid-cols-2 gap-2 text-xs pt-2">
+                                    <Button type="button" size="sm" variant="outline" onClick={() => handleGenerateInsights("How can I reduce my rehab costs without sacrificing quality?")}>How can I reduce rehab costs?</Button>
+                                    <Button type="button" size="sm" variant="outline" onClick={() => handleGenerateInsights("What are the biggest risks with this flip?")}>What are the biggest risks?</Button>
+                                </div>
+                            )}
+                        </CardFooter>
+                    </Card>
+                )}
               </div>
             </div>
 

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -304,6 +303,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
   const router = useRouter();
   const [isAIPending, startAITransition] = useTransition();
   const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [aiResult, setAiResult] = useState<{message: string, assessment: string | null} | null>(null);
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -421,10 +421,6 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
     control: form.control,
     name: 'unitMix',
   });
-
-  const handleGenerateInsights = () => {
-    // AI feature disabled
-  };
 
     const runAnalysis = (data: FormData) => {
         const { 
@@ -630,6 +626,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
           incomeBreakdownData,
           expenseBreakdownData,
       });
+      setAiResult(null); // Clear previous AI results
   };
 
   const handleAnalysisClick = async () => {
@@ -789,6 +786,20 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
         }
         return 'text-foreground';
     };
+    
+    const handleGenerateInsights = (userQuery?: string) => {
+        if (!analysisResult) return;
+        startAITransition(async () => {
+            const financialData = `IRR: ${analysisResult.unleveredIRR.toFixed(2)}%, Equity Multiple: ${analysisResult.equityMultiple.toFixed(2)}x, Cap Rate: ${analysisResult.capRate.toFixed(2)}%, NOI: ${analysisResult.noi.toFixed(0)}`;
+            const result = await getDealAssessment({
+                dealType: 'Commercial Multifamily',
+                financialData,
+                marketConditions: userQuery || form.getValues('marketConditions') || 'No specific market conditions provided.',
+                stage: 'initial-analysis',
+            });
+            setAiResult(result);
+        });
+    };
 
 
     return (
@@ -865,6 +876,40 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
                                                 <FormField name="promoteSplit" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Promote Split</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl><FormDescription className="text-xs">GP % above hurdle</FormDescription> <FormMessage /> </FormItem> )} />
                                             </CardContent>
                                         </Card>
+                                         {analysisResult && (
+                                            <Card>
+                                                <CardHeader>
+                                                    <CardTitle className="font-headline flex items-center gap-2">
+                                                        <Sparkles size={20} className="text-primary"/>
+                                                        AI Deal Insights
+                                                    </CardTitle>
+                                                     <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Market Conditions & User Notes</FormLabel> <FormControl><Textarea {...field} /></FormControl> <FormDescription>Provide context for the AI (e.g., "hot market," "value-add opportunity").</FormDescription></FormItem> )}/>
+                                                </CardHeader>
+                                                <CardContent>
+                                                     {isAIPending ? (
+                                                        <div className="flex justify-center items-center py-8">
+                                                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                                        </div>
+                                                    ) : aiResult ? (
+                                                        <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment || `<p class="text-destructive">${aiResult.message}</p>` }} />
+                                                    ) : (
+                                                        <p className="text-sm text-muted-foreground">Click below to get an AI-powered analysis of this deal's strengths and weaknesses.</p>
+                                                    )}
+                                                </CardContent>
+                                                <CardFooter className="flex-col items-stretch gap-2">
+                                                    <Button type="button" onClick={() => handleGenerateInsights()} disabled={isAIPending || !analysisResult} className="w-full">
+                                                        {isAIPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                                        {isAIPending ? 'Generating...' : 'Analyze This Deal'}
+                                                    </Button>
+                                                     {analysisResult && !isAIPending && (
+                                                        <div className="grid grid-cols-2 gap-2 text-xs pt-2">
+                                                            <Button type="button" size="sm" variant="outline" onClick={() => handleGenerateInsights("What are the key risks for this deal structure?")}>What are the key risks?</Button>
+                                                            <Button type="button" size="sm" variant="outline" onClick={() => handleGenerateInsights("How sensitive is the IRR to a 1% change in exit cap rate?")}>How sensitive is the IRR?</Button>
+                                                        </div>
+                                                    )}
+                                                </CardFooter>
+                                            </Card>
+                                        )}
                                     </div>
                                     <div className="space-y-6">
                                         <Card className="border-primary/20">
@@ -1202,5 +1247,3 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
         </Card>
     );
 }
-
-    

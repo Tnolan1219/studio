@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useTransition } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -16,6 +15,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Trash2, Plus, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Loader2, Sparkles } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -44,6 +44,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { ProFormaTable } from './pro-forma-table';
 import { useProfileStore } from '@/hooks/use-profile-store';
 import { useRouter } from 'next/navigation';
+import { getDealAssessment } from '@/lib/actions';
 
 
 const lineItemSchema = z.object({
@@ -68,6 +69,7 @@ const formSchema = z.object({
   annualExpenseGrowth: z.coerce.number().min(0).max(100),
   annualAppreciation: z.coerce.number().min(0).max(100),
   vacancy: z.coerce.number().min(0).max(100),
+  marketConditions: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -193,6 +195,9 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
   } | null>(null);
 
    const { profileData, hasHydrated, incrementCalculatorUses } = useProfileStore();
+   
+  const [isAIPending, startAITransition] = useTransition();
+  const [aiResult, setAiResult] = useState<{message: string, assessment: string | null} | null>(null);
   
   const planRef = useMemoFirebase(() => {
     if (!profileData?.plan) return null;
@@ -242,6 +247,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
       annualIncomeGrowth: 3,
       annualExpenseGrowth: 2,
       annualAppreciation: 3,
+      marketConditions: 'Class B building in a growing secondary market.',
     },
   });
   
@@ -294,6 +300,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
 
 
     setAnalysisResult({ monthlyCashFlow, cocReturn, capRate, noi, chartData: breakdownChartData, dscr, totalInvestment, proFormaData: proForma });
+    setAiResult(null); // Clear previous AI results
     
     if (!skipTrack && userProfileRef) {
         incrementCalculatorUses();
@@ -410,6 +417,20 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
                 return 'text-foreground';
         }
     }
+    
+    const handleGenerateInsights = (userQuery?: string) => {
+        if (!analysisResult) return;
+        startAITransition(async () => {
+            const financialData = `NOI: ${analysisResult.noi.toFixed(0)}, Cap Rate: ${analysisResult.capRate.toFixed(2)}%, CoC Return: ${analysisResult.cocReturn.toFixed(2)}%, DSCR: ${analysisResult.dscr.toFixed(2)}`;
+            const result = await getDealAssessment({
+                dealType: 'Commercial Multifamily',
+                financialData,
+                marketConditions: userQuery || form.getValues('marketConditions') || 'No specific market conditions provided.',
+                stage: 'initial-analysis',
+            });
+            setAiResult(result);
+        });
+    };
 
 
   return (
@@ -471,6 +492,7 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
                   </Card>
                 </div>
                 {analysisResult && (
+                    <div className="space-y-6 mt-6">
                     <Card className="mt-6">
                         <CardHeader>
                             <CardTitle className="text-lg font-headline">Key Metrics & Breakdown</CardTitle>
@@ -504,6 +526,39 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
                             <ProFormaTable data={analysisResult.proFormaData} />
                         </CardFooter>
                     </Card>
+                     <Card>
+                        <CardHeader>
+                            <CardTitle className="font-headline flex items-center gap-2">
+                                <Sparkles size={20} className="text-primary"/>
+                                AI Deal Insights
+                            </CardTitle>
+                             <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Market Conditions & User Notes</FormLabel> <FormControl><Input {...field} /></FormControl> <FormDescription>Provide context for the AI (e.g., "hot market," "needs cosmetic updates").</FormDescription></FormItem> )}/>
+                        </CardHeader>
+                        <CardContent>
+                             {isAIPending ? (
+                                <div className="flex justify-center items-center py-8">
+                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                </div>
+                            ) : aiResult ? (
+                                <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment || `<p class="text-destructive">${aiResult.message}</p>` }} />
+                            ) : (
+                                <p className="text-sm text-muted-foreground">Click the button below to get an AI-powered analysis of this deal's strengths and weaknesses.</p>
+                            )}
+                        </CardContent>
+                        <CardFooter className="flex-col items-stretch gap-2">
+                            <Button type="button" onClick={() => handleGenerateInsights()} disabled={isAIPending || !analysisResult} className="w-full">
+                                {isAIPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                {isAIPending ? 'Generating...' : 'Analyze This Deal'}
+                            </Button>
+                             {analysisResult && !isAIPending && (
+                                <div className="grid grid-cols-2 gap-2 text-xs pt-2">
+                                    <Button type="button" size="sm" variant="outline" onClick={() => handleGenerateInsights("What are the key risks for a commercial property like this?")}>What are the key risks?</Button>
+                                    <Button type="button" size="sm" variant="outline" onClick={() => handleGenerateInsights("Suggest three ways to increase the NOI for this property.")}>How can I increase NOI?</Button>
+                                </div>
+                            )}
+                        </CardFooter>
+                    </Card>
+                    </div>
                   )}
             </CardContent>
              <CardFooter className="flex justify-end gap-2">

@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -25,7 +24,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { BarChart2, Loader2, TrendingUp, PiggyBank, Briefcase, Calculator, Repeat } from 'lucide-react';
+import { BarChart2, Loader2, TrendingUp, PiggyBank, Briefcase, Calculator, Repeat, Sparkles } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -210,6 +209,9 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
   const { toast } = useToast();
 
   const { profileData, hasHydrated, incrementCalculatorUses } = useProfileStore();
+  
+  const [isAIPending, startAITransition] = useTransition();
+  const [aiResult, setAiResult] = useState<{message: string, assessment: string | null} | null>(null);
 
   const planRef = useMemoFirebase(() => {
     if (!profileData?.plan) return null;
@@ -255,7 +257,7 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
       holdingLength: 10,
       sellingCosts: 6,
       exitCapRate: 5.5,
-      marketConditions: '',
+      marketConditions: 'Average market conditions, looking for stable cash flow.',
     },
   });
   
@@ -352,6 +354,7 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
         irr,
         equityMultiple,
     });
+    setAiResult(null); // Clear previous AI results on new analysis
 
     if (!skipTrack && userProfileRef) {
         incrementCalculatorUses();
@@ -432,6 +435,21 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
       setAnalysisResult(null);
     }
     setIsSaving(false);
+  };
+  
+    const handleGenerateInsights = (userQuery?: string) => {
+    if (!analysisResult) return;
+
+    startAITransition(async () => {
+      const financialData = `NOI: ${analysisResult.noi.toFixed(0)}, CoC Return: ${analysisResult.cocReturn.toFixed(2)}%, Cap Rate: ${analysisResult.capRate.toFixed(2)}%, Monthly Cash Flow: ${analysisResult.monthlyCashFlow.toFixed(2)}, IRR: ${analysisResult.irr.toFixed(2)}%, Equity Multiple: ${analysisResult.equityMultiple.toFixed(2)}x`;
+      const result = await getDealAssessment({
+        dealType: 'Rental Property',
+        financialData,
+        marketConditions: userQuery || form.getValues('marketConditions') || 'No specific market conditions provided.',
+        stage: 'initial-analysis',
+      });
+      setAiResult(result);
+    });
   };
 
   return (
@@ -564,6 +582,40 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
                             <div className="p-3 bg-success/10 rounded-lg border border-success/30"> <p className="text-sm text-success/80">Net Sale Proceeds</p> <p className="text-xl font-bold text-success">${analysisResult.saleAnalysis.netProceeds.toLocaleString(undefined, {maximumFractionDigits: 0})}</p> </div>
                         </CardContent>
                     </Card>
+                    
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="font-headline flex items-center gap-2">
+                                <Sparkles size={20} className="text-primary"/>
+                                AI Deal Insights
+                            </CardTitle>
+                             <FormField name="marketConditions" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Market Conditions & User Notes</FormLabel> <FormControl><Input {...field} /></FormControl> <FormDescription>Provide context for the AI (e.g., "hot market," "needs cosmetic updates").</FormDescription></FormItem> )}/>
+                        </CardHeader>
+                        <CardContent>
+                            {isAIPending ? (
+                                <div className="flex justify-center items-center py-8">
+                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                </div>
+                            ) : aiResult ? (
+                                <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment || `<p class="text-destructive">${aiResult.message}</p>` }} />
+                            ) : (
+                                <p className="text-sm text-muted-foreground">Click the button below to get an AI-powered analysis of this deal's strengths and weaknesses.</p>
+                            )}
+                        </CardContent>
+                        <CardFooter className="flex-col items-stretch gap-2">
+                            <Button type="button" onClick={() => handleGenerateInsights()} disabled={isAIPending || !analysisResult} className="w-full">
+                                {isAIPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                {isAIPending ? 'Generating...' : 'Analyze This Deal'}
+                            </Button>
+                             {analysisResult && !isAIPending && (
+                                <div className="grid grid-cols-2 gap-2 text-xs pt-2">
+                                    <Button type="button" size="sm" variant="outline" onClick={() => handleGenerateInsights("How can I get better financing terms for this deal?")}>How can I improve financing?</Button>
+                                    <Button type="button" size="sm" variant="outline" onClick={() => handleGenerateInsights("How can I improve the cash flow for this property?")}>How can I improve cash flow?</Button>
+                                </div>
+                            )}
+                        </CardFooter>
+                    </Card>
+
                 </div>
             )}
           </CardContent>

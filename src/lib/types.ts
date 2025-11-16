@@ -155,3 +155,15 @@ export type ProFormaEntry = {
     loanBalance: number;
     equity: number;
 };
+
+
+export type Plan = {
+    id: string;
+    name: string;
+    price: number;
+    dealLimit: number;
+    maxCalculatorUses: number;
+    accessAdvancedCRE: boolean;
+    accessNewsletter: boolean;
+    description: string;
+};
