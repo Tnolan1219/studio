@@ -1,7 +1,6 @@
-
 'use client';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
-import { DollarSign, Zap, BarChart, Users, TrendingUp, Goal, Briefcase } from "lucide-react"
+import { DollarSign, Zap, BarChart, Users, TrendingUp, Goal, Briefcase, Newspaper } from "lucide-react"
 import { PortfolioVisualization } from "./portfolio-visualization";
 import { NewsFeed } from "./news-feed";
 import { QuickTips } from "./quick-tips";
@@ -14,6 +13,8 @@ import { useMemo, useEffect } from "react";
 import { Progress } from "../ui/progress";
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "../ui/button";
+import Link from "next/link";
 
 
 export function HomeTab() {
@@ -54,11 +55,11 @@ export function HomeTab() {
     }, [deals]);
 
     const { goalProgress, goalText, isGoalAchieved } = useMemo(() => {
-        const goal = profileData.financialGoal;
-        if (typeof goal !== 'object' || !goal || !deals) {
+        if (typeof profileData.financialGoal !== 'object' || !profileData.financialGoal || !deals) {
             return { goalProgress: 0, goalText: 'Set your financial goal in your profile!', isGoalAchieved: false };
         }
-
+        
+        const goal = profileData.financialGoal as StructuredGoal;
         let current = 0;
         const target = goal.target;
 
@@ -82,7 +83,7 @@ export function HomeTab() {
     useEffect(() => {
         if (isGoalAchieved) {
             // Check if we've already shown the toast for this goal to prevent spamming
-            const goalAchievedKey = `goalAchieved_${profileData.financialGoal?.text}`;
+            const goalAchievedKey = `goalAchieved_${goalText}`;
             if (!sessionStorage.getItem(goalAchievedKey)) {
                 toast({
                     title: "🎉 Goal Achieved! 🎉",
@@ -92,7 +93,7 @@ export function HomeTab() {
                 sessionStorage.setItem(goalAchievedKey, 'true');
             }
         }
-    }, [isGoalAchieved, goalText, toast, profileData.financialGoal]);
+    }, [isGoalAchieved, goalText, toast]);
 
 
     const goalData = [{ value: goalProgress }, { value: 100 - goalProgress }];
@@ -109,7 +110,14 @@ export function HomeTab() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl md:text-3xl font-bold font-headline animate-fade-in">Welcome Back, {getWelcomeName()}!</h1>
+            <div className="flex justify-between items-center animate-fade-in">
+                <h1 className="text-2xl md:text-3xl font-bold font-headline">Welcome Back, {getWelcomeName()}!</h1>
+                <Link href="/articles">
+                    <Button variant="outline" size="icon">
+                        <Newspaper className="h-5 w-5" />
+                    </Button>
+                </Link>
+            </div>
             
             <div className="grid grid-cols-12 gap-6">
                 {kpiData.map((kpi, i) => (

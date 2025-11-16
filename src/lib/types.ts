@@ -173,3 +173,14 @@ export type Plan = {
     accessNewsletter: boolean;
     description: string;
 };
+
+export type Article = {
+  id: string;
+  title: string;
+  author: string;
+  date: string;
+  snippet: string;
+  imageUrl: string;
+  imageHint: string;
+  href: string;
+};
