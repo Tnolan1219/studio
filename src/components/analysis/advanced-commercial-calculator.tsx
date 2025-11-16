@@ -5,7 +5,6 @@ import { useState, useMemo, useTransition, useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { getDealAssessment } from '@/lib/actions';
 import {
   Card,
   CardContent,
@@ -792,13 +791,23 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
         if (!analysisResult) return;
         startAITransition(async () => {
             const financialData = `IRR: ${analysisResult.unleveredIRR.toFixed(2)}%, Equity Multiple: ${analysisResult.equityMultiple.toFixed(2)}x, Cap Rate: ${analysisResult.capRate.toFixed(2)}%, NOI: ${analysisResult.noi.toFixed(0)}`;
-            const result = await getDealAssessment({
-                dealType: 'Commercial Multifamily',
-                financialData,
-                marketConditions: userQuery || form.getValues('marketConditions') || 'No specific market conditions provided.',
-                stage: 'initial-analysis',
+            const prompt = userQuery || form.getValues('marketConditions') || 'No specific market conditions provided.';
+
+            const response = await fetch('/api/openai-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt, dealData: financialData }),
             });
-            setAiResult(result);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error("AI Insight Error:", errorText);
+                setAiResult({ message: "Failed to get AI insights. Please try again.", assessment: null });
+                return;
+            }
+
+            const data = await response.json();
+            setAiResult({ message: "Success", assessment: data.text });
         });
     };
 
