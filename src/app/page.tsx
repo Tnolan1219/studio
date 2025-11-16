@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -5,6 +6,7 @@ import Image from 'next/image';
 import { AuthModal } from '@/components/auth-modal';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { Logo } from '@/components/logo';
+import { Footer } from '@/components/footer';
 
 export default function LandingPage() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -32,6 +34,7 @@ export default function LandingPage() {
           </button>
         </div>
         <AuthModal isOpen={isAuthModalOpen} onOpenChange={setIsAuthModalOpen} />
+        <Footer />
       </div>
     </FirebaseClientProvider>
   );
