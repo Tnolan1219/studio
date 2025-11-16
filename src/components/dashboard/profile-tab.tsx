@@ -103,6 +103,7 @@ export default function ProfileTab() {
   
   const watchedGoalType = form.watch('financialGoal.type');
   const watchedGoalTarget = form.watch('financialGoal.target');
+  const watchedGoalObject = form.watch('financialGoal');
 
   useEffect(() => {
     if (hasHydrated && profileData) {
@@ -117,18 +118,22 @@ export default function ProfileTab() {
     }
   }, [profileData, user, form, hasHydrated]);
   
-  useEffect(() => {
-    if (typeof form.getValues('financialGoal') === 'object') {
-      const goal = form.getValues('financialGoal') as StructuredGoal;
-      const template = GOAL_TEMPLATES.find(t => t.text === goal.text?.replace(String(goal.target).toLocaleString(), '{target}'));
+ useEffect(() => {
+    if (typeof watchedGoalObject === 'object' && watchedGoalObject && 'text' in watchedGoalObject) {
+      // Find the original template by stripping the number from the current text
+      const currentTargetString = String(watchedGoalObject.target?.toLocaleString() || '');
+      const templateText = watchedGoalObject.text?.replace(currentTargetString, '{target}');
+      const template = GOAL_TEMPLATES.find(t => t.text === templateText);
+
       if(template){
+        // Rebuild the text with the new target from the form state
         const newText = template.text.replace('{target}', Number(watchedGoalTarget || 0).toLocaleString());
-        if(newText !== goal.text){
+        if(newText !== watchedGoalObject.text){
           form.setValue('financialGoal.text', newText, { shouldDirty: true });
         }
       }
     }
-  }, [watchedGoalTarget, form]);
+  }, [watchedGoalTarget, watchedGoalObject, form]);
 
 
   async function onSubmit(data: ProfileFormValues) {
@@ -227,18 +232,30 @@ export default function ProfileTab() {
                           control={form.control}
                           name="financialGoal"
                           render={({ field: controllerField }) => (
-                            <Select onValueChange={(value) => {
+                            <Select 
+                              onValueChange={(value) => {
                                 const index = parseInt(value, 10);
                                 const template = GOAL_TEMPLATES[index];
                                 if (template) {
-                                    controllerField.onChange({
+                                    const newGoal = {
                                         type: template.type,
                                         text: template.text,
                                         target: 0
-                                    });
-                                    form.setValue('financialGoal.target', 0);
+                                    };
+                                    controllerField.onChange(newGoal);
+                                    // Reset target to ensure re-render and watcher trigger
+                                    form.setValue('financialGoal.target', 0, { shouldDirty: true });
+                                    form.setValue('financialGoal.text', template.text, { shouldDirty: true });
+                                    form.setValue('financialGoal.type', template.type, { shouldDirty: true });
                                 }
-                            }} defaultValue={typeof form.getValues('financialGoal') === 'object' ? GOAL_TEMPLATES.findIndex(t => t.text === (form.getValues('financialGoal') as StructuredGoal).text?.replace(String((form.getValues('financialGoal') as StructuredGoal).target).toLocaleString(), '{target}')).toString() : undefined}>
+                            }} 
+                            // Determine the selected value based on the text template
+                            value={
+                              typeof controllerField.value === 'object' && controllerField.value?.text
+                                ? GOAL_TEMPLATES.findIndex(t => t.text === (controllerField.value.text.replace(String(controllerField.value.target?.toLocaleString()), '{target}'))).toString()
+                                : undefined
+                            }
+                            >
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select a goal template" />
@@ -260,7 +277,9 @@ export default function ProfileTab() {
                                 type="number" 
                                 placeholder="Enter Target" 
                                 value={controllerField.value || ''} 
-                                onChange={controllerField.onChange} 
+                                onChange={(e) => {
+                                  controllerField.onChange(e.target.valueAsNumber || 0)
+                                }} 
                                 disabled={typeof form.getValues('financialGoal') !== 'object'}
                               />
                           )}
