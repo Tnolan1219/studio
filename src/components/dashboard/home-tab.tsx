@@ -1,3 +1,4 @@
+
 'use client';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { DollarSign, Zap, BarChart, Users, TrendingUp, Goal, Briefcase } from "lucide-react"
@@ -108,7 +109,7 @@ export function HomeTab() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl md:text-3xl font-bold font-headline text-cyan-400 welcome-glow animate-fade-in">Welcome Back, {getWelcomeName()}!</h1>
+            <h1 className="text-2xl md:text-3xl font-bold font-headline animate-fade-in">Welcome Back, {getWelcomeName()}!</h1>
             
             <div className="grid grid-cols-12 gap-6">
                 {kpiData.map((kpi, i) => (
