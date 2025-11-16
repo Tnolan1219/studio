@@ -11,7 +11,7 @@ const openai = new OpenAI({
 });
 
 export async function POST(request: NextRequest) {
-  const { prompt, dealData } = await request.json();
+  const { prompt, dealData, newsRequest } = await request.json();
 
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json(
@@ -24,15 +24,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
   }
 
-  // Determine the system prompt based on whether deal data is present
-  const systemContent = dealData 
-    ? `You are a real estate investment expert. Analyze the provided deal data and the user's query. Provide concise, insightful analysis in simple bullet points. Structure the response into logical sections (e.g., Purchase & Financing, Profitability, Risks).`
-    : 'You are a real estate investment expert. Provide concise answers in simple bullet points. Use markdown for formatting.';
+  let systemContent: string;
+  let userContent: string;
+  let temperature = 0.5;
 
-  const userContent = dealData ? `${prompt}\n\n**Deal Data:**\n${dealData}` : prompt;
+  if (newsRequest) {
+    systemContent = `You are a real estate market news analyst. Generate a JSON array of 4-5 objects. Each object should have two keys: "source" (a plausible news source, e.g., 'Realty Times') and "title" (a concise, recent, and relevant real estate news headline). The output must be only a valid JSON array string.`;
+    userContent = prompt;
+    temperature = 0.7; // A bit more creative for news
+  } else if (dealData) {
+    systemContent = `You are a real estate investment expert. Analyze the provided deal data and the user's query. Provide concise, insightful analysis in simple bullet points. Structure the response into logical sections using markdown (e.g., "### Purchase & Financing", "### Profitability").`;
+    userContent = `${prompt}\n\n**Deal Data:**\n${dealData}`;
+  } else {
+    systemContent = 'You are a real estate investment expert. Provide concise answers in simple bullet points. Use markdown for formatting.';
+    userContent = prompt;
+  }
 
   try {
-    // Use the OpenAI library directly, bypassing Genkit for this route
     const chatCompletion = await openai.chat.completions.create({
       messages: [
         { 
@@ -42,11 +50,22 @@ export async function POST(request: NextRequest) {
         { role: 'user', content: userContent }
       ],
       model: 'gpt-4o-mini',
-      temperature: 0.5,
+      temperature: temperature,
     });
     
     const responseText = chatCompletion.choices[0].message.content;
-    const html = marked.parse(responseText || '');
+
+    if (!responseText) {
+        return NextResponse.json({ error: 'Failed to get a response from AI.' }, { status: 500 });
+    }
+
+    // If it's a news request, return the raw text (which should be JSON)
+    if (newsRequest) {
+      return NextResponse.json({ text: responseText });
+    }
+    
+    // Otherwise, parse the markdown for chat/deal analysis
+    const html = marked.parse(responseText);
 
     if (typeof html !== 'string') {
         return NextResponse.json(
