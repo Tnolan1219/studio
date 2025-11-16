@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -40,7 +41,6 @@ import { InputWithIcon } from '../ui/input-with-icon';
 import type { Deal, UserProfile, Plan } from '@/lib/types';
 import { useProfileStore } from '@/hooks/use-profile-store';
 import { useRouter } from 'next/navigation';
-import { getDealAssessment } from '@/lib/actions';
 
 
 const formSchema = z.object({
@@ -272,19 +272,29 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
   };
   
     const handleGenerateInsights = (userQuery?: string) => {
-    if (!analysisResult) return;
+        if (!analysisResult) return;
 
-    startAITransition(async () => {
-      const financialData = `ARV: ${form.getValues('arv')}, Rehab Cost: ${form.getValues('rehabCost')}, Net Profit: ${analysisResult.netProfit.toFixed(0)}, ROI: ${analysisResult.roi.toFixed(2)}%`;
-      const result = await getDealAssessment({
-        dealType: 'House Flip',
-        financialData,
-        marketConditions: userQuery || form.getValues('marketConditions') || 'No specific market conditions provided.',
-        stage: 'initial-analysis',
-      });
-      setAiResult(result);
-    });
-  };
+        startAITransition(async () => {
+            const financialData = `ARV: ${form.getValues('arv')}, Rehab Cost: ${form.getValues('rehabCost')}, Net Profit: ${analysisResult.netProfit.toFixed(0)}, ROI: ${analysisResult.roi.toFixed(2)}%`;
+            const prompt = userQuery || form.getValues('marketConditions') || 'No specific market conditions provided.';
+
+            const response = await fetch('/api/openai-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt, dealData: financialData }),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error("AI Insight Error:", errorText);
+                setAiResult({ message: "Failed to get AI insights. Please try again.", assessment: null });
+                return;
+            }
+
+            const data = await response.json();
+            setAiResult({ message: "Success", assessment: data.text });
+        });
+    };
 
   return (
     <Card className="bg-card/60 backdrop-blur-sm">
@@ -342,8 +352,8 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
                                 <div className="flex justify-center items-center py-8">
                                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                 </div>
-                            ) : aiResult ? (
-                                <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment || `<p class="text-destructive">${aiResult.message}</p>` }} />
+                            ) : aiResult && aiResult.assessment ? (
+                                <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
                             ) : (
                                 <p className="text-sm text-muted-foreground">Click the button below to get an AI-powered analysis of this deal's strengths and weaknesses.</p>
                             )}

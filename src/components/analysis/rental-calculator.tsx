@@ -1,10 +1,10 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { getDealAssessment } from '@/lib/actions';
 import {
   Card,
   CardContent,
@@ -269,7 +269,7 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
             }
         });
         return () => subscription.unsubscribe();
-    }, [form.watch, form.setValue]);
+    }, [form]);
 
   useEffect(() => {
     if (isEditMode && deal) {
@@ -438,19 +438,29 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
   };
   
     const handleGenerateInsights = (userQuery?: string) => {
-    if (!analysisResult) return;
+        if (!analysisResult) return;
 
-    startAITransition(async () => {
-      const financialData = `NOI: ${analysisResult.noi.toFixed(0)}, CoC Return: ${analysisResult.cocReturn.toFixed(2)}%, Cap Rate: ${analysisResult.capRate.toFixed(2)}%, Monthly Cash Flow: ${analysisResult.monthlyCashFlow.toFixed(2)}, IRR: ${analysisResult.irr.toFixed(2)}%, Equity Multiple: ${analysisResult.equityMultiple.toFixed(2)}x`;
-      const result = await getDealAssessment({
-        dealType: 'Rental Property',
-        financialData,
-        marketConditions: userQuery || form.getValues('marketConditions') || 'No specific market conditions provided.',
-        stage: 'initial-analysis',
-      });
-      setAiResult(result);
-    });
-  };
+        startAITransition(async () => {
+            const financialData = `NOI: ${analysisResult.noi.toFixed(0)}, CoC Return: ${analysisResult.cocReturn.toFixed(2)}%, Cap Rate: ${analysisResult.capRate.toFixed(2)}%, Monthly Cash Flow: ${analysisResult.monthlyCashFlow.toFixed(2)}, IRR: ${analysisResult.irr.toFixed(2)}%, Equity Multiple: ${analysisResult.equityMultiple.toFixed(2)}x`;
+            const prompt = userQuery || form.getValues('marketConditions') || 'No specific market conditions provided.';
+
+            const response = await fetch('/api/openai-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt, dealData: financialData }),
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error("AI Insight Error:", errorText);
+                setAiResult({ message: "Failed to get AI insights. Please try again.", assessment: null });
+                return;
+            }
+
+            const data = await response.json();
+            setAiResult({ message: "Success", assessment: data.text });
+        });
+    };
 
   return (
     <Card className="bg-card/60 backdrop-blur-sm">
@@ -596,8 +606,8 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
                                 <div className="flex justify-center items-center py-8">
                                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                 </div>
-                            ) : aiResult ? (
-                                <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment || `<p class="text-destructive">${aiResult.message}</p>` }} />
+                            ) : aiResult && aiResult.assessment ? (
+                                <div className="text-sm prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiResult.assessment }} />
                             ) : (
                                 <p className="text-sm text-muted-foreground">Click the button below to get an AI-powered analysis of this deal's strengths and weaknesses.</p>
                             )}

@@ -11,7 +11,7 @@ const openai = new OpenAI({
 });
 
 export async function POST(request: NextRequest) {
-  const { prompt } = await request.json();
+  const { prompt, dealData } = await request.json();
 
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json(
@@ -24,15 +24,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
   }
 
+  // Determine the system prompt based on whether deal data is present
+  const systemContent = dealData 
+    ? `You are a real estate investment expert. Analyze the provided deal data and the user's query. Provide concise, insightful analysis in simple bullet points. Structure the response into logical sections (e.g., Purchase & Financing, Profitability, Risks).`
+    : 'You are a real estate investment expert. Provide concise answers in simple bullet points. Use markdown for formatting.';
+
+  const userContent = dealData ? `${prompt}\n\n**Deal Data:**\n${dealData}` : prompt;
+
   try {
     // Use the OpenAI library directly, bypassing Genkit for this route
     const chatCompletion = await openai.chat.completions.create({
       messages: [
         { 
           role: 'system', 
-          content: 'You are a real estate investment expert. Provide concise answers in simple bullet points. Use markdown for formatting.' 
+          content: systemContent 
         },
-        { role: 'user', content: prompt }
+        { role: 'user', content: userContent }
       ],
       model: 'gpt-4o-mini',
       temperature: 0.5,
