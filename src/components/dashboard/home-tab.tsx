@@ -1,3 +1,4 @@
+
 'use client';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { DollarSign, Zap, BarChart, Users, TrendingUp, Goal, Briefcase } from "lucide-react"
@@ -49,6 +50,8 @@ export function HomeTab() {
 
     const goalProgress = 35; // Static value for now
     const goalData = [{ value: goalProgress }, { value: 100 - goalProgress }];
+    const COLORS = ['url(#goalGradient)', 'hsl(var(--muted))'];
+
 
     const kpiData = [
         { title: "Portfolio Value", value: `$${portfolioValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`, icon: DollarSign, change: "+12.5%" },
@@ -60,13 +63,13 @@ export function HomeTab() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl md:text-3xl font-bold font-headline">Welcome Back, {getWelcomeName()}!</h1>
+            <h1 className="text-2xl md:text-3xl font-bold font-headline text-cyan-400 welcome-glow animate-fade-in">Welcome Back, {getWelcomeName()}!</h1>
             
             <div className="grid grid-cols-12 gap-6">
                 {kpiData.map((kpi, i) => (
-                    <Card key={i} className="col-span-12 md:col-span-6 lg:col-span-3 bg-card/60 backdrop-blur-sm">
+                    <Card key={i} className="col-span-12 md:col-span-6 lg:col-span-3 bg-card/60 backdrop-blur-sm animate-fade-in">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-headline">{kpi.title}</CardTitle>
+                            <CardTitle className="text-sm font-headline text-cyan-400 kpi-title-glow">{kpi.title}</CardTitle>
                             <kpi.icon className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
@@ -93,20 +96,29 @@ export function HomeTab() {
                             <CardDescription>Your top priority financial goal.</CardDescription>
                         </CardHeader>
                         <CardContent className="flex-1 flex flex-col items-center justify-center text-center">
-                            <div className="relative h-40 w-40">
+                             <div className="relative h-40 w-40">
+                                <svg width="100%" height="100%" viewBox="0 0 160 160">
+                                    <defs>
+                                        <linearGradient id="goalGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stopColor="hsl(var(--primary))" />
+                                            <stop offset="100%" stopColor="hsl(185, 100%, 60%)" />
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie data={goalData} dataKey="value" innerRadius="70%" outerRadius="100%" startAngle={90} endAngle={450} cornerRadius={50} paddingAngle={0}>
-                                            <Cell fill="hsl(var(--primary))" />
-                                            <Cell fill="hsl(var(--muted))" />
+                                            {goalData.map((entry, index) => (
+                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none"/>
+                                            ))}
                                         </Pie>
                                     </PieChart>
                                 </ResponsiveContainer>
                                 <div className="absolute inset-0 flex items-center justify-center">
-                                    <span className="text-3xl font-bold font-headline">{goalProgress}%</span>
+                                    <span className="text-3xl font-bold font-headline text-cyan-300">{goalProgress}%</span>
                                 </div>
                             </div>
-                            <p className="mt-4 font-semibold max-w-[90%] truncate">{profileData.financialGoal || "Set your financial goal in your profile!"}</p>
+                            <p className="mt-4 font-semibold max-w-full px-2 text-sm text-center truncate">{profileData.financialGoal || "Set your financial goal in your profile!"}</p>
                         </CardContent>
                     </Card>
                 </div>

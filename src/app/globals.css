@@ -77,6 +77,12 @@
   .font-headline {
     color: hsl(var(--primary));
   }
+  .welcome-glow {
+    text-shadow: 0 0 8px hsl(var(--primary) / 0.8);
+  }
+  .kpi-title-glow {
+    text-shadow: 0 0 5px hsl(var(--primary) / 0.7);
+  }
 }
 
 @layer components {
@@ -192,5 +198,3 @@
         }
     }
 }
-
-    
