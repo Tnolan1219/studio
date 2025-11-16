@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { FirebaseClientProvider } from '@/firebase';
+import { ArticleFooter } from '@/components/articles/article-footer';
 
 function ArticleView() {
     return (
@@ -100,6 +101,7 @@ function ArticleView() {
                     </div>
                 </div>
             </main>
+            <ArticleFooter />
         </div>
     );
 }
