@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Deal } from '@/lib/types';
@@ -89,12 +88,12 @@ const PropertyCard = ({ deal }: { deal: Deal }) => {
 };
 
 
-export const PortfolioVisualization = ({ deals }: { deals: Deal[] }) => {
+export function PortfolioVisualization({ deals }: { deals: Deal[] }) {
   if (!deals || deals.length === 0) {
     return (
-        <Card className="bg-card/60 backdrop-blur-sm min-h-[250px]">
+        <Card className="bg-card/60 backdrop-blur-sm min-h-[250px] h-full">
             <CardHeader>
-                <CardTitle>My Portfolio</CardTitle>
+                <CardTitle className="font-headline">My Portfolio</CardTitle>
                 <CardDescription>An interactive overview of your investment properties.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -109,9 +108,9 @@ export const PortfolioVisualization = ({ deals }: { deals: Deal[] }) => {
   }
 
   return (
-    <Card className="bg-card/60 backdrop-blur-sm">
+    <Card className="bg-card/60 backdrop-blur-sm h-full">
         <CardHeader>
-            <CardTitle>My Portfolio</CardTitle>
+            <CardTitle className="font-headline">My Portfolio</CardTitle>
             <CardDescription>An interactive overview of your investment properties. Click a property to view details.</CardDescription>
         </CardHeader>
         <CardContent>

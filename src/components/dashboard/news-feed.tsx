@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Rss, Loader2 } from 'lucide-react';
 import { useProfileStore } from '@/hooks/use-profile-store';
+import { Card } from '../ui/card';
 
 interface NewsItem {
     source: string;
@@ -24,8 +25,8 @@ export function NewsFeed() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        prompt: `Generate 4-5 recent real estate news headlines. Location focus: ${location || 'USA'}.`,
-                        dealData: null, // Ensure this is null for news requests
+                        prompt: `Generate 4 recent real estate news headlines. Location focus: ${location || 'USA'}.`,
+                        dealData: null,
                         newsRequest: true,
                      }),
                 });
@@ -36,14 +37,11 @@ export function NewsFeed() {
 
                 const data = await response.json();
                 
-                // The AI is asked to return a JSON array string. We need to parse it.
-                // It might be wrapped in ```json ... ```, so we clean that up.
                 const cleanedJsonString = data.text.replace(/```json\n|\n```/g, '');
                 try {
                     const parsedNews = JSON.parse(cleanedJsonString);
                     setNews(parsedNews);
                 } catch (e) {
-                     // Fallback if parsing fails - show the raw text.
                     setNews([{ source: 'AI Analyst', title: data.text }]);
                 }
 
@@ -65,16 +63,13 @@ export function NewsFeed() {
                     <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
             ) : (
-                <ul className="space-y-4 overflow-y-auto h-full pr-2">
+                 <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {news.map((item, index) => (
-                        <li key={index} className="flex items-start gap-4">
-                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                                <Rss className="w-4 h-4 text-muted-foreground" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium leading-none">{item.title}</p>
-                                <p className="text-xs text-muted-foreground mt-1">{item.source}</p>
-                            </div>
+                        <li key={index}>
+                           <Card className="bg-card/30 p-4 h-full">
+                                <p className="text-sm font-semibold leading-snug">{item.title}</p>
+                                <p className="text-xs text-muted-foreground mt-2">{item.source}</p>
+                           </Card>
                         </li>
                     ))}
                 </ul>
