@@ -14,13 +14,13 @@ import { FirebaseClientProvider } from '@/firebase';
 const mockArticles: Article[] = [
   {
     id: '1',
-    title: 'The Ultimate Guide to the BRRRR Method',
+    title: 'The BRRRR Method: Real Estate\'s Not-So-Secret Formula',
     author: 'TKN Finance',
     date: '2024-07-15',
     snippet: 'Learn how to Buy, Rehab, Rent, Refinance, and Repeat your way to financial freedom with our in-depth guide.',
     imageUrl: 'https://picsum.photos/seed/brrrr/600/400',
     imageHint: 'house blueprint',
-    href: '#',
+    href: '/articles/brrrr-method',
   },
   {
     id: '2',
