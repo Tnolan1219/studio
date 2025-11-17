@@ -113,7 +113,8 @@ export function HomeTab() {
             <div className="flex justify-between items-center animate-fade-in">
                 <h1 className="text-2xl md:text-3xl font-bold font-headline">Welcome Back, {getWelcomeName()}!</h1>
                 <Link href="/articles">
-                    <Button variant="outline" size="icon">
+                    <Button variant="outline">
+                        <span className="text-primary mr-2">Articles</span>
                         <Newspaper className="h-5 w-5" />
                     </Button>
                 </Link>
