@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -7,6 +6,8 @@ import { AuthModal } from '@/components/auth-modal';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { Logo } from '@/components/logo';
 import { Footer } from '@/components/footer';
+import { Button } from '@/components/ui/button';
+import { AnimatePresence, motion } from 'framer-motion';
 
 export default function LoginPage() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(true);
@@ -26,6 +27,21 @@ export default function LoginPage() {
           <p className="mt-4 text-lg text-muted-foreground">
             Your Real Estate Investment Assistant
           </p>
+           <AnimatePresence>
+            {!isAuthModalOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                transition={{ duration: 0.3 }}
+                className="mt-8"
+              >
+                <Button onClick={() => setIsAuthModalOpen(true)} size="lg" className="plan-pro">
+                  Sign In or Sign Up
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
         <AuthModal isOpen={isAuthModalOpen} onOpenChange={setIsAuthModalOpen} />
         <Footer />
