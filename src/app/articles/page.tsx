@@ -13,6 +13,17 @@ import { FirebaseClientProvider } from '@/firebase';
 // Mock data for demonstration purposes
 const mockArticles: Article[] = [
   {
+    id: 'newsletter-1',
+    title: 'Weekly Market Briefing',
+    author: 'TKN Finance',
+    date: '2024-07-19',
+    snippet: 'Inflation, interest rates, and a resilient housing market. We break down what you need to know this week.',
+    imageUrl: 'https://picsum.photos/seed/newsletter1/600/400',
+    imageHint: 'cityscape data',
+    href: '/articles/weekly-newsletter',
+    isFeatured: true,
+  },
+  {
     id: '1',
     title: 'The BRRRR Method: Real Estate\'s Not-So-Secret Formula',
     author: 'TKN Finance',
@@ -89,9 +100,6 @@ function ArticlesView() {
           <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl font-headline">
             Articles & Insights
           </h1>
-          <p className="mt-4 text-xl text-muted-foreground max-w-3xl">
-            Your knowledge hub for real estate investment strategies, market trends, and financial wisdom.
-          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '../ui/button';
 import { ArrowRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ArticleCardProps {
   article: Article;
@@ -12,7 +13,10 @@ interface ArticleCardProps {
 export const ArticleCard = ({ article }: ArticleCardProps) => {
   return (
     <Link href={article.href} passHref>
-      <Card className="bg-card/60 backdrop-blur-sm h-full flex flex-col group overflow-hidden">
+      <Card className={cn(
+        "bg-card/60 backdrop-blur-sm h-full flex flex-col group overflow-hidden",
+        article.isFeatured && "shadow-lg shadow-cyan-500/20 border-cyan-500/50 hover:border-cyan-500"
+      )}>
         <CardHeader className="p-0">
           <div className="relative h-48 w-full">
             <Image
@@ -27,7 +31,12 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
         </CardHeader>
         <CardContent className="p-6 flex-grow flex flex-col">
             <p className="text-xs text-muted-foreground mb-1">{article.author} • {article.date}</p>
-            <CardTitle className="text-xl mb-2 flex-grow">{article.title}</CardTitle>
+            <CardTitle className={cn(
+              "text-xl mb-2 flex-grow",
+              article.isFeatured && "font-bold text-cyan-400"
+            )}>
+              {article.title}
+            </CardTitle>
             <CardDescription className="text-sm">{article.snippet}</CardDescription>
         </CardContent>
         <CardFooter className="p-6 pt-0">

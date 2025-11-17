@@ -183,4 +183,5 @@ export type Article = {
   imageUrl: string;
   imageHint: string;
   href: string;
+  isFeatured?: boolean;
 };
