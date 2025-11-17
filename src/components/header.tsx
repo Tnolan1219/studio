@@ -17,6 +17,8 @@ import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useDashboardTab } from '@/hooks/use-dashboard-tab';
+import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 export function Header() {
   const { user } = useUser();
@@ -37,7 +39,7 @@ export function Header() {
 
   const navigateToTab = (tab: string) => {
     setActiveTab(tab);
-    router.push('/dashboard');
+    router.push('/');
   }
 
   const getInitials = () => {
@@ -57,7 +59,7 @@ export function Header() {
         </div>
         <div className="flex items-center gap-4">
           <ThemeToggle />
-          {user && (
+          {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Avatar className="cursor-pointer h-9 w-9">
@@ -88,6 +90,12 @@ export function Header() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+          ) : (
+             <Link href="/login" passHref>
+                <Button className="font-bold plan-pro">
+                    Sign In
+                </Button>
+            </Link>
           )}
         </div>
       </div>
