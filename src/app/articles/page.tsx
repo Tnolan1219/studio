@@ -75,6 +75,9 @@ const mockArticles: Article[] = [
 ];
 
 function ArticlesView() {
+  const featuredArticle = mockArticles.find(a => a.isFeatured);
+  const otherArticles = mockArticles.filter(a => !a.isFeatured);
+  
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
@@ -91,8 +94,14 @@ function ArticlesView() {
           </h1>
         </div>
 
+        {featuredArticle && (
+            <div className="mb-12">
+                <ArticleCard article={featuredArticle} />
+            </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {mockArticles.map((article) => (
+          {otherArticles.map((article) => (
             <ArticleCard key={article.id} article={article} />
           ))}
         </div>
