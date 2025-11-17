@@ -5,12 +5,13 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
+import { ArticleFooter } from '@/components/articles/article-footer';
 
 function ArticleView() {
     return (
         <div className="flex flex-col min-h-screen">
             <Header />
-            <main className="flex-1 container mx-auto px-4 py-12 animate-fade-in">
+            <main className="flex-1 container mx-auto px-4 sm:px-8 md:px-12 py-12 animate-fade-in">
                 <div className="max-w-4xl mx-auto">
                     <Link href="/articles" passHref>
                         <Button variant="ghost" className="mb-4">
@@ -80,6 +81,7 @@ function ArticleView() {
                     </div>
                 </div>
             </main>
+            <ArticleFooter />
         </div>
     );
 }
