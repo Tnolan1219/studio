@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
-import { ArticleFooter } from '@/components/articles/article-footer';
 
 function ArticleView() {
     return (
@@ -53,16 +52,6 @@ function ArticleView() {
                             With the national housing supply still below historical norms, finding these undervalued assets requires creativity: off-market deals, probate sales, or properties that fail to qualify for conventional financing. Financing the initial purchase is also a challenge. As <a href="https://www.freddiemac.com/pmms" target="_blank" rel="noopener noreferrer">Freddie Mac</a> data shows, mortgage rates have more than doubled from their pandemic-era lows, making hard money or private loans more expensive. This means your purchase price must be low enough to absorb these higher initial carrying costs.
                         </p>
 
-                        <div className="relative h-64 w-full rounded-lg overflow-hidden my-8 shadow-md">
-                            <Image
-                                src="https://picsum.photos/seed/kitchen-rehab/800/600"
-                                alt="Modern kitchen during renovation"
-                                fill
-                                style={{ objectFit: 'cover' }}
-                                data-ai-hint="kitchen renovation construction"
-                            />
-                        </div>
-
                         <h2>Step 2: Rehab (The Forced Appreciation)</h2>
                         <p>
                             This is where you manufacture equity. The rehab phase is about strategic, cost-effective improvements that maximize the property's value. In an inflationary environment, this means getting granular with your budget. Material and labor costs remain elevated, so focus on the "Big Three" that drive appraisal value and tenant appeal: kitchens, bathrooms, and curb appeal. Every dollar must be a calculated investment. A new roof may be necessary, but gold-plated faucets are not. Your goal is to create a safe, clean, and modern rental that commands top-of-market rent without over-capitalizing.
@@ -72,16 +61,6 @@ function ArticleView() {
                         <p>
                            Once the sawdust settles, your priority is to place a qualified, long-term tenant. A signed lease is the proof your lender needs that the property is now a stable, income-generating asset. Fortunately, the rental market remains strong in many regions. According to the <a href="https://www.spglobal.com/spdji/en/indices/indicators/sp-corelogic-case-shiller-us-national-home-price-nsa-index/" target="_blank" rel="noopener noreferrer">S&P CoreLogic Case-Shiller Home Price Index</a>, while home price growth has slowed, rental demand continues to be buoyed by high homeownership costs. This provides a tailwind for the BRRRR investor, as strong rents are essential to justify the property's new valuation. Thorough tenant screening is non-negotiable.
                         </p>
-
-                        <div className="relative h-64 w-full rounded-lg overflow-hidden my-8 shadow-md">
-                            <Image
-                                src="https://picsum.photos/seed/happy-tenant/800/600"
-                                alt="A person receiving keys to a new apartment"
-                                fill
-                                style={{ objectFit: 'cover' }}
-                                data-ai-hint="person keys apartment"
-                            />
-                        </div>
 
                         <h2>Step 4: Refinance (The Moment of Truth)</h2>
                         <p>
@@ -101,7 +80,6 @@ function ArticleView() {
                     </div>
                 </div>
             </main>
-            <ArticleFooter />
         </div>
     );
 }
