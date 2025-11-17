@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/header';
@@ -13,24 +12,34 @@ import { FirebaseClientProvider } from '@/firebase';
 // Mock data for demonstration purposes
 const mockArticles: Article[] = [
   {
-    id: 'newsletter-1',
-    title: 'Weekly Market Briefing',
-    author: 'TKN Finance',
-    date: '2024-07-19',
-    snippet: 'Inflation, interest rates, and a resilient housing market. We break down what you need to know this week.',
-    imageUrl: 'https://picsum.photos/seed/newsletter1/600/400',
-    imageHint: 'cityscape data',
+    id: 'newsletter-2',
+    title: 'The Great Rate Lock-In Shows Its First Cracks',
+    author: 'Valentor RE',
+    date: '2024-07-26',
+    snippet: 'A growing number of "rate-locked" homeowners are being forced to sell, creating a shadow market of opportunity for savvy investors.',
+    imageUrl: 'https://picsum.photos/seed/rate-lock/600/400',
+    imageHint: 'house keys chart',
     href: '/articles/weekly-newsletter',
     isFeatured: true,
   },
   {
+    id: 'newsletter-1',
+    title: 'Market Briefing: Inflation, Rates, and a Resilient Housing Market',
+    author: 'TKN Finance',
+    date: '2024-07-19',
+    snippet: 'A look at how persistent inflation and a surprisingly resilient housing market are shaping investment strategies.',
+    imageUrl: 'https://picsum.photos/seed/newsletter1/600/400',
+    imageHint: 'cityscape data',
+    href: '/articles/market-briefing-jul-19',
+  },
+  {
     id: '1',
-    title: 'The BRRRR Method: Real Estate\'s Not-So-Secret Formula',
+    title: 'The BRRRR Method: Thriving in a High-Interest Rate World',
     author: 'TKN Finance',
     date: '2024-07-15',
     snippet: 'Learn how to Buy, Rehab, Rent, Refinance, and Repeat your way to financial freedom with our in-depth guide.',
-    imageUrl: 'https://picsum.photos/seed/brrrr/600/400',
-    imageHint: 'house blueprint',
+    imageUrl: 'https://picsum.photos/seed/brrrr-main/600/400',
+    imageHint: 'house blueprint renovation',
     href: '/articles/brrrr-method',
   },
   {
@@ -61,26 +70,6 @@ const mockArticles: Article[] = [
     snippet: 'No bank? No problem. Explore the world of seller financing, subject-to, and other creative ways to fund your next deal.',
     imageUrl: 'https://picsum.photos/seed/creative/600/400',
     imageHint: 'handshake deal',
-    href: '#',
-  },
-  {
-    id: '5',
-    title: 'The Landlord\'s Guide to Tenant Screening',
-    author: 'Emily White',
-    date: '2024-06-20',
-    snippet: 'Finding the right tenant is the key to a successful rental property. Our guide gives you a step-by-step process.',
-    imageUrl: 'https://picsum.photos/seed/tenant/600/400',
-    imageHint: 'person form',
-    href: '#',
-  },
-  {
-    id: '6',
-    title: 'Maximizing Depreciation to Lower Your Tax Bill',
-    author: 'TKN Finance',
-    date: '2024-06-12',
-    snippet: 'Discover how this powerful tax advantage can significantly boost your net returns on investment properties.',
-    imageUrl: 'https://picsum.photos/seed/taxes/600/400',
-    imageHint: 'tax documents',
     href: '#',
   },
 ];

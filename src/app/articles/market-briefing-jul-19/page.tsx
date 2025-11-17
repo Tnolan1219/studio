@@ -22,7 +22,7 @@ function ArticleView() {
                     </Link>
                     
                     <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight font-headline mb-4">
-                        Weekly Market Briefing: Inflation, Rates, and the Resilient Housing Market
+                        Market Briefing: Inflation, Rates, and the Resilient Housing Market
                     </h1>
 
                     <p className="text-sm text-muted-foreground mb-6">Published by TKN Finance on July 19, 2024</p>
