@@ -1,10 +1,18 @@
+'use client';
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { useDashboardTab } from '@/hooks/use-dashboard-tab';
 
 export function Logo() {
+  const { setActiveTab } = useDashboardTab();
+
+  const handleClick = () => {
+    setActiveTab('home');
+  };
+
   return (
-    <Link href="/" className="flex items-center gap-2">
+    <Link href="/" className="flex items-center gap-2" onClick={handleClick}>
       <Image
         src="/logo3.png"
         alt="Valentor RE Logo"
