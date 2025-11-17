@@ -112,7 +112,7 @@ function CommunityDealDetailView() {
     };
 
     const handleBackToCommunity = () => {
-        router.push('/dashboard');
+        router.push('/');
         setActiveTab('community');
     }
     

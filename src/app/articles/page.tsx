@@ -80,7 +80,7 @@ function ArticlesView() {
       <Header />
       <main className="flex-1 container mx-auto px-4 py-12 animate-fade-in">
         <div className="mb-10">
-          <Link href="/dashboard" passHref>
+          <Link href="/" passHref>
              <Button variant="ghost" className="mb-4">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Dashboard

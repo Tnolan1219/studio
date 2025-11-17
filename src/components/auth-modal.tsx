@@ -87,7 +87,7 @@ export function AuthModal({
     if (!user || !firestore) return;
 
     if (user.isAnonymous) {
-      router.push('/dashboard');
+      router.push('/');
       onOpenChange(false);
       return;
     }
@@ -103,7 +103,7 @@ export function AuthModal({
           photoURL: user.photoURL,
         };
         setDocumentNonBlocking(userProfileRef, profileData, { merge: true });
-        router.push('/dashboard');
+        router.push('/');
       } else {
         // If user is new or hasn't finished onboarding, ensure profile exists and go to onboarding
         const profileData = {

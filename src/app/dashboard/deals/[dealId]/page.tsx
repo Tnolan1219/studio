@@ -237,12 +237,12 @@ function DealDetailView() {
         
         deleteDocumentNonBlocking(dealRef);
         toast({ title: 'Deal Deleted', description: `${deal?.dealName} has been removed.`, variant: 'destructive'});
-        router.push('/dashboard');
+        router.push('/');
         setActiveTab('deals');
     }
     
     const handleBackToDeals = () => {
-        router.push('/dashboard');
+        router.push('/');
         setActiveTab('deals');
     }
 
@@ -283,7 +283,7 @@ function DealDetailView() {
             <div className="text-center p-12">
                 <h2 className="text-2xl font-bold">Deal Not Found</h2>
                 <p className="text-muted-foreground">This deal may have been deleted or you may not have permission to view it.</p>
-                <Button onClick={() => router.push('/dashboard')} className="mt-4">Go to Dashboard</Button>
+                <Button onClick={() => router.push('/')} className="mt-4">Go to Dashboard</Button>
             </div>
         )
     }

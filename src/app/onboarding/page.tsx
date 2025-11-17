@@ -160,7 +160,7 @@ function OnboardingView() {
       title: 'Profile Created!',
       description: 'Welcome to Valentor RE. You are now being redirected.',
     });
-    router.push('/dashboard');
+    router.push('/');
   };
 
   const progress = ((currentStep + 1) / STEPS.length) * 100;

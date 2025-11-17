@@ -98,7 +98,7 @@ function PlansView() {
         // Use a timeout to simulate network latency before redirecting
         setTimeout(() => {
             setIsUpdating(null);
-            router.push('/dashboard');
+            router.push('/');
         }, 500);
     };
 
@@ -107,7 +107,7 @@ function PlansView() {
             <Header />
             <FirebaseDataInitializer />
             <main className="container mx-auto px-4 py-16">
-                 <Button variant="ghost" onClick={() => router.push('/dashboard')} className="mb-8">
+                 <Button variant="ghost" onClick={() => router.push('/')} className="mb-8">
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Back to Dashboard
                 </Button>
