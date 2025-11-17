@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { ArticleFooter } from '@/components/articles/article-footer';
+import { AdBanner } from '@/components/ads/ad-banner';
 
 function ArticleView() {
     return (
@@ -25,6 +26,8 @@ function ArticleView() {
                     </h1>
 
                     <p className="text-sm text-muted-foreground mb-6">Published by TKN Finance on July 15, 2024</p>
+                    
+                    <AdBanner adSlot="leaderboard" className="mb-8" />
                     
                     <div className="relative h-64 md:h-96 w-full rounded-lg overflow-hidden mb-8 shadow-lg">
                         <Image

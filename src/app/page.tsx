@@ -12,6 +12,7 @@ import { Header } from '@/components/header';
 import DashboardClient from '@/components/dashboard/dashboard-client';
 import { FirebaseDataInitializer } from '@/firebase/data-initializer';
 import { FirebaseClientProvider } from '@/firebase';
+import { AdBanner } from '@/components/ads/ad-banner';
 
 
 function TabButton({ value, label, icon: Icon, isProfile = false }: { value: string; label: string; icon: React.ElementType; isProfile?: boolean }) {
@@ -60,9 +61,14 @@ function DashboardView() {
     return (
         <div className="flex min-h-screen w-full flex-col">
           <Header />
-          <main className="flex-1 p-6 md:p-12 bg-transparent pb-40">
-            <DashboardClient />
-          </main>
+           <div className="flex flex-1">
+                <main className="flex-1 p-6 md:p-12 bg-transparent pb-40">
+                  <DashboardClient />
+                </main>
+                <aside className="hidden lg:block w-48 p-6">
+                    <AdBanner adSlot="skyscraper" className="h-full min-h-[600px]"/>
+                </aside>
+            </div>
           {user && (
             <footer className="fixed bottom-4 left-0 right-0 z-40 h-24 pointer-events-none">
                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-auto">
