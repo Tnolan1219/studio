@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/header';
@@ -28,7 +29,7 @@ function ArticleView() {
 
                     <p className="text-sm text-muted-foreground mb-6">Published by TKN Finance on July 19, 2024</p>
                     
-                     <AdBanner adSlot="leaderboard" className="mb-8" />
+                     {/* <AdBanner adSlot="leaderboard" className="mb-8" /> */}
                     
                     <div className="relative h-64 md:h-96 w-full rounded-lg overflow-hidden mb-8 shadow-lg">
                         <Image

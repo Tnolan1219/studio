@@ -66,7 +66,7 @@ function DashboardView() {
                   <DashboardClient />
                 </main>
                 <aside className="hidden lg:block w-48 p-6">
-                    <AdBanner adSlot="skyscraper" className="h-full min-h-[600px]"/>
+                    {/* <AdBanner adSlot="skyscraper" className="h-full min-h-[600px]"/> */}
                 </aside>
             </div>
           {user && (
