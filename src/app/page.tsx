@@ -65,9 +65,11 @@ function DashboardView() {
                 <main className="flex-1 p-6 md:p-12 bg-transparent pb-40">
                   <DashboardClient />
                 </main>
+                {/* 
                 <aside className="hidden lg:block w-48 p-6">
-                    {/* <AdBanner adSlot="skyscraper" className="h-full min-h-[600px]"/> */}
+                    <AdBanner adSlot="skyscraper" className="h-full min-h-[600px]"/>
                 </aside>
+                */}
             </div>
           {user && (
             <footer className="fixed bottom-4 left-0 right-0 z-40 h-24 pointer-events-none">
