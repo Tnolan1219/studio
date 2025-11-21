@@ -230,18 +230,18 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
         const currentOpEx = calculateOpEx(effectiveGrossIncome);
         const currentCapEx = calculateCapEx(effectiveGrossIncome);
 
-        const noi = effectiveGrossIncome - currentOpEx - currentCapEx;
+        const noi = effectiveGrossIncome - currentOpEx;
 
         proForma.push({
             year,
-            grossPotentialRent: grossPotentialRent,
+            grossPotentialRent,
             vacancyLoss,
             effectiveGrossIncome,
             operatingExpenses: currentOpEx,
             capitalExpenditures: currentCapEx,
             noi,
             debtService: annualDebtService,
-            cashFlowBeforeTax: noi - annualDebtService,
+            cashFlowBeforeTax: noi - currentCapEx - annualDebtService,
             propertyValue: currentPropertyValue,
             loanBalance: yearEndLoanBalance > 0 ? yearEndLoanBalance : 0,
             equity: currentPropertyValue - (yearEndLoanBalance > 0 ? yearEndLoanBalance : 0),
@@ -282,7 +282,7 @@ interface AdvancedCommercialCalculatorProps {
 }
 
 const ANALYSIS_TABS = [
-    { value: 'overview', label: 'Overview', icon: FileText },
+    { value: 'pro-forma', label: 'Pro Forma', icon: FileText },
     { value: 'income', label: 'Income', icon: Banknote },
     { value: 'expenses', label: 'Expenses', icon: PiggyBank },
     { value: 'financing', label: 'Financing', icon: Scale },
@@ -1005,7 +1005,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
                                 </div>
                             </TabsContent>
                             
-                            <TabsContent value="overview" className="mt-6 space-y-6">
+                            <TabsContent value="pro-forma" className="mt-6 space-y-6">
                                 {analysisResult ? (
                                     <>
                                         <ProFormaTable data={analysisResult.proFormaData} />
@@ -1290,3 +1290,5 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
         </Card>
     );
 }
+
+    

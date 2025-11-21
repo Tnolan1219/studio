@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -74,7 +73,7 @@ export function ProFormaTable({ data }: { data: ProFormaEntry[] }) {
                         <TableBody>
                             {METRIC_LABELS.map(({ key, label, isSubtle, isBold }) => {
                                 // Don't render a row if the key doesn't exist in the data (e.g. for rental vs commercial)
-                                if (displayData[0][key] === undefined) return null;
+                                if (displayData[0][key] === undefined || displayData[0][key] === null) return null;
                                 return (
                                 <TableRow key={key} className={isBold ? 'font-bold bg-muted/20' : ''}>
                                     <TableCell className={`font-medium sticky left-0 bg-card z-10 ${isSubtle ? 'text-muted-foreground pl-6' : ''}`}>{label}</TableCell>
@@ -93,3 +92,5 @@ export function ProFormaTable({ data }: { data: ProFormaEntry[] }) {
         </Collapsible>
     )
 }
+
+    
