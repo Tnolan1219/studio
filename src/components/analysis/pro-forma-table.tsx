@@ -33,6 +33,7 @@ const METRIC_LABELS: { key: keyof ProFormaEntry; label: string, isSubtle?: boole
     { key: 'effectiveGrossIncome', label: 'Effective Gross Income', isBold: true },
     { key: 'operatingExpenses', label: 'Operating Expenses (-)', isSubtle: true },
     { key: 'noi', label: 'Net Operating Income (NOI)', isBold: true },
+    { key: 'capitalExpenditures', label: 'Capital Expenditures (-)', isSubtle: true },
     { key: 'debtService', label: 'Debt Service (-)', isSubtle: true },
     { key: 'cashFlowBeforeTax', label: 'Cash Flow (Pre-Tax)', isBold: true },
     { key: 'propertyValue', label: 'End of Year Value', isSubtle: true },
@@ -71,7 +72,10 @@ export function ProFormaTable({ data }: { data: ProFormaEntry[] }) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {METRIC_LABELS.map(({ key, label, isSubtle, isBold }) => (
+                            {METRIC_LABELS.map(({ key, label, isSubtle, isBold }) => {
+                                // Don't render a row if the key doesn't exist in the data (e.g. for rental vs commercial)
+                                if (displayData[0][key] === undefined) return null;
+                                return (
                                 <TableRow key={key} className={isBold ? 'font-bold bg-muted/20' : ''}>
                                     <TableCell className={`font-medium sticky left-0 bg-card z-10 ${isSubtle ? 'text-muted-foreground pl-6' : ''}`}>{label}</TableCell>
                                     {displayData.map((entry) => (
@@ -80,7 +84,8 @@ export function ProFormaTable({ data }: { data: ProFormaEntry[] }) {
                                         </TableCell>
                                     ))}
                                 </TableRow>
-                            ))}
+                                )
+                            })}
                         </TableBody>
                     </Table>
                 </div>

@@ -154,6 +154,7 @@ export type ProFormaEntry = {
     vacancyLoss: number;
     effectiveGrossIncome: number;
     operatingExpenses: number;
+    capitalExpenditures?: number;
     noi: number;
     debtService: number;
     cashFlowBeforeTax: number;

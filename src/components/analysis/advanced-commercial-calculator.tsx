@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -30,7 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building, DollarSign, BarChart2, TrendingUp, Handshake, Bot, TestTube2, Percent, Trash2, Plus, Info, Sparkles, SlidersHorizontal, Loader2, PiggyBank, Scale, FileText, Banknote, Wrench } from 'lucide-react';
+import { Building, DollarSign, BarChart2, TrendingUp, Handshake, Bot, TestTube2, Percent, Trash2, Plus, Info, Sparkles, SlidersHorizontal, Loader2, PiggyBank, Scale, FileText, Banknote, Wrench, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
 import { InputWithIcon } from '../ui/input-with-icon';
@@ -171,7 +170,6 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
     const loanAmount = purchasePrice - downPayment;
     const monthlyInterestRate = interestRate / 100 / 12;
     const numberOfPayments = amortizationPeriod * 12;
-    const totalUnits = unitMix.reduce((acc, unit) => acc + unit.count, 0);
     
     const principalAndInterestPayment = numberOfPayments > 0 && monthlyInterestRate > 0 ?
         (loanAmount * (monthlyInterestRate * Math.pow(1 + monthlyInterestRate, numberOfPayments))) / (Math.pow(1 + monthlyInterestRate, numberOfPayments) - 1)
@@ -208,8 +206,10 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
         
         const currentOtherIncome = calculateAnnualOtherIncome(currentGrossRent);
         const grossPotentialRent = currentGrossRent + currentOtherIncome;
+        
         const lossToLeaseAmount = grossPotentialRent * (lossToLease / 100);
         const scheduledGrossIncome = grossPotentialRent - lossToLeaseAmount;
+        
         const vacancyLoss = scheduledGrossIncome * (vacancyRate / 100);
         const effectiveGrossIncome = scheduledGrossIncome - vacancyLoss;
 
@@ -237,7 +237,8 @@ const calculateProForma = (values: FormData, sensitivityOverrides: Partial<FormD
             grossPotentialRent: grossPotentialRent,
             vacancyLoss,
             effectiveGrossIncome,
-            operatingExpenses: currentOpEx + currentCapEx, // Combine for table display
+            operatingExpenses: currentOpEx,
+            capitalExpenditures: currentCapEx,
             noi,
             debtService: annualDebtService,
             cashFlowBeforeTax: noi - annualDebtService,
@@ -811,6 +812,29 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
         });
     };
 
+    const downloadProFormaCSV = () => {
+        if (!analysisResult?.proFormaData) return;
+
+        const headers = Object.keys(analysisResult.proFormaData[0]).join(',');
+        const rows = analysisResult.proFormaData.map((row: ProFormaEntry) => {
+            return Object.values(row).map(value => {
+                if (typeof value === 'number') return value.toFixed(2);
+                return `"${String(value).replace(/"/g, '""')}"`;
+            }).join(',');
+        });
+
+        const csvContent = [headers, ...rows].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${form.getValues('dealName')}_pro_forma.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
 
     return (
         <Card className="bg-card/60 backdrop-blur-sm">
@@ -819,9 +843,17 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
                     <CardTitle className="font-headline">{isEditMode ? `Editing: ${deal.dealName}` : 'Advanced Commercial Analyzer'}</CardTitle>
                     <CardDescription>A professional underwriting suite for institutional-grade analysis.</CardDescription>
                 </div>
-                <Button type="button" size="lg" onClick={handleAnalysisClick} disabled={!hasHydrated}>
-                    Run Analysis
-                </Button>
+                <div className="flex items-center gap-2">
+                    {analysisResult && (
+                        <Button type="button" variant="outline" size="lg" onClick={downloadProFormaCSV}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Download Pro Forma
+                        </Button>
+                    )}
+                    <Button type="button" size="lg" onClick={handleAnalysisClick} disabled={!hasHydrated}>
+                        Run Analysis
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent>
                 <Form {...form}>
@@ -1050,6 +1082,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
                                                         <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))' }} formatter={formatCurrency} />
                                                         <Legend />
                                                         <RechartsBar dataKey="operatingExpenses" stackId="a" name="Operating Expenses" fill="hsl(var(--chart-3))" />
+                                                        <RechartsBar dataKey="capitalExpenditures" stackId="a" name="Capital Expenditures" fill="hsl(var(--chart-4))" />
                                                         <RechartsBar dataKey="debtService" stackId="a" name="Debt Service" fill="hsl(var(--chart-5))" />
                                                     </RechartsBarChart>
                                                 </ResponsiveContainer>
