@@ -117,7 +117,7 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
             return acc + (effectiveGrossIncome * (item.amount / 100));
         }, 0) || 0;
         
-        const totalExpenses = currentOpEx + currentCapEx;
+        const totalExpenses = currentOpEx; // CapEx is handled separately below NOI
         const noi = effectiveGrossIncome - totalExpenses;
 
         let yearEndLoanBalance = currentLoanBalance;
@@ -137,9 +137,10 @@ const calculateProForma = (values: FormData): ProFormaEntry[] => {
             vacancyLoss,
             effectiveGrossIncome,
             operatingExpenses: totalExpenses,
+            capitalExpenditures: currentCapEx,
             noi,
             debtService,
-            cashFlowBeforeTax: noi - debtService,
+            cashFlowBeforeTax: noi - currentCapEx - debtService,
             propertyValue: currentPropertyValue,
             loanBalance: yearEndLoanBalance > 0 ? yearEndLoanBalance : 0,
             equity: currentPropertyValue - (yearEndLoanBalance > 0 ? yearEndLoanBalance : 0),
