@@ -286,9 +286,9 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
     
     const grossMonthlyIncome = data.unitMix.reduce((acc, unit) => acc + unit.count * unit.rent, 0);
 
-    const initialCapexCost = data.capitalExpenditures?.reduce((acc, item) => item.type === 'fixed' ? acc + item.amount : acc, 0) || 0;
+    const rehabCost = data.capitalExpenditures?.reduce((acc, item) => item.type === 'fixed' ? acc + item.amount : acc, 0) || 0;
 
-    const totalInvestment = data.downPayment + (data.purchasePrice * (data.closingCosts / 100)) + initialCapexCost;
+    const totalInvestment = data.downPayment + (data.purchasePrice * (data.closingCosts / 100)) + rehabCost;
     
     const noi = year1.noi || 0;
     const monthlyCashFlow = (year1.cashFlowBeforeTax || 0) / 12;
@@ -575,10 +575,8 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
                                 </ResponsiveContainer>
                             </div>
                         </CardContent>
-                        <CardFooter>
-                            <ProFormaTable data={analysisResult.proFormaData} />
-                        </CardFooter>
                     </Card>
+                    <ProFormaTable data={analysisResult.proFormaData} />
                      <Card>
                         <CardHeader>
                             <CardTitle className="font-headline flex items-center gap-2">

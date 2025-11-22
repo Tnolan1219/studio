@@ -119,6 +119,16 @@ export type Deal = {
     holdingLength: number; 
     sellingCosts: number;
     exitCapRate?: number;
+    
+    // Advanced Commercial Fields
+    acquisitionFee?: number;
+    amortizationPeriod?: number;
+    interestOnlyPeriod?: number;
+    lossToLease?: number;
+    dispositionFee?: number;
+    preferredReturn?: number;
+    promoteHurdle?: number;
+    promoteSplit?: number;
 
     // Calculated Metrics
     monthlyCashFlow?: number;

@@ -893,7 +893,7 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
                                                     <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                                 </div>
                                                 <FormField name="acquisitionFee" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Acquisition Fee (%)</FormLabel> <FormControl><InputWithIcon icon={<Percent size={14}/>} iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                                                <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Initial Rehab Budget</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                                <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Initial Rehab Budget</FormLabel> <FormControl><InputWithIcon icon={<DollarSign size={16}/>} type="number" {...field} /></FormControl> <FormDescription className="text-xs">This is populated from the 'Fixed $' amount in CapEx below.</FormDescription><FormMessage /> </FormItem> )} />
                                             </CardContent>
                                         </Card>
                                         <Card className="border-primary/20">
@@ -1291,5 +1291,3 @@ export default function AdvancedCommercialCalculator({ deal, onSave, onCancel }:
         </Card>
     );
 }
-
-    
