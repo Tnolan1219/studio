@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { BarChart2, Loader2, TrendingUp, PiggyBank, Briefcase, Calculator, Repeat, Sparkles } from 'lucide-react';
+import { BarChart2, Loader2, TrendingUp, PiggyBank, Briefcase, Calculator, Repeat, Sparkles, Download } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -76,6 +76,8 @@ function calculateIRR(cashflows: number[], guess = 0.1) {
 
 const formSchema = z.object({
   dealName: z.string().min(3, 'Please enter a name for the deal.'),
+  city: z.string().optional(),
+  zipCode: z.string().optional(),
   purchasePrice: z.coerce.number().min(0),
   closingCosts: z.coerce.number().min(0),
   rehabCost: z.coerce.number().min(0),
@@ -235,6 +237,8 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
     resolver: zodResolver(formSchema),
     defaultValues: isEditMode && deal ? { ...deal, ltv: deal.ltv || 80 } : {
       dealName: 'My Next Rental',
+      city: '',
+      zipCode: '',
       purchasePrice: 250000,
       closingCosts: 3,
       rehabCost: 10000,
@@ -462,6 +466,29 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
         });
     };
 
+    const downloadProFormaCSV = () => {
+        if (!analysisResult?.proFormaData) return;
+
+        const headers = Object.keys(analysisResult.proFormaData[0]).join(',');
+        const rows = analysisResult.proFormaData.map((row: ProFormaEntry) => {
+            return Object.values(row).map(value => {
+                if (typeof value === 'number') return value.toFixed(2);
+                return `"${String(value).replace(/"/g, '""')}"`;
+            }).join(',');
+        });
+
+        const csvContent = [headers, ...rows].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${form.getValues('dealName')}_pro_forma.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
   return (
     <Card className="bg-card/60 backdrop-blur-sm">
       <CardHeader>
@@ -476,14 +503,23 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-4">
                   <Card>
+                      <CardHeader><CardTitle className="text-lg font-headline">Property & Location</CardTitle></CardHeader>
+                      <CardContent className="space-y-4">
+                          <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                          <div className="grid grid-cols-2 gap-4">
+                            <FormField name="city" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>City</FormLabel> <FormControl><Input placeholder="e.g., Austin" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                            <FormField name="zipCode" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Zip Code</FormLabel> <FormControl><Input placeholder="e.g., 78701" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                          </div>
+                      </CardContent>
+                  </Card>
+                  <Card>
                       <CardHeader><CardTitle className="text-lg font-headline">Purchase & Loan</CardTitle></CardHeader>
                       <CardContent className="grid grid-cols-2 gap-4">
-                          <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.1" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Rehab Costs</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="ltv" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan-to-Value (LTV)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                          <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment ($)</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} disabled /></FormControl> <FormMessage /> </FormItem> )} />
+                          <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment ($)</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} disabled /></FormControl> <FormDescription className="text-xs">Calculated from LTV</FormDescription><FormMessage /> </FormItem> )} />
                           <FormField name="interestRate" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Interest Rate</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.01" {...field}/></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="loanTerm" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Loan Term (Yrs)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                       </CardContent>
@@ -526,8 +562,14 @@ export default function RentalCalculator({ deal, onSave, onCancel }: RentalCalcu
             {analysisResult && (
                 <div className="space-y-6 mt-6">
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="font-headline">Overall Investment Analysis</CardTitle>
+                        <CardHeader className="flex flex-row justify-between items-start">
+                            <div>
+                                <CardTitle className="font-headline">Overall Investment Analysis</CardTitle>
+                            </div>
+                            <Button type="button" variant="outline" size="sm" onClick={downloadProFormaCSV}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Download Pro Forma
+                            </Button>
                         </CardHeader>
                         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div className="p-3 bg-muted/50 rounded-lg"> <p className="text-sm text-muted-foreground">IRR</p> <p className={cn("text-2xl font-bold", analysisResult.irr > 12 ? 'text-success' : 'text-foreground')}>{isNaN(analysisResult.irr) ? 'N/A' : `${analysisResult.irr.toFixed(2)}%`}</p> </div>

@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Sparkles, BarChart2, Loader2 } from 'lucide-react';
+import { Sparkles, BarChart2, Loader2, Download } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -45,6 +45,8 @@ import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   dealName: z.string().min(3, 'Please enter a name for the deal.'),
+  city: z.string().optional(),
+  zipCode: z.string().optional(),
   purchasePrice: z.coerce.number().min(0),
   arv: z.coerce.number().min(0, 'ARV must be positive.'),
   rehabCost: z.coerce.number().min(0),
@@ -106,6 +108,8 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
     resolver: zodResolver(formSchema),
     defaultValues: isEditMode && deal ? deal : {
       dealName: 'Maple Street Flip',
+      city: '',
+      zipCode: '',
       purchasePrice: 180000,
       arv: 280000,
       rehabCost: 40000,
@@ -296,6 +300,31 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
         });
     };
 
+    const downloadAnalysisCSV = () => {
+        if (!analysisResult) return;
+
+        const data = [
+            { metric: 'Net Profit', value: analysisResult.netProfit },
+            { metric: 'ROI on Cash', value: analysisResult.roi },
+            { metric: 'Total Cash Invested', value: analysisResult.totalInvestment },
+            ...analysisResult.chartData.map(item => ({ metric: item.name, value: item.value }))
+        ];
+        
+        const headers = 'Metric,Value';
+        const rows = data.map(row => `${row.metric},${row.value.toFixed(2)}`);
+
+        const csvContent = [headers, ...rows].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${form.getValues('dealName')}_analysis.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
   return (
     <Card className="bg-card/60 backdrop-blur-sm">
       <CardHeader>
@@ -308,9 +337,18 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-4">
                   <Card>
+                      <CardHeader><CardTitle className="text-lg font-headline">Property & Location</CardTitle></CardHeader>
+                      <CardContent className="space-y-4">
+                           <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                          <div className="grid grid-cols-2 gap-4">
+                            <FormField name="city" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>City</FormLabel> <FormControl><Input placeholder="e.g., Austin" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                            <FormField name="zipCode" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Zip Code</FormLabel> <FormControl><Input placeholder="e.g., 78701" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                          </div>
+                      </CardContent>
+                  </Card>
+                  <Card>
                       <CardHeader><CardTitle className="text-lg font-headline">Purchase & Rehab</CardTitle></CardHeader>
                       <CardContent className="grid grid-cols-2 gap-4">
-                          <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Acquisition Costs (%)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                           <FormField name="rehabCost" control={form.control} render={({ field }) => ( <FormItem className="col-span-2"> <FormLabel>Rehab Costs</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -378,13 +416,21 @@ export default function FlipCalculator({ deal, onSave, onCancel }: FlipCalculato
             {analysisResult && (
                 <div className="grid md:grid-cols-2 gap-6 mt-6">
                 <Card>
-                    <CardHeader><CardTitle className="font-headline">Key Metrics</CardTitle></CardHeader>
+                    <CardHeader>
+                        <CardTitle className="font-headline">Key Metrics</CardTitle>
+                    </CardHeader>
                     <CardContent className="grid grid-cols-2 gap-4">
                     <div> <p className="text-sm text-muted-foreground">Net Profit</p> <p className="text-2xl font-bold">${analysisResult.netProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
                     <div> <p className="text-sm text-muted-foreground">ROI on Cash</p> <p className="text-2xl font-bold">{analysisResult.roi.toFixed(2)}%</p> </div>
                     <div> <p className="text-sm text-muted-foreground">Total Cash Invested</p> <p className="font-bold">${analysisResult.totalInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p> </div>
                     <div> <p className="text-sm text-muted-foreground">ARV</p> <p className="font-bold">${form.getValues('arv').toLocaleString()}</p> </div>
                     </CardContent>
+                    <CardFooter>
+                         <Button type="button" variant="outline" size="sm" onClick={downloadAnalysisCSV} className="w-full">
+                            <Download className="mr-2 h-4 w-4" />
+                            Download Analysis
+                        </Button>
+                    </CardFooter>
                 </Card>
 
                 <Card>

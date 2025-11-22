@@ -1,3 +1,4 @@
+
 'use client';
 import { Timestamp } from "firebase/firestore";
 
@@ -80,6 +81,8 @@ export type Deal = {
     id: string;
     userId: string;
     dealName: string;
+    city?: string;
+    zipCode?: string;
     dealType: 'Rental Property' | 'House Flip' | 'Commercial Multifamily';
     createdAt: Timestamp;
     

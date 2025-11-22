@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Trash2, Plus, Loader2, Sparkles } from 'lucide-react';
+import { Trash2, Plus, Loader2, Sparkles, Download } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -55,6 +55,8 @@ const lineItemSchema = z.object({
 
 const formSchema = z.object({
   dealName: z.string().min(3, 'Please enter a name for the deal.'),
+  city: z.string().optional(),
+  zipCode: z.string().optional(),
   purchasePrice: z.coerce.number().min(0),
   closingCosts: z.coerce.number().min(0),
   arv: z.coerce.number().min(0),
@@ -228,6 +230,8 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
         annualAppreciation: deal.annualAppreciation || 3,
     } : {
       dealName: 'My Commercial Deal',
+      city: '',
+      zipCode: '',
       purchasePrice: 1000000,
       closingCosts: 3,
       arv: 1200000,
@@ -442,6 +446,29 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
         });
     };
 
+    const downloadProFormaCSV = () => {
+        if (!analysisResult?.proFormaData) return;
+
+        const headers = Object.keys(analysisResult.proFormaData[0]).join(',');
+        const rows = analysisResult.proFormaData.map((row: ProFormaEntry) => {
+            return Object.values(row).map(value => {
+                if (typeof value === 'number') return value.toFixed(2);
+                return `"${String(value).replace(/"/g, '""')}"`;
+            }).join(',');
+        });
+
+        const csvContent = [headers, ...rows].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${form.getValues('dealName')}_pro_forma.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
 
   return (
     <Card className="bg-card/60 backdrop-blur-sm">
@@ -459,9 +486,18 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
                 <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                         <Card>
-                            <CardHeader><CardTitle className="text-lg font-headline">Purchase & Loan</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="text-lg font-headline">Property & Location</CardTitle></CardHeader>
                             <CardContent className="space-y-4">
                                 <FormField name="dealName" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Deal Name</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <FormField name="city" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>City</FormLabel> <FormControl><Input placeholder="e.g., Austin" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                    <FormField name="zipCode" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Zip Code</FormLabel> <FormControl><Input placeholder="e.g., 78701" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader><CardTitle className="text-lg font-headline">Purchase & Loan</CardTitle></CardHeader>
+                            <CardContent className="space-y-4">
                                 <FormField name="purchasePrice" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Purchase Price</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                 <FormField name="downPayment" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Down Payment</FormLabel> <FormControl><InputWithIcon icon="$" type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                                 <FormField name="closingCosts" control={form.control} render={({ field }) => ( <FormItem> <FormLabel>Closing Costs (%)</FormLabel> <FormControl><InputWithIcon icon="%" iconPosition="right" type="number" step="0.1" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -504,8 +540,14 @@ export default function CommercialCalculator({ deal, onSave, onCancel }: Commerc
                 {analysisResult && (
                     <div className="space-y-6 mt-6">
                     <Card className="mt-6">
-                        <CardHeader>
-                            <CardTitle className="text-lg font-headline">Key Metrics & Breakdown</CardTitle>
+                        <CardHeader className="flex flex-row justify-between items-start">
+                             <div>
+                                <CardTitle className="text-lg font-headline">Key Metrics & Breakdown</CardTitle>
+                             </div>
+                              <Button type="button" variant="outline" size="sm" onClick={downloadProFormaCSV}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Download Pro Forma
+                            </Button>
                         </CardHeader>
                         <CardContent className="grid md:grid-cols-2 gap-6">
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
