@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/header';
@@ -12,6 +13,17 @@ import { FirebaseClientProvider } from '@/firebase';
 // Mock data for demonstration purposes
 const mockArticles: Article[] = [
   {
+    id: 'newsletter-3',
+    title: 'Cooling Inflation Sparks Mortgage Rate Plunge: A Window of Opportunity?',
+    author: 'Valentor RE',
+    date: '2024-07-26',
+    snippet: 'A sudden dip in mortgage rates has cracked open a potential window for investors. Here’s how to play it.',
+    imageUrl: 'https://picsum.photos/seed/rates-down/600/400',
+    imageHint: 'arrow down house keys',
+    href: '/articles/market-briefing-jul-26',
+    isFeatured: true,
+  },
+  {
     id: 'newsletter-2',
     title: 'The Great Rate Lock-In Shows Its First Cracks',
     author: 'Valentor RE',
@@ -20,7 +32,6 @@ const mockArticles: Article[] = [
     imageUrl: 'https://picsum.photos/seed/rate-lock/600/400',
     imageHint: 'house keys chart',
     href: '/articles/weekly-newsletter',
-    isFeatured: true,
   },
   {
     id: 'newsletter-1',
